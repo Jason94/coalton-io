@@ -1,6 +1,8 @@
 (cl:in-package :cl-user)
 (defpackage :coalton-io.examples
-  (:use #:coalton #:coalton-prelude #:coalton-io.io-monad
+  (:use #:coalton #:coalton-prelude
+        #:coalton-library/monad/io
+        ;#:coalton-io.io-monad
         #:coalton-io.streams)
   (:local-nicknames
     (:str #:coalton-library/string)))

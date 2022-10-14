@@ -1,6 +1,10 @@
 (cl:in-package :cl-user)
 (defpackage :coalton-io.streams
-  (:use #:coalton #:coalton-prelude #:coalton-io.io-monad)
+  (:use
+    #:coalton
+    #:coalton-prelude
+    #:coalton-library/monad/io)
+    ;#:coalton-io.io-monad)
   (:export
     #:close
     #:print-line
