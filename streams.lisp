@@ -2,8 +2,7 @@
 (defpackage :coalton-io.streams
   (:use
     #:coalton
-    #:coalton-prelude
-    #:coalton-library/monad/io)
+    #:coalton-prelude)
     ;#:coalton-io.io-monad)
   (:export
     #:close
