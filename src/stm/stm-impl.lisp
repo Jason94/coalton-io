@@ -10,7 +10,10 @@
    )
   (:local-nicknames
    (:c #:coalton-library/cell)
-   (:a #:coalton-threads/atomic))
+   (:a #:coalton-threads/atomic)
+   (:lk  #:coalton-threads/lock)
+   (:cv  #:coalton-threads/condition-variable)
+   )
   (:export
    #:TVar
    #:STM
@@ -61,6 +64,7 @@
 
   (define-type (TxResult% :a)
     (TxSuccess :a)
+    TxRetryAfterWrite
     TxFailed)
 
   (define-instance (Functor TxResult%)
@@ -69,6 +73,8 @@
       (match result
         ((TxSuccess a)
          (TxSuccess (f a)))
+        ((TxRetryAfterWrite)
+         TxRetryAfterWrite)
         ((TxFailed)
          TxFailed))))
 
@@ -149,10 +155,14 @@ conditions. DONT USE THIS!"
        (matchM (run-stm% tx-data tx-a)
          ((TxFailed)
           (pure TxFailed))
+         ((TxRetryAfterWrite)
+          (pure TxRetryAfterWrite))
          ((TxSuccess val-a)
           (do-matchM (run-stm% tx-data tx-b)
             ((TxFailed)
              (pure TxFailed))
+            ((TxRetryAfterWrite)
+             (pure TxRetryAfterWrite))
             ((TxSuccess val-b)
              (pure (TxSuccess (fa->b->c val-a val-b))))))))))
 
@@ -169,6 +179,8 @@ conditions. DONT USE THIS!"
        (matchM (run-stm% tx-data tx)
          ((TxFailed)
           (pure TxFailed))
+         ((TxRetryAfterWrite)
+          (pure TxRetryAfterWrite))
          ((TxSuccess val-a)
           (run-stm% tx-data
                     (fa->stmb val-a)))))))
@@ -214,6 +226,8 @@ conditions. DONT USE THIS!"
                    (match tx-result
                      ((TxFailed)
                       TxFailed)
+                     ((TxRetryAfterWrite)
+                      TxRetryAfterWrite)
                      ((TxSuccess val)
                       (TxSuccess (Ok val)))))))
               (try-dynamic (run-stm% tx-data tx)))))))
@@ -324,6 +338,36 @@ conditions. DONT USE THIS!"
     (mem-barrier)
     (a:read global-lock))
 
+  ;; NOTE: In general, NOrec wants to avoid mutex locks and CV's wherever possible.
+  ;; It does this by with an AtomicInteger-backed sequence lock and compressing
+  ;; the time when a write-transaction will need to hold the lock, so that it's
+  ;; acceptable to just spin while a write-transaction is actually committing.
+  ;;
+  ;; HOWEVER, when a user retries because the observed TVars are in some bad state,
+  ;; there's no guarantee that the period until the state is possibly valid (after
+  ;; the next write commit to the read TVar's), so just spinning after a user-signalled
+  ;; retry could potentially spin forever. The most fine-grained approach to this would
+  ;; be to have a per-TVar CV, and a transaction awaits any CV in its read-log after
+  ;; a manually retry. For now, we take the middle-ground and just have one global CV
+  ;; that every write signals. Each user retry'd commit will do one attempt after
+  ;; every write transaction.
+
+  (define global-write-cv (cv:new))
+  (define global-write-cv-lock (lk:new))
+
+  (inline)
+  (declare wait-for-write-tx!% (Unit -> Unit))
+  (define (wait-for-write-tx!%)
+    (lk:acquire global-write-cv-lock)
+    (cv:await global-write-cv global-write-cv-lock)
+    (lk:release global-write-cv-lock)
+    Unit)
+
+  (inline)
+  (declare broadcast-write-cv!% (Unit -> Unit))
+  (define (broadcast-write-cv!%)
+    (cv:broadcast global-write-cv))
+
   (inline)
   (declare tx-begin-io% (MonadIo :m => Unit -> :m TxData%))
   (define (tx-begin-io%)
@@ -420,18 +464,17 @@ conditions. DONT USE THIS!"
             (when (c:read result)
               (commit-logged-writes (.write-log tx-data))
               (a:incf! global-lock 1)
+              (broadcast-write-cv!%)
               Unit)
             (c:read result)))))
 
-  ;; TODO: Make this better, so that it blocks until a write tx completes
-  ;; instead of re-running forever. Right now this is really bad.
   (inline)
   (declare retry% (MonadIo :m => STM :m :a))
   (define retry%
     (STM%
      (fn (_)
       (wrap-io
-        TxFailed))))
+        TxRetryAfterWrite))))
 
   (declare run-tx% ((MonadIo :m) (MonadException :m) => STM :m :a -> :m :a))
   (define (run-tx% tx)
@@ -441,6 +484,10 @@ conditions. DONT USE THIS!"
        (do-matchM (run-stm% tx-data tx)
          ((TxFailed)
           (%))
+         ((TxRetryAfterWrite)
+          (progn
+            (wait-for-write-tx!%)
+            (%)))
          ((TxSuccess val)
           (commit-succeeded? <- (tx-commit-io% tx-data))
           (if commit-succeeded?

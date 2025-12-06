@@ -105,37 +105,35 @@
 ;;; Multi-threaded tests
 ;;;
 
-;; (define-test test-retry-only-after-write-tx ()
-;;   (let result =
-;;     (run-io!
-;;      (do
-;;       (retry-count <- (new-var 0))
-;;       (x <- (new-tvar 0))
-;;       (retry-gate <- new-empty-mvar)
-;;       (result-fut <-
-;;         (do-fork-future
-;;          (do-run-tx
-;;            (n-retries <- (tx-io!% (read retry-count)))
-;;            (x-val <- (read-tvar x))
-;;            (do-when (zero? x-val)
-;;              (tx-io!% (modify retry-count (+ 1)))
-;;              (tx-io!% (put-mvar retry-gate Unit))
-;;              retry)
-;;            (pure x-val))))
-;;       ;; Wait until the retry is triggered
-;;       (take-mvar retry-gate)
-;;       (write-line "Reading in main")
-;;       (run-tx (read-tvar x))
-;;       (write-line "Running in main")
-;;       (run-tx (write-tvar x 10))
-;;       ;; Wait until the second retry is finished
-;;       (write-line "waiting in main")
-;;       (result <- (await result-fut))
-;;       (num-retries <- (read retry-count))
-;;       (pure (Tuple result num-retries)))))
-;;   (let _ = (the (Tuple Integer Integer) result))
-;;   (is (== (Tuple 10 1)
-;;           result)))
+(define-test test-retry-only-after-write-tx ()
+  (let result =
+    (run-io!
+     (do
+      (retry-count <- (new-var 0))
+      (x <- (new-tvar 0))
+      (retry-gate <- new-empty-mvar)
+      (result-fut <-
+        (do-fork-future
+         (do-run-tx
+           (n-retries <- (tx-io!% (read retry-count)))
+           (x-val <- (read-tvar x))
+           (do-when (zero? x-val)
+             (tx-io!% (modify retry-count (+ 1)))
+             (tx-io!% (try-put-mvar retry-gate Unit))
+             retry)
+           (pure x-val))))
+      ;; Wait until the retry is triggered
+      (take-mvar retry-gate)
+      (run-tx (read-tvar x))
+      (sleep 1)
+      (run-tx (write-tvar x 10))
+      ;; Wait until the second retry is finished
+      (result <- (await result-fut))
+      (num-retries <- (read retry-count))
+      (pure (Tuple result num-retries)))))
+  (let _ = (the (Tuple Integer Integer) result))
+  (is (== (Tuple 10 1)
+          result)))
 
 (define-test test-write-interrupts-read ()
   (let (Tuple3 observed-as observed-bs result) =
