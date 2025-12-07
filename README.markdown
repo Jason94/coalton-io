@@ -122,7 +122,7 @@ Use `bracket-io` to guarantee resources are released, even when exceptions are t
 
 ### Terminal IO
 
-You can read and write to/from the terminal. Writing to the terminal supports any type with an `Into :a String` instance, not just `String`.
+Read and write to/from the terminal. Writing to the terminal supports any type with an `Into :a String` instance, not just `String`.
 
 ```lisp
   (define (prompt-integer)
