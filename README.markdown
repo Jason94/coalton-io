@@ -149,6 +149,46 @@ You can get, copy, and set the current random state. The `random` functions supp
    (random_ 0.5))
 ```
 
+### Atomic Transactions (STM)
+
+Transaction Variables (`TVar`s) are mutable variables that can only be read/written in a transaction. Transactions are guaranteed to be atomic with respect to any of the TVar's referenced inside the transaction. STM transactions are usually much simpler and less error-prone than corresponding lock-based solutions, and the STM is particularly well suited for code that needs to access several different points of shared state.
+
+This (slightly longer) example program manages ticket sales with transactions. The STM package provides more advanced features, such as signalling a `retry` to wait for particular state conditions.
+
+```lisp
+  (do
+   (tickets <- (new-tvar 3))
+   (money-paid <- (new-tvar 0))
+   (let cost = 40.0)
+   (let customers = (make-list "A" "B" "C" "D" "E"))
+   (bought-a-ticket <- (new-tvar Nil))
+   (do-foreach-io_ (customer customers)
+     (do-fork
+       (initial-balance <- (random_ 100.0))
+       (balance <- (new-tvar initial-balance))
+       (money-left <-
+         (do-run-tx
+           (current-balance <- (read-tvar balance))
+           (tickets-remaining <- (read-tvar tickets))
+           (do-when (and (> current-balance cost)
+                         (> tickets-remaining 0))
+             (modify-tvar money-paid (+ cost))
+             (modify-tvar bought-a-ticket (Cons customer))
+             (write-tvar tickets (1- tickets-remaining))
+             (write-tvar balance (- current-balance cost)))
+           (read-tvar balance)))
+       (write-line (build-str "Customer " customer " has " money-left " left"))))
+    (sleep 10)
+    ((Tuple money-earned customers-with-tickets) <-
+       (do-run-tx
+         (money-earned <- (read-tvar money-paid))
+         (customers-with-tickets <- (read-tvar bought-a-ticket))
+         (pure (Tuple money-earned customers-with-tickets))))
+    (write-line (build-str "Earned $" money-earned))
+    (write-line "Customers who bought tickets:")
+    (foreach-io_ customers-with-tickets write-line))
+```
+
 ## Examples
 
 _coalton-io_ has two example programs to demonstrate how to use the `IO` type:
