@@ -11,6 +11,7 @@
    #:LoopT)
   (:local-nicknames
    (:t #:coalton-threads/thread)
+   (:bt #:bordeaux-threads-2)
    (:st #:coalton-library/monad/statet)
    (:env #:coalton-library/monad/environment)
    (:io #:io/simple-io))
@@ -23,6 +24,7 @@
    #:do-fork_
    #:do-fork
    #:sleep
+   #:stop
    
    #:implement-monad-io-thread
    ))
@@ -36,6 +38,11 @@
   (define-type IoThread
     (IoThread% (t:Thread Unit)))
 
+  (inline)
+  (declare unwrap-iothread% (IoThread -> t:Thread Unit))
+  (define (unwrap-iothread% (IoThread% t))
+    t)
+
   (define-class (MonadIo :m => MonadIoThread :m)
     "A MonadIo which can spawn other threads. Other threads error
 separately. A spawned thread erroring will not cause the parent
@@ -48,7 +55,10 @@ issues in some cases."
      ((UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m IoThread))
     (sleep
      "Sleep the current thread for MSECS milliseconds."
-     (UFix -> :m Unit)))
+     (UFix -> :m Unit))
+    (stop
+     "Stop a thread. If the thread has already stopped, does nothing."
+     (IoThread -> :m Unit)))
 
   (inline)
   (declare fork% ((MonadIo :m) (UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m IoThread))
@@ -67,12 +77,24 @@ issues in some cases."
     (wrap-io
       (lisp :a (msecs)
         (cl:sleep (cl:/ msecs 1000)))
-      Unit)))
+      Unit))
+
+  (inline)
+  (declare stop% (MonadIo :m => IoThread -> :m Unit))
+  (define (stop% thread)
+    (wrap-io
+      (let native-thread = (unwrap-iothread% thread))
+      (lisp Unit (native-thread)
+        (cl:when (bt2:thread-alive-p native-thread)
+          (bt:destroy-thread native-thread)))))
+
+  )
 
 (cl:defmacro implement-monad-io-thread (monad)
   `(define-instance (MonadIoThread ,monad)
      (define fork_ fork%)
-     (define sleep sleep%)))
+     (define sleep sleep%)
+     (define stop stop%)))
 
 (cl:defmacro derive-monad-io-thread (monad-param monadT-form)
   "Automatically derive an instance of MonadIoThread for a monad transformer.
@@ -81,7 +103,8 @@ Example:
   (derive-monad-io-thread :m (st:StateT :s :m))"
   `(define-instance (MonadIoThread ,monad-param => MonadIoThread ,monadT-form)
      (define fork_ fork%)
-     (define sleep (compose lift sleep))))
+     (define sleep (compose lift sleep))
+     (define stop (compose lift stop))))
 
 (coalton-toplevel
 

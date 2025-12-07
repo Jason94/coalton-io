@@ -2,7 +2,8 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:io/simple-io
         #:io/thread
-        #:io/mut)
+        #:io/mut
+        #:io/mvar)
   (:local-nicknames
    (:lk #:coalton-threads/lock))
   )
@@ -81,3 +82,23 @@
                     (%)))
                 (%)))))))
   (is (== Set result)))
+
+;;; NOTE: Switching back to MVar's from locks for tests that aren't
+;;; on the basics of forking threads.
+
+(define-test test-stop ()
+  (let result =
+    (run-io!
+     (do
+      (gate <- new-empty-mvar)
+      (flag <- (new-var Unset))
+      (thread <-
+        (do-fork
+          (put-mvar gate Unit)
+          (sleep 2)
+          (write flag Set)))
+      (take-mvar gate)
+      (stop thread)
+      (sleep 4)
+      (read flag))))
+  (is (== Unset result)))
