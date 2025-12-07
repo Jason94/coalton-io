@@ -48,6 +48,13 @@ Once you have the latest version of Coalton, you can install `coalton-io` from [
 (ql:quickload "coalton-io")
 ```
 
+## Examples
+
+_coalton-io_ has two example programs to demonstrate how to use `IO`:
+
+* [Hangman](examples/hangman.lisp) - Play a game of hangman in the terminal. Shows `IO` basics and terminal IO.
+* [Channels & Threading](examples/channels-threading.lisp) - Multithreaded application to process an input data file. Shows how to mix different `IO` effects, multithreading, and passing data safely between threads.
+
 ## Feature Breakdown
 
 _coalton-io_ provides the following features in these packages:
@@ -191,10 +198,163 @@ This (slightly longer) example program manages ticket sales with transactions. T
 
 ## Examples
 
-_coalton-io_ has two example programs to demonstrate how to use the `IO` type:
+You can raise exceptions in `IO`. Any unhandled exceptions are thrown when the IO is run. Anything that can be thrown in Coalton can be raised in `IO`:
 
-* [Hangman](examples/hangman.lisp) - Play a game of hangman in the terminal. Shows `IO` basics and terminal IO.
-* [Channels & Threading](examples/channels-threading.lisp) - Multithreaded application to process an input data file. Shows how to mix different `IO` effects, multithreading, and passing data safely between threads.
+```lisp
+  (do
+   (str <- retrieve-str-data)
+   (do-when (== str "")
+     (raise "An empty string was returned."))
+   (write-line "This won't run if str == ''"))
+```
+
+Exceptions can be handled in several ways, including only handling exceptions of particular types. For example, `handle-all` recovers from all exceptions:
+
+```lisp
+  (do
+   (file-data <-
+     (handle-all (read-file-data "data.csv")
+                 (const (pure Nil))))
+   (do-foreach (str file-data)
+     (write-line str)))
+```
+
+`wrap-io`, the main way to run normal Coalton functions in `IO`, automatically handles any errors thrown from Coalton or Lisp:
+
+```lisp
+  (do
+   (file-data <-
+     (handle-all (wrap-io
+                   (lisp (List String) ()
+                     (cl-read-file-data "data.csv")))
+                 (const (pure Nil))))
+   (do-foreach (str file-data)
+     (write-line str)))
+```
+
+### Resource Safety
+
+Use `bracket-io` to guarantee resources are released, even when exceptions are thrown. This wraps acquire, use, and cleanup in a single flow so files, connections, or locks never leak.
+
+```lisp
+  (bracket-io
+    (open-data-source)
+    (fn (source exit-case)
+      (if (== Completed exit-case)
+          (close-data-source source)
+
+          (report-data-source source)))
+    (fn (source)
+      (process-source source)))
+```
+
+### Terminal IO
+
+Read and write to/from the terminal. Writing to the terminal supports any type with an `Into :a String` instance, not just `String`.
+
+```lisp
+  (define (prompt-integer)
+    (do
+     (write "Please enter an integer: ")
+     (input <- read-line)
+     (do-match (parse-int input)
+       ((None)
+        (prompt-integer))
+       ((Some x)
+        (write "You entered: ")
+        (write-line x)
+        (pure x)))))
+```
+
+### Random Numbers
+
+You can get, copy, and set the current random state. The `random` functions support generating numbers of several types from _[0, x)_:
+
+```lisp
+  (do
+   (rs <- make-random-state)
+   (set-current-random-state rs)
+   (random_ 0.5))
+```
+
+### Threads
+
+The `fork` family of functions & macros spawn new threads that run an IO operation. 
+
+```lisp
+  (do
+   (do-fork
+     (write-line "Hello from thread A"))
+   (do-fork
+     (write-line "Hello from thread B"))
+   (sleep 2)
+   (write-line "Hello from main thread"))
+```
+
+Mutable variables can be shared across threads. Plain mutable variables from the `io/mut` package are **not** threadsafe, so this should generally be avoided. _coalton-io_ provides several other forms of mutable state that are suitable for sharing between threads.
+
+```lisp
+  (do
+   (msg <- (new-var ""))
+   (do-fork
+     (write msg "Hello from thread A"))
+   (sleep 1)
+   (msg-str <- (read msg))
+   (write-line msg-str)) ;; --> Hello from thread A (probably)
+```
+
+The `fork` functions and macros return a handle to the thread object, which can be used to interact with the thread, such as stopping its execution.
+
+```lisp
+  (do
+   (thread <-
+     (do-thread
+       (sleep 10)
+       end-the-world))
+   (stop thread)
+   (sleep 20)
+   (write-line "That was a close one"))
+```
+
+### Atomic Transactions (STM)
+
+Transaction Variables (`TVar`s) are mutable variables that can only be read/written in a transaction. Transactions are guaranteed to be atomic with respect to any of the TVar's referenced inside the transaction. STM transactions are usually much simpler and less error-prone than corresponding lock-based solutions, and the STM is particularly well suited for code that needs to access several different points of shared state.
+
+This (slightly longer) example program manages ticket sales with transactions. The STM package provides more advanced features, such as signalling a `retry` to wait for particular state conditions.
+
+```lisp
+  (do
+   (tickets <- (new-tvar 3))
+   (money-paid <- (new-tvar 0))
+   (let cost = 40.0)
+   (let customers = (make-list "A" "B" "C" "D" "E"))
+   (bought-a-ticket <- (new-tvar Nil))
+   (do-foreach-io_ (customer customers)
+     (do-fork
+       (initial-balance <- (random_ 100.0))
+       (balance <- (new-tvar initial-balance))
+       (money-left <-
+         (do-run-tx
+           (current-balance <- (read-tvar balance))
+           (tickets-remaining <- (read-tvar tickets))
+           (do-when (and (> current-balance cost)
+                         (> tickets-remaining 0))
+             (modify-tvar money-paid (+ cost))
+             (modify-tvar bought-a-ticket (Cons customer))
+             (write-tvar tickets (1- tickets-remaining))
+             (write-tvar balance (- current-balance cost)))
+           (read-tvar balance)))
+       (write-line (build-str "Customer " customer " has " money-left " left"))))
+    (sleep 10)
+    ((Tuple money-earned customers-with-tickets) <-
+       (do-run-tx
+         (money-earned <- (read-tvar money-paid))
+         (customers-with-tickets <- (read-tvar bought-a-ticket))
+         (pure (Tuple money-earned customers-with-tickets))))
+    (write-line (build-str "Earned $" money-earned))
+    (write-line "Customers who bought tickets:")
+    (foreach-io_ customers-with-tickets write-line))
+```
 
 ## TODOs
 
