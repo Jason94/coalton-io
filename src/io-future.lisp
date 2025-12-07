@@ -15,8 +15,8 @@
    (:io #:io/simple-io))
   (:export
    #:Future
-   #:fork-future_
    #:fork-future
+   #:fork-future_
    #:await
    #:try-read-future
 
@@ -43,27 +43,27 @@
   (define (value-mvar (Future% mvar))
     mvar)
 
-  (declare fork-future_ ((MonadIoThread :m :t) (MonadIoMVar :m) (MonadIoMVar :r)
-                         (UnliftIo :r :i) (LiftTo :r :m) (MonadException :r)
-                         => :r :a -> :m (Future :a)))
-  (define (fork-future_ task)
+  (declare fork-future ((MonadIoThread :m :t) (MonadIoMVar :m) (MonadIoMVar :r)
+                        (UnliftIo :r :i) (LiftTo :r :m) (MonadException :r)
+                        => :r :a -> :m (Future :a)))
+  (define (fork-future task)
     "Spawn a new future, which will run and eventually return the result
 from TASK. The future is guaranteed to only ever run at most once, when
 the produced :m is run."
     (do
      (value-var <- new-empty-mvar)
-     (do-fork_
+     (do-fork
        (result <- (try-dynamic task))
        (put-mvar value-var result))
      (pure (Future% value-var))))
 
-  (declare fork-future ((MonadIoThread :m :t) (MonadIoMVar :m) (LiftTo io:IO :m)
-                        => io:IO :a -> :m (Future :a)))
-  (define fork-future
+  (declare fork-future_ ((MonadIoThread :m :t) (MonadIoMVar :m) (LiftTo io:IO :m)
+                         => io:IO :a -> :m (Future :a)))
+  (define fork-future_
     "Spawn a new future, which will run and eventually return the result
 from TASK. The future is guaranteed to only ever run at most once, when
 the produced :m is run."
-    fork-future_)
+    fork-future)
 
   (inline)
   (declare await ((MonadIoMVar :m) (MonadException :m) => Future :a -> :m :a))

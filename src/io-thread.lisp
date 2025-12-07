@@ -27,10 +27,10 @@
    #:MonadIoThread
    #:derive-monad-io-thread
    #:current-thread
-   #:fork_
    #:fork
-   #:do-fork_
+   #:fork_
    #:do-fork
+   #:do-fork_
    #:sleep
    #:mask
    #:mask-current
@@ -57,7 +57,7 @@ threads, etc."
     (current-thread
      "Get the current thread."
      (:m :t))
-    (fork_
+    (fork
      "Spawn a new thread, which starts running immediately.
 Returns the handle to the thread. This version can accept
 any underlying BaseIo, which can be useful, but causes inference
@@ -110,7 +110,7 @@ afterward."
 (cl:defmacro implement-monad-io-thread (monad)
   `(define-instance (MonadIoThread ,monad IoThread)
      (define current-thread current-thread%)
-     (define fork_ fork%)
+     (define fork fork%)
      (define sleep sleep%)
      (define mask mask%)
      (define mask-current mask-current-thread%)
@@ -125,7 +125,7 @@ Example:
   (derive-monad-io-thread :m (st:StateT :s :m))"
   `(define-instance (MonadIoThread ,monad-param IoThread => MonadIoThread ,monadT-form IoThread)
      (define current-thread (lift current-thread))
-     (define fork_ fork%)
+     (define fork fork%)
      (define sleep (compose lift sleep))
      (define mask (compose lift mask))
      (define mask-current (lift mask-current))
@@ -143,13 +143,13 @@ Example:
   (derive-monad-io-thread :m (env:EnvT :e :m))
   (derive-monad-io-thread :m (LoopT :m)))
 
-(cl:defmacro do-fork_ (cl:&body body)
-  `(fork_
+(cl:defmacro do-fork (cl:&body body)
+  `(fork
     (do
      ,@body)))
 
-(cl:defmacro do-fork (cl:&body body)
-  `(fork
+(cl:defmacro do-fork_ (cl:&body body)
+  `(fork_
     (do
      ,@body)))
 
@@ -161,6 +161,7 @@ Example:
 
   (implement-monad-io-thread io:IO)
 
-  (declare fork ((MonadIoThread :m IoThread) (UnliftIo :m io:IO) (LiftTo io:IO :m) => io:IO :a -> :m IoThread))
-  (define fork fork_)
+  (declare fork_ ((MonadIoThread :m IoThread) (UnliftIo :m io:IO) (LiftTo io:IO :m)
+                  => io:IO :a -> :m IoThread))
+  (define fork_ fork)
   )
