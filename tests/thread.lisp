@@ -102,3 +102,105 @@
       (sleep 4)
       (read flag))))
   (is (== Unset result)))
+
+(define-test test-current-thread ()
+  (let (Tuple outer-handle inner-handle) =
+    (run-io!
+     (do
+      (pass-inner-handle <- new-empty-mvar)
+      (outer-handle <-
+        (do-fork
+          (inner-handle <- current-thread)
+          (put-mvar pass-inner-handle inner-handle)))
+      (inner-handle <- (take-mvar pass-inner-handle))
+      (pure (Tuple outer-handle inner-handle)))))
+  (is (== outer-handle inner-handle)))
+
+(define-test test-mask-current-thread ()
+  (let result =
+    (run-io!
+     (do
+      (masked-gate <- new-empty-mvar)
+      (stopped-gate <- new-empty-mvar)
+      (value <- new-empty-mvar)
+      (thread <-
+        (do-fork
+          mask-current
+          (put-mvar masked-gate Unit)
+          (take-mvar stopped-gate)
+          (put-mvar value 10)))
+      ;; Wait for the thread to mask itself before stopping it
+      (take-mvar masked-gate)
+      (stop thread)
+      (put-mvar stopped-gate Unit)
+      (take-mvar value))))
+  (is (== result 10)))
+
+(define-test test-unmask-current-thread ()
+  (let result =
+    (run-io!
+     (do
+      (masked-gate <- new-empty-mvar)
+      (stopped-gate <- new-empty-mvar)
+      (value <- new-empty-mvar)
+      (thread <-
+        (do-fork
+          mask-current
+          unmask-current
+          (put-mvar masked-gate Unit)
+          (take-mvar stopped-gate)
+          (put-mvar value 10)))
+      ;; Wait for the thread to mask and unmask itself before stopping it
+      (take-mvar masked-gate)
+      (stop thread)
+      (put-mvar stopped-gate Unit)
+      ;; Unfortunately the thread can't signal back, so sleep a few MS to make sure
+      (sleep 5)
+      (try-take-mvar value))))
+  (is (== result None)))
+
+(define-test test-stop-on-unmask ()
+  (let result =
+    (run-io!
+     (do
+      (masked-gate <- new-empty-mvar)
+      (stopped-gate <- new-empty-mvar)
+      (value <- new-empty-mvar)
+      (thread <-
+        (do-fork
+          mask-current
+          (put-mvar masked-gate Unit)
+          (take-mvar stopped-gate)
+          (put-mvar value 5)
+          unmask-current
+          (swap-mvar value 10)))
+      ;; Wait for the thread to mask itself before stopping it
+      (take-mvar masked-gate)
+      (stop thread)
+      (put-mvar stopped-gate Unit)
+      ;; Unfortunately the thread can't signal back, so sleep a few MS to make sure
+      (sleep 5)
+      (take-mvar value))))
+  (is (== result 5)))
+
+(define-test test-nested-mask ()
+  (let result =
+    (run-io!
+     (do
+      (masked-gate <- new-empty-mvar)
+      (stopped-gate <- new-empty-mvar)
+      (value <- new-empty-mvar)
+      (thread <-
+        (do-fork
+          mask-current
+          mask-current
+          unmask-current
+          (put-mvar masked-gate Unit)
+          (take-mvar stopped-gate)
+          (put-mvar value 10)))
+      ;; Wait for the thread to mask itself before stopping it
+      (take-mvar masked-gate)
+      (stop thread)
+      (put-mvar stopped-gate Unit)
+      (take-mvar value))))
+  (is (== result 10)))

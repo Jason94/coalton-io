@@ -9,6 +9,7 @@
   (:local-nicknames
    (:b #:coalton-library/bits))
   (:export
+   #:Word
    #:build-str
    #:UnhandledError
    #:catch-thunk
@@ -23,6 +24,7 @@
    #:Dynamic
    #:to-dynamic
    #:cast
+   #:MockException
    #:throw-dynamic
    #:proxy-swap-inner
    ))
@@ -37,6 +39,11 @@
                                        str-parts))))
 
 (coalton-toplevel
+
+  ;; https://github.com/garlic0x1/coalton-threads/blob/master/src/atomic.lisp
+  (define-type-alias Word #+32-bit U32 #+64-bit U64
+    "An integer that fits in a CPU word.")
+
   (derive Eq)
   (repr :lisp)
   (define-type (UnhandledError :e)
@@ -132,11 +139,14 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
          None)
      (proxy-outer prx-b)))
 
+  (define-exception MockException
+    MockException)
+
   (declare throw-dynamic (Dynamic -> :a))
-  (define (throw-dynamic (Dynamic% val _))
+  (define (throw-dynamic dyn-e)
     "Throw the dynamic value. Will fail if it isn't a Signalable/LispCondition."
-    (lisp :a (val)
-      (cl:error val)))
+    (let (Dynamic% val _) = dyn-e)
+    (throw (the MockException (from-anything val))))
 
   (declare proxy-swap-inner (Proxy (:m :a) -> Proxy (:m :b)))
   (define (proxy-swap-inner _)

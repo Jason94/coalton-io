@@ -43,7 +43,7 @@
   (define (value-mvar (Future% mvar))
     mvar)
 
-  (declare fork-future_ ((MonadIoThread :m) (MonadIoMVar :m) (MonadIoMVar :r)
+  (declare fork-future_ ((MonadIoThread :m :t) (MonadIoMVar :m) (MonadIoMVar :r)
                          (UnliftIo :r :i) (LiftTo :r :m) (MonadException :r)
                          => :r :a -> :m (Future :a)))
   (define (fork-future_ task)
@@ -57,7 +57,7 @@ the produced :m is run."
        (put-mvar value-var result))
      (pure (Future% value-var))))
 
-  (declare fork-future ((MonadIoThread :m) (MonadIoMVar :m) (LiftTo io:IO :m)
+  (declare fork-future ((MonadIoThread :m :t) (MonadIoMVar :m) (LiftTo io:IO :m)
                         => io:IO :a -> :m (Future :a)))
   (define fork-future
     "Spawn a new future, which will run and eventually return the result

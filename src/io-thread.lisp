@@ -6,24 +6,34 @@
    #:coalton-library/functions
    #:coalton-library/monad/classes
    #:io/utils
-   #:io/monad-io)
+   #:io/monad-io
+   #:io/thread-impl/runtime
+   )
   (:import-from #:coalton-library/experimental/do-control-loops-adv
    #:LoopT)
   (:local-nicknames
-   (:t #:coalton-threads/thread)
-   (:bt #:bordeaux-threads-2)
    (:st #:coalton-library/monad/statet)
    (:env #:coalton-library/monad/environment)
    (:io #:io/simple-io))
   (:export
+   ;; Re-export from the runtime
    #:IoThread
+   #:ThreadingException
+   #:InterruptCurrentThread
+
+   ;; MonadIoThread interface
    #:MonadIoThread
    #:derive-monad-io-thread
+   #:current-thread
    #:fork_
    #:fork
    #:do-fork_
    #:do-fork
    #:sleep
+   #:mask
+   #:mask-current
+   #:unmask
+   #:unmask-current
    #:stop
    
    #:implement-monad-io-thread
@@ -34,66 +44,55 @@
 
 (coalton-toplevel
 
-  (repr :transparent)
-  (define-type IoThread
-    (IoThread% (t:Thread Unit)))
-
-  (inline)
-  (declare unwrap-iothread% (IoThread -> t:Thread Unit))
-  (define (unwrap-iothread% (IoThread% t))
-    t)
-
-  (define-class (MonadIo :m => MonadIoThread :m)
-    "A MonadIo which can spawn other threads. Other threads error
-separately. A spawned thread erroring will not cause the parent
-thread to fail."
+  (define-class (MonadIo :m => MonadIoThread :m :t (:m -> :t))
+    "A MonadIo which can spawn :t's. Other :t's error
+separately. A spawned :t erroring will not cause the parent
+:t to fail. :t can be any 'thread-like' object, depending on the
+underlying implementation - system threads, software-managed green
+threads, etc."
+    (current-thread
+     "Get the current thread."
+     (:m :t))
     (fork_
      "Spawn a new thread, which starts running immediately.
 Returns the handle to the thread. This version can accept
 any underlying BaseIo, which can be useful, but causes inference
 issues in some cases."
-     ((UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m IoThread))
+     ((UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m :t))
     (sleep
      "Sleep the current thread for MSECS milliseconds."
      (UFix -> :m Unit))
+    (mask
+     "Mask the given thread so it can't be stopped."
+     (IoThread -> :m Unit))
+    (mask-current
+     "Mask the current thread so it can't be stopped."
+     (:m Unit))
+    (unmask
+     "Unmask the given thread so it can be stopped. Unmask respects
+nested masks - if the thread has been masked N times, it can only be
+stopped after being unmasked N times."
+     (IoThread -> :m Unit))
+    (unmask-current
+     "Unmask the current thread so it can be stopped. Unmask respects
+nested masks - if the thread has been masked N times, it can only be
+stopped after being unmasked N times."
+     (:m Unit))
     (stop
      "Stop a thread. If the thread has already stopped, does nothing."
-     (IoThread -> :m Unit)))
-
-  (inline)
-  (declare fork% ((MonadIo :m) (UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m IoThread))
-  (define (fork% op)
-    (lift-to
-     (with-run-in-io
-         (fn (run)
-            (wrap-io (IoThread%
-                      (t:spawn (fn ()
-                                 (run! (run op))
-                                 Unit))))))))
-
-  (inline)
-  (declare sleep% (MonadIo :m => UFix -> :m Unit))
-  (define (sleep% msecs)
-    (wrap-io
-      (lisp :a (msecs)
-        (cl:sleep (cl:/ msecs 1000)))
-      Unit))
-
-  (inline)
-  (declare stop% (MonadIo :m => IoThread -> :m Unit))
-  (define (stop% thread)
-    (wrap-io
-      (let native-thread = (unwrap-iothread% thread))
-      (lisp Unit (native-thread)
-        (cl:when (bt2:thread-alive-p native-thread)
-          (bt:destroy-thread native-thread)))))
+     (:t -> :m Unit)))
 
   )
 
 (cl:defmacro implement-monad-io-thread (monad)
-  `(define-instance (MonadIoThread ,monad)
+  `(define-instance (MonadIoThread ,monad IoThread)
+     (define current-thread current-thread%)
      (define fork_ fork%)
      (define sleep sleep%)
+     (define mask mask%)
+     (define mask-current mask-current-thread%)
+     (define unmask unmask%)
+     (define unmask-current unmask-current-thread%)
      (define stop stop%)))
 
 (cl:defmacro derive-monad-io-thread (monad-param monadT-form)
@@ -101,9 +100,14 @@ issues in some cases."
 
 Example:
   (derive-monad-io-thread :m (st:StateT :s :m))"
-  `(define-instance (MonadIoThread ,monad-param => MonadIoThread ,monadT-form)
+  `(define-instance (MonadIoThread ,monad-param IoThread => MonadIoThread ,monadT-form IoThread)
+     (define current-thread (lift current-thread))
      (define fork_ fork%)
      (define sleep (compose lift sleep))
+     (define mask (compose lift mask))
+     (define mask-current (lift mask-current))
+     (define unmask (compose lift mask))
+     (define unmask-current (lift unmask-current))
      (define stop (compose lift stop))))
 
 (coalton-toplevel
@@ -134,6 +138,6 @@ Example:
 
   (implement-monad-io-thread io:IO)
 
-  (declare fork ((MonadIoThread :m) (UnliftIo :m io:IO) (LiftTo io:IO :m) => io:IO :a -> :m IoThread))
+  (declare fork ((MonadIoThread :m IoThread) (UnliftIo :m io:IO) (LiftTo io:IO :m) => io:IO :a -> :m IoThread))
   (define fork fork_)
   )

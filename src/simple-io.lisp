@@ -80,7 +80,12 @@
       ((Ok a)
        a)
       ((Err dyn-e)
-       (throw-dynamic dyn-e))))
+       (match (cast dyn-e)
+         ((Some (UnhandledError e))
+          (let _ = (the MockException e))
+          (throw e))
+         ((None)
+          (throw-dynamic dyn-e))))))
 
   (define-instance (Functor IO)
     (define (map fb->c io-op)

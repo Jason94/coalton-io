@@ -19,6 +19,7 @@
                  (:file "io-term")
                  (:file "io-random")
                  (:file "io-file")
+                 (:file "thread-impl/runtime")
                  (:file "io-thread")
                  (:file "io-atomic")
                  (:file "io-mvar")
