@@ -1,13 +1,14 @@
 # `coalton-io` - Functional Applications in Coalton
 
 _coalton-io_ provides tools to write pure, functional programs in Coalton that can perform necessary tasks like:
+* Robust exception handling & Resource safety
 * Mutable data
 * Random numbers
 * Terminal & File IO
 * Multithreading
-* Safely sharing data between threads
+* Safely sharing data between threads (_coalton-io_ provides Atomic variables, MVars, MChans, and a Software Transactional Memory system)
 
-_coalton-io_ also provides all of this functionality for free if you want to write your own underlying effect type.
+_coalton-io_ also extends all of this functionality for free if you want to write your own underlying effect type.
 
 ## Example Usage
 
@@ -51,19 +52,58 @@ Once you have the latest version of Coalton, you can install `coalton-io` from [
 
 _coalton-io_ provides the following features in these packages:
 
-* `io/term`   - Read/write to the Console
-* `io/file`   - Read/write to files and interact with the file system
-* `io/random` - Generate random numbers
-* `io/mut`    - Use unsynchronized (non-thread safe) mutable variables in pure code
-* `io/unique` - Generate guaranteed unique values (thread safe)
-* `io/thread` - Fork new threads which run their own `IO` operations
-* `io/atomic` - Atomic mutable variables for sharing state across threads
-* `io/mvar`   - Provides `MVar`s (synchronized single-value mutable stores to hand off data between threads) and `MChan`s (thread safe FIFO queues to stream data between threads)
-* `io/future` - Provides Futures, with standard `await` semantics
+* `io/exception` - Raise and handle exceptions within `IO`, automatically capture unhandled Lisp/Coalton errors, and easily convert between exceptions and `Result`/`Optional`
+* `io/resource`  - Operations to safely acquire, use, and release resources.
+* `io/term`      - Read/write to the Console
+* `io/file`      - Read/write to files and interact with the file system
+* `io/random`    - Generate random numbers
+* `io/mut`       - Use unsynchronized (non-thread safe) mutable variables in pure code
+* `io/unique`    - Generate guaranteed unique values (thread safe)
+* `io/thread`    - Fork new threads which run their own `IO` operations
+* `io/atomic`    - Atomic mutable variables for sharing state across threads
+* `io/mvar`      - Provides `MVar`s (synchronized single-value mutable stores to hand off data between threads) and `MChan`s (thread safe FIFO queues to stream data between threads)
+* `io/future`    - Futures that run an `IO` computation in another thread and return the value to the calling thread
+* `io/stm`       - Atomically run transactions on mutable memory shared between threads
 
 If you just want to use `IO` to write an application, use `io/simple-io` to get the standard `IO` type.
 
 If you want to write _your own_ effect type, use `io/monad-io` and `io/io-all` to cover your own type with all of the features in the list above.
+
+### Exceptions
+
+You can raise exceptions in `IO`. Any unhandled exceptions are thrown when the IO is run. Anything that can be thrown in Coalton can be raised in `IO`:
+
+```lisp
+  (do
+   (str <- retrieve-str-data)
+   (do-when (== str "")
+     (raise "An empty string was returned."))
+   (write-line "This won't run if str == ''"))
+```
+
+Exceptions can be handled in several ways, including only handling exceptions of particular types. It's also possible to handle all exceptions:
+
+```lisp
+  (do
+   (file-data <-
+     (handle-all (read-file-data "data.csv")
+                 (const (pure Nil))))
+   (do-foreach (str file-data)
+     (write-line str)))
+```
+
+`wrap-io`, the main tool to run normal Coalton functions in `IO`, automatically handles any errors thrown from Coalton or Lisp:
+
+```lisp
+  (do
+   (file-data <-
+     (handle-all (wrap-io
+                   (lisp (List String) ()
+                     (cl-read-file-data "data.csv")))
+                 (const (pure Nil))))
+   (do-foreach (str file-data)
+     (write-line str)))
+```
 
 ## Examples
 
