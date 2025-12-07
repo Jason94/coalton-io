@@ -35,7 +35,9 @@
    #:mask
    #:mask-current
    #:unmask
+   #:unmask-finally
    #:unmask-current
+   #:unmask-current-finally
    #:stop
    #:with-mask
    #:do-with-mask
@@ -68,7 +70,7 @@ issues in some cases."
      (UFix -> :m Unit))
     (mask
      "Mask the given thread so it can't be stopped."
-     (IoThread -> :m Unit))
+     (:t -> :m Unit))
     (mask-current
      "Mask the current thread so it can't be stopped."
      (:m Unit))
@@ -77,11 +79,19 @@ issues in some cases."
 nested masks - if the thread has been masked N times, it can only be
 stopped after being unmasked N times."
      (IoThread -> :m Unit))
+    (unmask-finally
+     "Unmask the given thread, run the provided action, and then honor any
+ pending stop for that thread after the action finishes."
+     ((UnliftIo :r :io) (LiftTo :r :m) => IoThread -> :r Unit -> :m Unit))
     (unmask-current
      "Unmask the current thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
 stopped after being unmasked N times."
      (:m Unit))
+    (unmask-current-finally
+     "Unmask the current thread, run the provided action, and then honor any
+ pending stop for that thread after the action finishes."
+     ((UnliftIo :r :io) (LiftTo :r :m) => :r Unit -> :m Unit))
     (stop
      "Stop a thread. If the thread has already stopped, does nothing."
      (:t -> :m Unit)))
@@ -115,7 +125,9 @@ afterward."
      (define mask mask%)
      (define mask-current mask-current-thread%)
      (define unmask unmask%)
+     (define unmask-finally unmask-finally%)
      (define unmask-current unmask-current-thread%)
+     (define unmask-current-finally unmask-current-thread-finally%)
      (define stop stop%)))
 
 (cl:defmacro derive-monad-io-thread (monad-param monadT-form)
@@ -127,11 +139,13 @@ Example:
      (define current-thread (lift current-thread))
      (define fork fork%)
      (define sleep (compose lift sleep))
-     (define mask (compose lift mask))
-     (define mask-current (lift mask-current))
-     (define unmask (compose lift mask))
-     (define unmask-current (lift unmask-current))
-     (define stop (compose lift stop))))
+    (define mask (compose lift mask))
+    (define mask-current (lift mask-current))
+    (define unmask (compose lift unmask))
+    (define unmask-finally unmask-finally%)
+    (define unmask-current (lift unmask-current))
+    (define unmask-current-finally unmask-current-thread-finally%)
+    (define stop (compose lift stop))))
 
 (coalton-toplevel
 

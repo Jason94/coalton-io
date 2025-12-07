@@ -32,6 +32,10 @@
    #:stop%
 
    #:mask-current-thread!%
+   #:unmask-finally!%
+   #:unmask-finally%
+   #:unmask-current-thread-finally!%
+   #:unmask-current-thread-finally%
    #:unmask-current-thread!%
    ))
 (in-package :io/thread-impl/runtime)
@@ -256,8 +260,8 @@ thread is alive before interrupting."
   (define mask-current-thread%
     (wrap-io_ mask-current-thread!%))
 
-  (declare unmask-inner% (IoThread -> Unit))
-  (define (unmask-inner% thread)
+  (declare unmask-finally!% (IoThread -> (Unit -> Unit) -> Unit))
+  (define (unmask-finally!% thread thunk)
     (let flags = (.flags thread))
     (let flag-state =
       (rec % ()
@@ -266,13 +270,40 @@ thread is alive before interrupting."
         (if (at:cas! flags old new)
             new
             (%))))
+    (thunk Unit)
     (when (matches-flag flag-state PENDING-KILL)
       (interrupt-iothread% thread)))
+
+  (inline)
+  (declare unmask-inner% (IoThread -> Unit))
+  (define (unmask-inner% thread)
+    (unmask-finally!% thread (const Unit)))
 
   (inline)
   (declare unmask% (MonadIo :m => IoThread -> :m Unit))
   (define (unmask% thread)
     (wrap-io (unmask-inner% thread)))
+
+  (inline)
+  (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m) => IoThread -> :r Unit -> :m Unit))
+  (define (unmask-finally% thread thunk)
+    (lift-to
+     (with-run-in-io
+         (fn (run)
+           (wrap-io (unmask-finally!% thread (fn (_) (run! (run thunk)))))))))
+
+  (inline)
+  (declare unmask-current-thread-finally!% ((Unit -> Unit) -> Unit))
+  (define (unmask-current-thread-finally!% thunk)
+    (unmask-finally!% (current-io-thread%) thunk))
+
+  (inline)
+  (declare unmask-current-thread-finally% ((UnliftIo :r :io) (LiftTo :r :m) => :r Unit -> :m Unit))
+  (define (unmask-current-thread-finally% thunk)
+    (lift-to
+     (with-run-in-io
+         (fn (run)
+           (wrap-io (unmask-current-thread-finally!% (fn (_) (run! (run thunk)))))))))
 
   (inline)
   (declare unmask-current-thread!% (Unit -> Unit))
