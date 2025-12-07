@@ -56,12 +56,12 @@
 
    #:create-temp-directory
    #:create-temp-file
-   #:with-open-file_
-   #:with-temp-file_
-   #:with-temp-directory_
    #:with-open-file
    #:with-temp-file
    #:with-temp-directory
+   #:with-open-file_
+   #:with-temp-file_
+   #:with-temp-directory_
 
    #:do-with-open-file_
    #:do-with-temp-file_
@@ -370,15 +370,15 @@ Example:
 
 (coalton-toplevel
 
-  (declare with-open-file_ ((file:File :a) (MonadIoFile :r) (MonadIoFile :i) (UnliftIo :r :i)
-                            (LiftTo :r :m) (MonadException :i)
-                            => file:StreamOptions
-                            -> ((file:FileStream :a) -> :r :b)
-                            -> :m :b))
-  (define (with-open-file_ opts k)
+  (declare with-open-file ((file:File :a) (MonadIoFile :r) (MonadIoFile :i) (UnliftIo :r :i)
+                           (LiftTo :r :m) (MonadException :i)
+                           => file:StreamOptions
+                           -> ((file:FileStream :a) -> :r :b)
+                           -> :m :b))
+  (define (with-open-file opts k)
      "Opens a file stream, performs K on it, then closes the stream.
 Can run any underlying BaseIo, which can be useful but can also cause inference issues
-in some cases. Try WITH-OPEN-FILE if you have issues."
+in some cases. Try WITH-OPEN-FILE_ if you have issues."
     (lift-to
      (with-run-in-io
          (fn (run)
@@ -389,15 +389,15 @@ in some cases. Try WITH-OPEN-FILE if you have issues."
                          (fn (file)
                            (run (k file)))))))))
 
-  (declare with-temp-file_ ((file:File :a) (MonadIoFile :r) (MonadIoFile :i)
-                            (UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
-                            => String
-                            -> ((file:FileStream :a) -> :r :b)
-                            -> :m :b))
-  (define (with-temp-file_ file-type k)
+  (declare with-temp-file ((file:File :a) (MonadIoFile :r) (MonadIoFile :i)
+                           (UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
+                           => String
+                           -> ((file:FileStream :a) -> :r :b)
+                           -> :m :b))
+  (define (with-temp-file file-type k)
      "Performs an operation `thunk` on a temporary file. File type extensions need to include `.`
 Can run any underlying BaseIo, which can be useful but can also cause inference issues
-in some cases. Try WITH-TEMP-FILE if you have issues."
+in some cases. Try WITH-TEMP-FILE_ if you have issues."
     (lift-to
      (with-run-in-io
          (fn (run)
@@ -409,14 +409,14 @@ in some cases. Try WITH-TEMP-FILE if you have issues."
                            (fn (file)
                              (run (k file))))))))))
 
-  (declare with-temp-directory_ ((UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
-                                 (MonadIoFile :i)
-                                 => (file:Pathname -> :r :a)
-                                 -> :m :a))
-  (define (with-temp-directory_ k)
+  (declare with-temp-directory ((UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
+                                (MonadIoFile :i)
+                                => (file:Pathname -> :r :a)
+                                -> :m :a))
+  (define (with-temp-directory k)
       "Performs an operation `thunk` inside a temporary directory.
 Can run any underlying BaseIo, which can be useful but can also cause inference issues
-in some cases. Try WITH-TEMP-DIRECTORY if you have issues."
+in some cases. Try WITH-TEMP-DIRECTORY_ if you have issues."
     (lift-to
      (with-run-in-io
          (fn (run)
@@ -454,22 +454,22 @@ Usage:
 
   (implement-monad-io-file io:IO)
 
-  (declare with-open-file ((file:File :a) (UnliftIo :m io:IO) (LiftTo io:IO :m)
-                           => file:StreamOptions
-                           -> ((file:FileStream :a) -> io:IO :b)
-                           -> :m :b))
-  (define with-open-file with-open-file_)
+  (declare with-open-file_ ((file:File :a) (UnliftIo :m io:IO) (LiftTo io:IO :m)
+                            => file:StreamOptions
+                            -> ((file:FileStream :a) -> io:IO :b)
+                            -> :m :b))
+  (define with-open-file_ with-open-file)
 
-  (declare with-temp-file ((file:File :a) (UnliftIo :m io:IO) (LiftTo io:IO :m)
-                           => String
-                           -> ((file:FileStream :a) -> io:IO :b)
-                           -> :m :b))
-  (define with-temp-file with-temp-file_)
+  (declare with-temp-file_ ((file:File :a) (UnliftIo :m io:IO) (LiftTo io:IO :m)
+                            => String
+                            -> ((file:FileStream :a) -> io:IO :b)
+                            -> :m :b))
+  (define with-temp-file_ with-temp-file)
 
-  (declare with-temp-directory ((UnliftIo :m io:IO) (LiftTo io:IO :m)
-                                => (file:Pathname -> io:IO :a)
-                                -> :m :a))
-  (define with-temp-directory with-temp-directory_))
+  (declare with-temp-directory_ ((UnliftIo :m io:IO) (LiftTo io:IO :m)
+                                 => (file:Pathname -> io:IO :a)
+                                 -> :m :a))
+  (define with-temp-directory_ with-temp-directory))
 
 (cl:defmacro do-with-open-file (opts (fs) cl:&body body)
   "`do` sugar for `with-open-file`. Expands to a continuation where BODY runs in `do`.
