@@ -8,7 +8,8 @@
    #:io/utils
    #:io/monad-io
    #:io/exception
-   #:io/resource)
+   #:io/resource
+   #:io/thread-impl/runtime)
   (:import-from #:coalton-library/experimental/do-control-loops-adv
    #:LoopT)
   (:local-nicknames
@@ -66,6 +67,12 @@ Can take data out of the container, blocking until it is full."
     (data (c:Cell (Optional :a))))
 
   (define-class (MonadIo :m => MonadIoMVar :m)
+    "Manage synchronized containers of mutable state.
+
+All MVar operations are masked, so stopping a thread that's operating on MVar's
+won't leave those MVar's in an inoperable state. However, irresponsible stopping
+could still cause deadlocks, race conditions, etc. if other threads were
+depending on the stopped thread operating on an MVar to continue."
     (new-mvar
      "Create a new MVar containing an initial value."
      (:a -> :m (MVar :a)))
@@ -122,6 +129,7 @@ they can block this thread until another thread takes the MVar."
   (declare take-mvar% (MonadIo :m => MVar :a -> :m :a))
   (define (take-mvar% mvar)
     (wrap-io
+      (mask-current-thread!%)
       (lk:acquire (.lock mvar))
       (let ((lp (fn ()
                   (match (c:read (.data mvar))
@@ -129,6 +137,7 @@ they can block this thread until another thread takes the MVar."
                      (c:write! (.data mvar) None)
                      (lk:release (.lock mvar))
                      (cv:notify (.cvar mvar))
+                     (unmask-current-thread!%)
                      x)
                     ((None)
                      (cv:await (.cvar mvar) (.lock mvar))
@@ -141,6 +150,7 @@ they can block this thread until another thread takes the MVar."
       (let lock = (.lock mvar))
       (let data = (.data mvar))
       (let cvar = (.cvar mvar))
+      (mask-current-thread!%)
       (lk:acquire lock)
       (let ((lp (fn ()
                   (match (c:read data)
@@ -148,6 +158,7 @@ they can block this thread until another thread takes the MVar."
                      (c:write! data (Some val))
                      (lk:release lock)
                      (cv:notify cvar)
+                     (unmask-current-thread!%)
                      Unit)
                     ((Some _)
                      (cv:await cvar lock)
@@ -157,61 +168,74 @@ they can block this thread until another thread takes the MVar."
   (declare try-take-mvar% (MonadIo :m => MVar :a -> :m (Optional :a)))
   (define (try-take-mvar% mvar)
     (wrap-io
+      (mask-current-thread!%)
       (lk:acquire (.lock mvar))
       (match (c:read (.data mvar))
         ((Some x)
          (c:write! (.data mvar) None)
          (lk:release (.lock mvar))
          (cv:notify (.cvar mvar))
+         (unmask-current-thread!%)
          (Some x))
         ((None)
          (lk:release (.lock mvar))
+         (unmask-current-thread!%)
          None))))
 
   (declare try-put-mvar% (MonadIo :m => MVar :a -> :a -> :m Boolean))
   (define (try-put-mvar% mvar val)
     (wrap-io
+      (mask-current-thread!%)
       (lk:acquire (.lock mvar))
       (match (c:read (.data mvar))
         ((Some _)
          (lk:release (.lock mvar))
+         (unmask-current-thread!%)
          False)
         ((None)
          (c:write! (.data mvar) (Some val))
          (lk:release (.lock mvar))
          (cv:notify (.cvar mvar))
+         (unmask-current-thread!%)
          True))))
 
   (declare read-mvar% (MonadIo :m => MVar :a -> :m :a))
   (define (read-mvar% mvar)
     (wrap-io
+      (mask-current-thread!%)
       (lk:acquire (.lock mvar))
       (let ((lp (fn ()
                   (match (c:read (.data mvar))
                     ((Some x)
                      (lk:release (.lock mvar))
+                     (unmask-current-thread!%)
                      x)
                     ((None)
                      (cv:await (.cvar mvar) (.lock mvar))
                      (lp))))))
         (lp))))
 
+  ;; TODO: Could this be lock-free?
   (declare try-read-mvar% (MonadIo :m => MVar :a -> :m (Optional :a)))
   (define (try-read-mvar% mvar)
     (wrap-io
+      (mask-current-thread!%)
       (lk:acquire (.lock mvar))
       (match (c:read (.data mvar))
         ((Some x)
          (lk:release (.lock mvar))
          (cv:notify (.cvar mvar))
+         (unmask-current-thread!%)
          (Some x))
         ((None)
          (lk:release (.lock mvar))
+         (unmask-current-thread!%)
          None))))
 
   (declare swap-mvar% (MonadIo :m => MVar :a -> :a -> :m :a))
   (define (swap-mvar% mvar new-val)
     (wrap-io
+      (mask-current-thread!%)
       (lk:acquire (.lock mvar))
       (let ((lp (fn ()
                   (match (c:read (.data mvar))
@@ -219,6 +243,7 @@ they can block this thread until another thread takes the MVar."
                      (c:write! (.data mvar) (Some new-val))
                      (lk:release (.lock mvar))
                      (cv:notify (.cvar mvar))
+                     (unmask-current-thread!%)
                      old-val)
                     ((None)
                      (cv:await (.cvar mvar) (.lock mvar))
@@ -228,12 +253,14 @@ they can block this thread until another thread takes the MVar."
   (declare is-empty-mvar% (MonadIo :m => MVar :a -> :m Boolean))
   (define (is-empty-mvar% mvar)
     (wrap-io
+      (mask-current-thread!%)
       (lk:acquire (.lock mvar))
       (let result =
         (match (c:read (.data mvar))
           ((Some _) False)
           ((None)   True)))
       (lk:release (.lock mvar))
+      (unmask-current-thread!%)
       result))
 
   (declare with-mvar% ((MonadIo :m) (UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
@@ -243,14 +270,15 @@ they can block this thread until another thread takes the MVar."
      (with-run-in-io
        (fn (run)
          (lift-io
-          (bracket-io_ (take-mvar% mvar)
-                       (put-mvar% mvar)
-                       (fn (x)
-                         (run (op x)))))))))
-           ;; (do
-           ;;  (x <- (take-mvar% mvar))
-           ;;  (result <- (run (op x)))
-           ;;  (pure result)))))))
+          (do
+           mask-current-thread%
+           (result <-
+            (bracket-io_ (take-mvar% mvar)
+                         (put-mvar% mvar)
+                         (fn (x)
+                           (run (op x)))))
+           unmask-current-thread%
+           (pure result)))))))
   )
 
 (cl:defmacro implement-monad-io-mvar (monad)

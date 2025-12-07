@@ -45,7 +45,13 @@
 (coalton-toplevel
 
   (define-class (MonadIo :m => MonadIoSTM :m)
-    "A MonadIo which can execute atomic transactions."
+    "A MonadIo which can execute atomic transactions.
+
+The critical section of transaction commits is masked, so stopping a thread
+during a transaction won't leave the STM in an inoperable state. Read-only
+transactions never mask. Transactions are only masked during the brief commit
+period; the thread is still stoppable during the bulk of the transaction
+unless you mask it yourself."
     (new-tvar
      "Create a new mutable variable that can be used inside an atomic transaction."
      (:a -> :m (TVar :a)))

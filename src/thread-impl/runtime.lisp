@@ -30,6 +30,9 @@
    #:unmask%
    #:unmask-current-thread%
    #:stop%
+
+   #:mask-current-thread!%
+   #:unmask-current-thread!%
    ))
 (in-package :io/thread-impl/runtime)
 
@@ -244,9 +247,14 @@ thread is alive before interrupting."
     (wrap-io (mask-inner% thread)))
 
   (inline)
+  (declare mask-current-thread!% (Unit -> Unit))
+  (define (mask-current-thread!%)
+    (mask-inner% (current-io-thread%)))
+
+  (inline)
   (declare mask-current-thread% (MonadIo :m => :m Unit))
   (define mask-current-thread%
-    (wrap-io (mask-inner% (current-io-thread%))))
+    (wrap-io_ mask-current-thread!%))
 
   (declare unmask-inner% (IoThread -> Unit))
   (define (unmask-inner% thread)
@@ -267,9 +275,14 @@ thread is alive before interrupting."
     (wrap-io (unmask-inner% thread)))
 
   (inline)
+  (declare unmask-current-thread!% (Unit -> Unit))
+  (define (unmask-current-thread!%)
+    (unmask-inner% (current-io-thread%)))
+
+  (inline)
   (declare unmask-current-thread% (MonadIo :m => :m Unit))
   (define unmask-current-thread%
-    (wrap-io (unmask-inner% (current-io-thread%))))
+    (wrap-io_ unmask-current-thread!%))
 
   (inline)
   (declare stop% (MonadIo :m => IoThread -> :m Unit))

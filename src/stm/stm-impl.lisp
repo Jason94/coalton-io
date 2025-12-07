@@ -7,6 +7,7 @@
    #:io/utils
    #:io/monad-io
    #:io/exception
+   #:io/thread-impl/runtime
    )
   (:local-nicknames
    (:opt #:coalton-library/optional)
@@ -558,6 +559,7 @@ For safety, disconnects the transactions when done."
           True
           (progn
             (let result = (c:new True))
+            (mask-current-thread!%)
             (while (and
                     ;; Stop looping if we already need to abort.
                     (c:read result)
@@ -576,6 +578,7 @@ For safety, disconnects the transactions when done."
               (commit-logged-writes (.write-log tx-data))
               (a:incf! global-lock 1)
               (broadcast-write-cv!%)
+              (unmask-current-thread!%)
               Unit)
             (c:read result)))))
 
