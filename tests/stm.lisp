@@ -57,6 +57,18 @@
         (read-tvar a)))))
   (is (== 10 result)))
 
+(define-test test-modify-tvar ()
+  (let result =
+    (run-io!
+     (do
+      (a <- (new-tvar 0))
+      (do-run-tx
+        (write-tvar a 10)
+        (modify-result <- (modify-tvar a (* 2)))
+        (read-result <- (read-tvar a))
+        (pure (Tuple modify-result read-result))))))
+  (is (== (Tuple 20 20) result)))
+
 (define-test test-write-read-separate-txs ()
   (let result =
     (run-io!

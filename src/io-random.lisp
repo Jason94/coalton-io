@@ -58,8 +58,8 @@
     (wrap-io (lisp :a ()
                (cl:make-random-state cl:t))))
 
-  (declare copy-random-state (MonadIo :m => RandomState -> :m RandomState))
-  (define (copy-random-state rs)
+  (declare copy-random-state% (MonadIo :m => RandomState -> :m RandomState))
+  (define (copy-random-state% rs)
     (wrap-io (lisp :a (rs)
                (cl:make-random-state rs))))
 
@@ -93,6 +93,9 @@
     (make-random-state
      "Create a fresh random state."
      (:m RandomState))
+    (copy-random-state
+     "Create a copy of another random state, starting at the same seed."
+     (RandomState -> :m RandomState))
     (get-current-random-state
      "Get the current thread's random state."
      (:m RandomState))
@@ -145,6 +148,7 @@
 (cl:defmacro implement-monad-io-random (monad)
   `(define-instance (MonadIoRandom ,monad)
      (define make-random-state make-random-state%)
+     (define copy-random-state copy-random-state%)
      (define get-current-random-state get-current-random-state%)
      (define set-current-random-state set-current-random-state%)
      (define random random%)
@@ -157,6 +161,7 @@ Example:
   (derive-monad-io-random :m (st:StateT :s :m))"
   `(define-instance (MonadIoRandom ,monad-param => MonadIoRandom ,monadT-form)
      (define make-random-state (lift make-random-state))
+     (define copy-random-state (compose lift copy-random-state))
      (define get-current-random-state (lift get-current-random-state))
      (define set-current-random-state (compose lift set-current-random-state))
      (define random (compose2 lift random))

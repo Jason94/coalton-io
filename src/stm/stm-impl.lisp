@@ -23,6 +23,7 @@
    #:new-tvar%
    #:read-tvar%
    #:write-tvar%
+   #:modify-tvar%
    #:retry%
    #:or-else%
    #:run-tx%
@@ -490,38 +491,63 @@ For safety, disconnects the transactions when done."
             ((None) (%))
             ((Some x) x))))))
 
+  (declare inner-read-tvar% (TVar :a -> TxData% -> TxResult% :a))
+  (define (inner-read-tvar% tvar tx-data)
+    (match (tx-logged-write-value% tx-data tvar)
+      ((Some written-val)
+       (TxSuccess (from-anything written-val)))
+      ((None)
+       (rec % ((val (progn (mem-barrier)
+                           (tvar-value% tvar))))
+         (if (== (cached-snapshot tx-data)
+                 (a:read global-lock))
+             (progn
+               (log-read-value tvar val tx-data)
+               (TxSuccess val))
+             (match (validate% tx-data)
+               ((TxAbort%)
+                TxFailed)
+               ((TxContinue% time)
+                (c:write! (.lock-snapshot tx-data)
+                          time)
+                (% (tvar-value% tvar)))))))))
+
+  (inline)
+  (declare inner-write-tvar% (TVar :a -> :a -> TxData% -> TxResult% Unit))
+  (define (inner-write-tvar% tvar val tx-data)
+    (TxSuccess
+     (log-write-value% (.write-log tx-data) tvar val)))
+
+  (inline)
   (declare read-tvar% (MonadIo :m => TVar :a -> STM :m :a))
   (define (read-tvar% tvar)
     (STM%
      (fn (tx-data)
        (wrap-io
-         (match (tx-logged-write-value% tx-data tvar)
-           ((Some written-val)
-            (TxSuccess (from-anything written-val)))
-           ((None)
-            (rec % ((val (progn (mem-barrier)
-                                (tvar-value% tvar))))
-              (if (== (cached-snapshot tx-data)
-                      (a:read global-lock))
-                  (progn
-                    (log-read-value tvar val tx-data)
-                    (TxSuccess val))
-                  (match (validate% tx-data)
-                    ((TxAbort%)
-                     TxFailed)
-                    ((TxContinue% time)
-                     (c:write! (.lock-snapshot tx-data)
-                               time)
-                     (% (tvar-value% tvar))))))))))))
+         (inner-read-tvar% tvar tx-data)))))
 
   (inline)
   (declare write-tvar% (MonadIo :m => TVar :a -> :a -> STM :m Unit))
   (define (write-tvar% tvar val)
     (STM%
      (fn (tx-data)
+       (wrap-io (inner-write-tvar% tvar val tx-data)))))
+
+  (declare modify-tvar% (MonadIo :m => TVar :a -> (:a -> :a) -> STM :m :a))
+  (define (modify-tvar% tvar f)
+    (STM%
+     (fn (tx-data)
        (wrap-io
-         (TxSuccess
-          (log-write-value% (.write-log tx-data) tvar val))))))
+         (match (inner-read-tvar% tvar tx-data)
+           ((TxRetryAfterWrite)
+            TxRetryAfterWrite)
+           ((TxFailed)
+            TxFailed)
+           ((TxSuccess val)
+            (let result = (f val))
+            ;; Respect non success status out of the write
+            (map (const result)
+                 (inner-write-tvar% tvar result tx-data))))))))
 
   (declare tx-commit-io% (MonadIo :m => TxData% -> :m Boolean))
   (define (tx-commit-io% tx-data)

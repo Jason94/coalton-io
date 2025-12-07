@@ -28,6 +28,7 @@
    #:new-tvar
    #:read-tvar
    #:write-tvar
+   #:modify-tvar
    #:retry
    #:or-else
    #:run-tx
@@ -54,6 +55,9 @@
     (write-tvar
      "Write to a mutable variable inside an atomic transaction."
      (TVar :a -> :a -> STM :m Unit))
+    (modify-tvar
+     "Modify a mutable variable inside an atomic transaction."
+     (TVar :a -> (:a -> :a) -> STM :m :a))
     (retry
      "Retry the current operation because the observed state is invalid."
      (STM :m :a))
@@ -72,6 +76,7 @@ the transaction is aborted and the exception is re-raised."
      (define new-tvar new-tvar%)
      (define read-tvar read-tvar%)
      (define write-tvar write-tvar%)
+     (define modify-tvar modify-tvar%)
      (define retry retry%)
      (define or-else or-else%)
      (define run-tx run-tx%)))
@@ -90,6 +95,7 @@ Example:
      (define new-tvar (compose lift new-tvar))
      (define read-tvar read-tvar)
      (define write-tvar write-tvar)
+     (define modify-tvar modify-tvar)
      (define retry retry)
      (define or-else or-else%)
      (define run-tx run-tx)))
