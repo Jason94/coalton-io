@@ -79,8 +79,8 @@
     (match (fa?)
       ((Ok a)
        a)
-      ((Err e)
-       (error (force-string e)))))
+      ((Err dyn-e)
+       (throw-dynamic dyn-e))))
 
   (define-instance (Functor IO)
     (define (map fb->c io-op)

@@ -39,7 +39,6 @@
     Completed
     (Errored :e))
 
-  ;; NOTE: AKA `bracket-io` in Haskell/Scala Cats/etc.
   (declare bracket-io ((MonadException :m) (RuntimeRepr :e) (Signalable :e)
                        => :m :r
                        -> (:r -> ExitCase :e -> :m :a)
