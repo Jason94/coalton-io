@@ -48,6 +48,13 @@ Once you have the latest version of Coalton, you can install `coalton-io` from [
 (ql:quickload "coalton-io")
 ```
 
+## Examples
+
+_coalton-io_ has two example programs to demonstrate how to use `IO`:
+
+* [Hangman](examples/hangman.lisp) - Play a game of hangman in the terminal. Shows `IO` basics and terminal IO.
+* [Channels & Threading](examples/channels-threading.lisp) - Multithreaded application to process an input data file. Shows how to mix different `IO` effects, multithreading, and passing data safely between threads.
+
 ## Feature Breakdown
 
 _coalton-io_ provides the following features in these packages:
@@ -115,6 +122,7 @@ Use `bracket-io` to guarantee resources are released, even when exceptions are t
     (fn (source exit-case)
       (if (== Completed exit-case)
           (close-data-source source)
+
           (report-data-source source)))
     (fn (source)
       (process-source source)))
@@ -147,6 +155,45 @@ You can get, copy, and set the current random state. The `random` functions supp
    (rs <- make-random-state)
    (set-current-random-state rs)
    (random_ 0.5))
+```
+
+### Threads
+
+The `fork` family of functions & macros spawn new threads that run an IO operation. 
+
+```lisp
+  (do
+   (do-fork
+     (write-line "Hello from thread A"))
+   (do-fork
+     (write-line "Hello from thread B"))
+   (sleep 2)
+   (write-line "Hello from main thread"))
+```
+
+Mutable variables can be shared across threads. Plain mutable variables from the `io/mut` package are **not** threadsafe, so this should generally be avoided. _coalton-io_ provides several other forms of mutable state that are suitable for sharing between threads.
+
+```lisp
+  (do
+   (msg <- (new-var ""))
+   (do-fork
+     (write msg "Hello from thread A"))
+   (sleep 1)
+   (msg-str <- (read msg))
+   (write-line msg-str)) ;; --> Hello from thread A (probably)
+```
+
+The `fork` functions and macros return a handle to the thread object, which can be used to interact with the thread, such as stopping its execution.
+
+```lisp
+  (do
+   (thread <-
+     (do-thread
+       (sleep 10)
+       end-the-world))
+   (stop thread)
+   (sleep 20)
+   (write-line "That was a close one"))
 ```
 
 ### Atomic Transactions (STM)
@@ -188,13 +235,6 @@ This (slightly longer) example program manages ticket sales with transactions. T
     (write-line "Customers who bought tickets:")
     (foreach-io_ customers-with-tickets write-line))
 ```
-
-## Examples
-
-_coalton-io_ has two example programs to demonstrate how to use the `IO` type:
-
-* [Hangman](examples/hangman.lisp) - Play a game of hangman in the terminal. Shows `IO` basics and terminal IO.
-* [Channels & Threading](examples/channels-threading.lisp) - Multithreaded application to process an input data file. Shows how to mix different `IO` effects, multithreading, and passing data safely between threads.
 
 ## TODOs
 
