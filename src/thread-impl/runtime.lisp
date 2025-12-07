@@ -277,7 +277,7 @@ thread is alive before interrupting."
   (inline)
   (declare unmask-inner% (IoThread -> Unit))
   (define (unmask-inner% thread)
-    (unmask-finally!% thread (fn (_) ())))
+    (unmask-finally!% thread (const Unit)))
 
   (inline)
   (declare unmask% (MonadIo :m => IoThread -> :m Unit))
@@ -285,7 +285,7 @@ thread is alive before interrupting."
     (wrap-io (unmask-inner% thread)))
 
   (inline)
-  (declare unmask-finally% ((MonadUnliftIo :r :io) (LiftTo :r :m) => IoThread -> :r Unit -> :m Unit))
+  (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m) => IoThread -> :r Unit -> :m Unit))
   (define (unmask-finally% thread thunk)
     (lift-to
      (with-run-in-io
@@ -298,7 +298,7 @@ thread is alive before interrupting."
     (unmask-finally!% (current-io-thread%) thunk))
 
   (inline)
-  (declare unmask-current-thread-finally% ((MonadUnliftIo :r :io) (LiftTo :r :m) => :r Unit -> :m Unit))
+  (declare unmask-current-thread-finally% ((UnliftIo :r :io) (LiftTo :r :m) => :r Unit -> :m Unit))
   (define (unmask-current-thread-finally% thunk)
     (lift-to
      (with-run-in-io
