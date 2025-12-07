@@ -101,6 +101,45 @@
   (is (== (Tuple None 0)
           result)))
 
+(define-test test-or-else-tx1-write ()
+  (let result =
+    (run-io!
+     (do
+      (a <- (new-tvar 0))
+      (do-run-tx
+        (or-else (write-tvar a 10)
+                 (write-tvar a 20))
+        (read-tvar a)))))
+  (is (== 10 result)))
+
+(define-test test-or-else-tx1-retry-tx2-write ()
+  (let result =
+    (run-io!
+     (do
+      (a <- (new-tvar 0))
+      (do-run-tx
+        (or-else retry
+                 (write-tvar a 20))
+        (read-tvar a)))))
+  (is (== 20 result)))
+
+(define-test test-or-else-tx1-write-retry-tx2-write ()
+  (let result =
+    (run-io!
+     (do
+      (a <- (new-tvar 0))
+      (b <- (new-tvar 0))
+      (do-run-tx
+        (or-else (do
+                  (write-tvar a 10)
+                  retry)
+                 (write-tvar b 20))
+        (a-val <- (read-tvar a))
+        (b-val <- (read-tvar b))
+        (pure (Tuple a-val b-val))))))
+  (let _ = (the (Tuple Integer Integer) result))
+  (is (== (Tuple 0 20) result)))
+
 ;;;
 ;;; Multi-threaded tests
 ;;;
@@ -231,3 +270,83 @@
   (is (== (make-list 10 -10) observed-bs))
   (is (== (make-list 100) observed-cs))
   (is (== (Tuple3 1 -10 100) result)))
+
+(define-test test-or-else-both-retry ()
+  (let result =
+    (run-io!
+     (do
+      (retried? <- (new-tvar False))
+      (a <- (new-tvar 0))
+      (b <- (new-tvar 0))
+      (retry-gate <- new-empty-mvar)
+      (thd <-
+        (do-fork-future
+          (do-run-tx
+            (or-else (do
+                      (retried? <- (read-tvar retried?))
+                      (if retried?
+                          (write-tvar a 10)
+                          (do
+                           (write-tvar a 5)
+                           (tx-io!% (put-mvar retry-gate Unit))
+                           retry)))
+                     (do
+                      (write-tvar b 20)
+                      retry)))))
+      ;; Wait for both transactions to fail the first time
+      (take-mvar retry-gate)
+      (run-tx (write-tvar retried? True))
+      ;; Wait for final transaction to finish
+      (await thd)
+      ;; Check the results
+      (a-val <- (run-tx (read-tvar a)))
+      (b-val <- (run-tx (read-tvar b)))
+      (pure (Tuple a-val b-val)))))
+  (let _ = (the (Tuple Integer Integer) result))
+  (is (== (Tuple 10 0) result)))
+
+;; Any variables that the first TX reads should cause the entire or-else transaction
+;; to retry if they become inconsistent, even if tx-2 winds up being committed.
+
+(define-test test-or-else-tx1-commit-log ()
+  (let (Tuple4 count-1-run count-2-run tx1-successfully-wrote tx2-successfully-wrote) =
+    (run-io!
+     (do
+      (count-1-run <- (new-var 0))
+      (count-2-run <- (new-var 0))
+      (read-in-tx1 <- (new-tvar 0))
+      (write-in-tx1 <- (new-tvar False))
+      (write-in-tx2 <- (new-tvar False))
+      (retry-gate <- new-empty-mvar)
+      (allow-tx2-finish-gate <- new-empty-mvar)
+      (thd <-
+        (do-fork-future
+          (do-run-tx
+            (or-else (do
+                      (tx-io!% (modify count-1-run 1+))
+                      (read-tvar read-in-tx1)
+                      (write-tvar write-in-tx1 True)
+                      retry)
+                     (do
+                      (tx-io!% (modify count-2-run 1+))
+                      (write-tvar write-in-tx2 True)
+                      (tx-io!% (try-put-mvar retry-gate Unit))
+                      (tx-io!% (take-mvar allow-tx2-finish-gate)))))))
+      ;; Wait for tx-2 to finish the first time
+      (take-mvar retry-gate)
+      (run-tx (write-tvar read-in-tx1 -100)) ; Dirtying tx1's read log should trigger or-else to re-run
+      (put-mvar allow-tx2-finish-gate Unit)
+      ;; Allow tx-2 to complete the second time
+      (put-mvar allow-tx2-finish-gate Unit)
+      ;; Wait for final transaction to finish
+      (await thd)
+      ;; Check the results
+      (count-1-run <- (read count-1-run))
+      (count-2-run <- (read count-2-run))
+      (write-in-tx1 <- (run-tx (read-tvar write-in-tx1)))
+      (write-in-tx2 <- (run-tx (read-tvar write-in-tx2)))
+      (pure (Tuple4 count-1-run count-2-run write-in-tx1 write-in-tx2)))))
+  (is (== 2 count-1-run))
+  (is (== 2 count-2-run))
+  (is (== False tx1-successfully-wrote))
+  (is (== True tx2-successfully-wrote)))

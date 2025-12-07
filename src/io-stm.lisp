@@ -29,6 +29,7 @@
    #:read-tvar
    #:write-tvar
    #:retry
+   #:or-else
    #:run-tx
    #:do-run-tx
 
@@ -56,6 +57,10 @@
     (retry
      "Retry the current operation because the observed state is invalid."
      (STM :m :a))
+    (or-else
+     "Run TX-A. If it signals a retry, run TX-b. If both transactions signal a
+retry, then the entire transaction retries."
+     (STM :m :a -> STM :m :a -> STM :m :a))
     (run-tx
      "Run an atomic transaction. If the transaction raises an exception,
 the transaction is aborted and the exception is re-raised."
@@ -68,6 +73,7 @@ the transaction is aborted and the exception is re-raised."
      (define read-tvar read-tvar%)
      (define write-tvar write-tvar%)
      (define retry retry%)
+     (define or-else or-else%)
      (define run-tx run-tx%)))
 
 (coalton-toplevel
@@ -85,6 +91,7 @@ Example:
      (define read-tvar read-tvar)
      (define write-tvar write-tvar)
      (define retry retry)
+     (define or-else or-else%)
      (define run-tx run-tx)))
 
 (coalton-toplevel

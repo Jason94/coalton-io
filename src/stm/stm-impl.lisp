@@ -9,10 +9,13 @@
    #:io/exception
    )
   (:local-nicknames
+   (:opt #:coalton-library/optional)
+   (:i #:coalton-library/iterator)
    (:c #:coalton-library/cell)
    (:a #:coalton-threads/atomic)
    (:lk  #:coalton-threads/lock)
    (:cv  #:coalton-threads/condition-variable)
+   ;; (:ax #:alexandria)
    )
   (:export
    #:TVar
@@ -21,6 +24,7 @@
    #:read-tvar%
    #:write-tvar%
    #:retry%
+   #:or-else%
    #:run-tx%
    )
   )
@@ -87,7 +91,18 @@
   (define-struct TxData%
     (lock-snapshot (c:cell a::Word))
     (read-log (c:cell (List ReadEntry%)))
-    (write-log WriteHashTable%))
+    (write-log WriteHashTable%)
+    (parent-tx (c:cell (Optional TxData%))))
+
+  ;; (inline)
+  ;; (declare copy-txdata% (TxData% -> TxData%))
+  ;; (define (copy-txdata% tx-data)
+  ;;   (let write-log = (.write-log tx-data))
+  ;;   (TxData%
+  ;;    (c:new (c:read (.lock-snapshot tx-data)))
+  ;;    (c:new (c:read (.read-log tx-data)))
+  ;;    (lisp WriteHashTable% (write-log)
+  ;;        (ax:copy-hash-table write-log))))
 
   (repr :transparent)
   (define-type (STM :io :a)
@@ -172,8 +187,8 @@ conditions. DONT USE THIS!"
     (define lifta2 lifta2))
 
   (inline)
-  (declare flatmax-tx% (Monad :io => STM :io :a -> (:a -> STM :io :b) -> STM :io :b))
-  (define (flatmax-tx% tx fa->stmb)
+  (declare flatmap-tx% (Monad :io => STM :io :a -> (:a -> STM :io :b) -> STM :io :b))
+  (define (flatmap-tx% tx fa->stmb)
     (STM%
      (fn (tx-data)
        (matchM (run-stm% tx-data tx)
@@ -187,7 +202,7 @@ conditions. DONT USE THIS!"
 
   (define-instance (Monad :io => Monad (STM :io))
     (inline)
-    (define >>= flatmax-tx%))
+    (define >>= flatmap-tx%))
 
   (define-instance ((MonadException :io) (MonadIo :io) => MonadException (STM :io))
     (inline)
@@ -270,6 +285,18 @@ conditions. DONT USE THIS!"
                 (Some val)
                 None))))
 
+  (declare tx-logged-write-value% (TxData% -> :a -> Optional Anything))
+  (define (tx-logged-write-value% tx-data key)
+    (match (logged-write-value% (.write-log tx-data) key)
+      ((Some val)
+       (Some val))
+      ((None)
+       (match (c:read (.parent-tx tx-data))
+         ((Some parent-tx)
+          (tx-logged-write-value% parent-tx key))
+         ((None)
+          None)))))
+
   (inline)
   (declare log-write-value% (WriteHashTable% -> TVar :a -> :a -> Unit))
   (define (log-write-value% write-log addr val)
@@ -280,7 +307,7 @@ conditions. DONT USE THIS!"
   (inline)
   (declare commit-logged-writes (WriteHashTable% -> Unit))
   (define (commit-logged-writes write-log)
-    "Actually set the TVar's value to their corresponding logged write value."
+    "Actually set the TVar's value to its corresponding logged write value."
     (lisp :a (write-log)
       (cl:loop :for addr :being :the :hash-keys :of write-log
          :using (hash-value value)
@@ -291,12 +318,67 @@ conditions. DONT USE THIS!"
   (define (new-tx-data% initial-snapshot)
     (TxData% (c:new initial-snapshot)
              (c:new Nil)
-             (new-write-hash-table%)))
+             (new-write-hash-table%)
+             (c:new None)))
+
+  (inline)
+  (declare child-tx-data% (TxData% -> TxData%))
+  (define (child-tx-data% tx-data)
+    (let new-tx-data = (new-tx-data% (c:read (.lock-snapshot tx-data))))
+    (c:write! (.parent-tx new-tx-data) (Some tx-data))
+    new-tx-data)
+
+  (declare merge-read-log-into-parent-tx% (TxData% -> Unit))
+  (define (merge-read-log-into-parent-tx% tx-data)
+    "Merge only child tx's snapshot and read log into its parents.
+For safety, disconnects the transactions when done."
+    (let parent-tx? = (c:read (.parent-tx tx-data)))
+    (match parent-tx?
+      ((None) Unit)
+      ((Some parent-tx)
+       (c:write! (.lock-snapshot parent-tx)
+                 (c:read (.lock-snapshot tx-data)))
+       (c:write! (.read-log parent-tx)
+                 (<> (c:read (.read-log tx-data))
+                     (c:read (.read-log parent-tx))))
+       (c:write! (.parent-tx tx-data) None)
+       Unit)))
+
+  (declare merge-into-parent-tx% (TxData% -> Unit))
+  (define (merge-into-parent-tx% tx-data)
+    "Merge child tx's snapshot, read log, and write log into its parents.
+For safety, disconnects the transactions when done."
+    (let parent-tx? = (c:read (.parent-tx tx-data)))
+    (match parent-tx?
+      ((None) Unit)
+      ((Some parent-tx)
+       (c:write! (.lock-snapshot parent-tx)
+                 (c:read (.lock-snapshot tx-data)))
+       (c:write! (.read-log parent-tx)
+                 (<> (c:read (.read-log tx-data))
+                     (c:read (.read-log parent-tx))))
+       (let tx-write-log = (.write-log tx-data))
+       (let pt-write-log = (.write-log parent-tx))
+       (lisp Void (tx-write-log pt-write-log)
+         (cl:loop :for addr :being :the :hash-keys :of tx-write-log
+            :using (hash-value value)
+            :do (cl:setf (cl:gethash addr pt-write-log) value)))
+       (c:write! (.parent-tx tx-data) None)
+       Unit)))
 
   (inline)
   (declare cached-snapshot (TxData% -> a::Word))
   (define (cached-snapshot tx-data)
     (c:read (.lock-snapshot tx-data)))
+
+  (declare iterate-read-log (TxData% -> i:Iterator ReadEntry%))
+  (define (iterate-read-log tx-data)
+    (let base-iter = (i:into-iter (c:read (.read-log tx-data))))
+    (match (c:read (.parent-tx tx-data))
+      ((None)
+       base-iter)
+      ((Some parent-tx)
+       (i:chain! base-iter (iterate-read-log parent-tx)))))
 
   (inline)
   (declare log-read-value (TVar :a -> :a -> TxData% -> Unit))
@@ -390,19 +472,20 @@ conditions. DONT USE THIS!"
       (if (bit-odd? start-time)
             (%)
         (progn
+          (let read-log-iter = (iterate-read-log tx-data))
           (let check =
-            (rec %% ((rem-reads (c:read (.read-log tx-data))))
-              (match rem-reads
-                ((Nil)
+            (rec %% ((next-read? (i:next! read-log-iter)))
+              (match next-read?
+                ((None)
                  (if (== start-time (get-global-time))
                      (Some (TxContinue% start-time))
                      None))
-                ((Cons read-entry next-reads)
+                ((Some read-entry)
                  (if (not (unsafe-pointer-eq?
                            (read-entry-current-val% read-entry)
                            (read-entry-cached-val% read-entry)))
                      (Some TxAbort%)
-                     (%% next-reads))))))
+                     (%% (i:next! read-log-iter)))))))
           (match check
             ((None) (%))
             ((Some x) x))))))
@@ -412,7 +495,7 @@ conditions. DONT USE THIS!"
     (STM%
      (fn (tx-data)
        (wrap-io
-         (match (logged-write-value% (.write-log tx-data) tvar)
+         (match (tx-logged-write-value% tx-data tvar)
            ((Some written-val)
             (TxSuccess (from-anything written-val)))
            ((None)
@@ -443,6 +526,8 @@ conditions. DONT USE THIS!"
   (declare tx-commit-io% (MonadIo :m => TxData% -> :m Boolean))
   (define (tx-commit-io% tx-data)
     (wrap-io
+      (when (opt:some? (c:read (.parent-tx tx-data)))
+        (error "Cannot commit a nested transaction."))
       (if (read-only? tx-data)
           True
           (progn
@@ -475,6 +560,23 @@ conditions. DONT USE THIS!"
      (fn (_)
       (wrap-io
         TxRetryAfterWrite))))
+
+  (declare or-else% (MonadIo :m => STM :m :a -> STM :m :a -> STM :m :a))
+  (define (or-else% tx-a tx-b)
+    (STM%
+     (fn (tx-data)
+       (do
+         (let a-tx-data = (child-tx-data% tx-data))
+         (matchM (run-stm% a-tx-data tx-a)
+           ((TxFailed)
+            (merge-into-parent-tx% a-tx-data)
+            (pure TxFailed))
+           ((TxSuccess val)
+            (merge-into-parent-tx% a-tx-data)
+            (pure (TxSuccess val)))
+           ((TxRetryAfterWrite)
+            (merge-read-log-into-parent-tx% a-tx-data)
+            (run-stm% tx-data tx-b)))))))
 
   (declare run-tx% ((MonadIo :m) (MonadException :m) => STM :m :a -> :m :a))
   (define (run-tx% tx)
