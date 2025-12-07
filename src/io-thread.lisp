@@ -7,6 +7,8 @@
    #:coalton-library/monad/classes
    #:io/utils
    #:io/monad-io
+   #:io/exception
+   #:io/resource
    #:io/thread-impl/runtime
    )
   (:import-from #:coalton-library/experimental/do-control-loops-adv
@@ -35,6 +37,8 @@
    #:unmask
    #:unmask-current
    #:stop
+   #:with-mask
+   #:do-with-mask
    
    #:implement-monad-io-thread
    ))
@@ -82,7 +86,26 @@ stopped after being unmasked N times."
      "Stop a thread. If the thread has already stopped, does nothing."
      (:t -> :m Unit)))
 
+  ;;
+  ;; Thread Masking Helpers
+  ;;
+
+  (declare with-mask ((MonadIoThread :m IoThread) (MonadException :m)
+                      => :m :a -> :m :a))
+  (define (with-mask op)
+    "Mask the current thread while running OP, automatically unmasking
+afterward."
+    (bracket-io_ mask-current
+                 (const unmask-current)
+                 (fn (_) op)))
   )
+
+(cl:defmacro do-with-mask (cl:&body body)
+  "Evaluate BODY with the current thread masked, automatically unmasking
+afterward."
+  `(with-mask
+     (do
+      ,@body)))
 
 (cl:defmacro implement-monad-io-thread (monad)
   `(define-instance (MonadIoThread ,monad IoThread)
