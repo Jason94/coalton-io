@@ -1,5 +1,6 @@
 (defpackage :coalton-io/tests/thread
   (:use #:coalton #:coalton-prelude #:coalton-testing
+        #:io/utils
         #:io/simple-io
         #:io/thread
         #:io/mut
@@ -38,7 +39,7 @@
       (do
         (lock <- (wrap-io (lk:new)))
         (flag <- (new-var Unset))
-        (fork
+        (fork_
           (do
             (wrap-io (lk:acquire lock))
             (write flag Set)
@@ -64,7 +65,7 @@
       (do
         (lock <- (wrap-io (lk:new)))
         (flag <- (new-var Unset))
-        (do-fork
+        (do-fork_
           (wrap-io (lk:acquire lock))
           (write flag Set)
           (wrap-io (lk:release lock)))
@@ -93,7 +94,7 @@
       (gate <- new-empty-mvar)
       (flag <- (new-var Unset))
       (thread <-
-        (do-fork
+        (do-fork_
           (put-mvar gate Unit)
           (sleep 2)
           (write flag Set)))
@@ -109,10 +110,12 @@
      (do
       (pass-inner-handle <- new-empty-mvar)
       (outer-handle <-
-        (do-fork
+        (do-fork_
           (inner-handle <- current-thread)
           (put-mvar pass-inner-handle inner-handle)))
       (inner-handle <- (take-mvar pass-inner-handle))
+       (write-line-sync (build-str "Outer handle: " (force-string outer-handle)))
+       (write-line-sync (build-str "Inner handle: " (force-string inner-handle)))
       (pure (Tuple outer-handle inner-handle)))))
   (is (== outer-handle inner-handle)))
 
@@ -120,18 +123,29 @@
   (let result =
     (run-io!
      (do
+      (write-line-sync "")
+      (write-line-sync "---")
+      (write-line-sync "")
       (masked-gate <- new-empty-mvar)
       (stopped-gate <- new-empty-mvar)
       (value <- new-empty-mvar)
       (thread <-
-        (do-fork
+        (do-fork_
+          (thrd <- current-thread)
+          (write-line-sync (build-str "Inner thrd: " (force-string thrd)))
           mask-current
+          (write-line-sync "About to put mvar")
           (put-mvar masked-gate Unit)
+          (write-line-sync "Finished putting mvar")
           (take-mvar stopped-gate)
+          (write-line-sync "Finished taking mvar")
           (put-mvar value 10)))
+      (write-line-sync (build-str "Outer thrd: " (force-string thread)))
       ;; Wait for the thread to mask itself before stopping it
       (take-mvar masked-gate)
+      (write-line-sync "Attempting to stop")
       (stop thread)
+      (write-line-sync "Stop sent")
       (put-mvar stopped-gate Unit)
       (take-mvar value))))
   (is (== result 10)))
@@ -144,7 +158,7 @@
       (stopped-gate <- new-empty-mvar)
       (value <- new-empty-mvar)
       (thread <-
-        (do-fork
+        (do-fork_
           mask-current
           unmask-current
           (put-mvar masked-gate Unit)
@@ -167,7 +181,7 @@
       (stopped-gate <- new-empty-mvar)
       (value <- new-empty-mvar)
       (thread <-
-        (do-fork
+        (do-fork_
           mask-current
           (put-mvar masked-gate Unit)
           (take-mvar stopped-gate)
@@ -191,7 +205,7 @@
       (stopped-gate <- new-empty-mvar)
       (value <- new-empty-mvar)
       (thread <-
-        (do-fork
+        (do-fork_
           mask-current
           mask-current
           unmask-current

@@ -48,7 +48,7 @@
   (define-type-alias TermStubM (ft:FreeT TermStubF))
   (define-type-alias TermStub (TermStubM id:Identity))
 
-  (define-instance (Monad :m => MonadIoTerm (TermStubM :m))
+  (define-instance (MonadIo :m => MonadIoTerm (TermStubM :m))
     (inline)
     (define (write into-str)
       (f:liftF (Write% (into into-str) Unit)))

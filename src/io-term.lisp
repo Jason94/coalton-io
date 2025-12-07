@@ -27,7 +27,7 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (define-class (Monad :m => MonadIoTerm :m)
+  (define-class (MonadIo :m => MonadIoTerm :m)
     (write
      "Write a string to standard output."
      (Into :a String => :a -> :m Unit))

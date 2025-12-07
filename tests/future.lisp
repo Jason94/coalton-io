@@ -16,7 +16,7 @@
     (run-io!
      (do
       (fut <-
-        (do-fork-future
+        (do-fork-future_
           (pure 1)))
       (x <- (await fut))
       (pure x))))
@@ -27,7 +27,7 @@
     (run-io!
      (do
       (fut <-
-        (do-fork-future
+        (do-fork-future_
           (raise "Error")
           (pure 1)))
       (x? <- (try (await fut)))

@@ -12,6 +12,7 @@
    (:b #:coalton-library/bits)
    (:v #:coalton-library/vector)
    (:t #:coalton-threads/thread)
+   (:t/l #:coalton-threads/lock)
    (:at #:coalton-threads/atomic)
    (:bt #:bordeaux-threads-2)
    )
@@ -37,6 +38,8 @@
    #:unmask-current-thread-finally!%
    #:unmask-current-thread-finally%
    #:unmask-current-thread!%
+
+   #:write-term-lock%
    ))
 (in-package :io/thread-impl/runtime)
 
@@ -50,6 +53,13 @@
 ;;; ues any of this, and you'd provide your own implementation of the MonadIoThread interface.
 
 (coalton-toplevel
+
+  (define write-term-lock% (t/l:new))
+
+  (define (write-line-sync msg)
+    (t/l:acquire write-term-lock%)
+    (trace msg)
+    (t/l:release write-term-lock%))
 
   (declare atomic-fetch-or (at:AtomicInteger -> Word -> Word))
   (define (atomic-fetch-or at-int mask)
@@ -188,7 +198,9 @@ thread is alive before interrupting."
   (inline)
   (declare current-thread% (MonadIo :m => :m IoThread))
   (define current-thread%
-    (wrap-io (current-io-thread%)))
+    (wrap-io
+      (lisp IoThread ()
+        *current-thread*)))
 
   (inline)
   (declare fork% ((MonadIo :m) (UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m IoThread))
@@ -253,7 +265,9 @@ thread is alive before interrupting."
   (inline)
   (declare mask-current-thread!% (Unit -> Unit))
   (define (mask-current-thread!%)
-    (mask-inner% (current-io-thread%)))
+    (mask-inner%
+     (lisp IoThread ()
+       *current-thread*)))
 
   (inline)
   (declare mask-current-thread% (MonadIo :m => :m Unit))
@@ -262,6 +276,7 @@ thread is alive before interrupting."
 
   (declare unmask-finally!% (IoThread -> (Unit -> Unit) -> Unit))
   (define (unmask-finally!% thread thunk)
+    (write-line-sync (build-str "unmask-finally!% targeting: " (force-string thread)))
     (let flags = (.flags thread))
     (let flag-state =
       (rec % ()
@@ -273,6 +288,23 @@ thread is alive before interrupting."
     (thunk Unit)
     (when (matches-flag flag-state PENDING-KILL)
       (interrupt-iothread% thread)))
+
+  (declare unmask-finally-current!% ((Unit -> Unit) -> Unit))
+  (define (unmask-finally-current!% thunk)
+    (let thread = (current-io-thread%))
+    (write-line-sync (build-str "unmask-finally-current!% on: " (force-string thread)))
+    (let flags = (.flags thread))
+    (let flag-state =
+      (rec % ()
+        (let old = (at:read flags))
+        (let new = (unmask-once% old))
+        (if (at:cas! flags old new)
+            new
+            (%))))
+    (thunk Unit)
+    (when (matches-flag flag-state PENDING-KILL)
+      (write-line-sync "Stopping current thread")
+      (interrupt-current-thread%)))
 
   (inline)
   (declare unmask-inner% (IoThread -> Unit))
@@ -295,7 +327,7 @@ thread is alive before interrupting."
   (inline)
   (declare unmask-current-thread-finally!% ((Unit -> Unit) -> Unit))
   (define (unmask-current-thread-finally!% thunk)
-    (unmask-finally!% (current-io-thread%) thunk))
+    (unmask-finally-current!% thunk))
 
   (inline)
   (declare unmask-current-thread-finally% ((UnliftIo :r :io) (LiftTo :r :m) => :r Unit -> :m Unit))
@@ -308,7 +340,9 @@ thread is alive before interrupting."
   (inline)
   (declare unmask-current-thread!% (Unit -> Unit))
   (define (unmask-current-thread!%)
-    (unmask-inner% (current-io-thread%)))
+    (unmask-inner%
+     (lisp IoThread ()
+       *current-thread*)))
 
   (inline)
   (declare unmask-current-thread% (MonadIo :m => :m Unit))
@@ -319,8 +353,11 @@ thread is alive before interrupting."
   (declare stop% (MonadIo :m => IoThread -> :m Unit))
   (define (stop% thread)
     (wrap-io
+      (write-line-sync (build-str "stop% thread to stop: " (force-string thread)))
       (let flag-state = (atomic-fetch-or (.flags thread) PENDING-KILL))
+      (write-line-sync (build-str "stop% flagstate" flag-state))
       (when (unmasked? flag-state)
+        (write-line-sync "stop% - sending stop!!!")
         (interrupt-iothread% thread))))
 
   )

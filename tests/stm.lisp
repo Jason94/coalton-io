@@ -164,7 +164,7 @@
       (x <- (new-tvar 0))
       (retry-gate <- new-empty-mvar)
       (result-fut <-
-        (do-fork-future
+        (do-fork-future_
          (do-run-tx
            (n-retries <- (tx-io!% (read retry-count)))
            (x-val <- (read-tvar x))
@@ -197,7 +197,7 @@
       (read-gate <- new-empty-mvar)
       (write-gate <- new-empty-mvar)
       (result-fut <-
-        (fork-future
+        (fork-future_
          (do-run-tx
            (a-val <- (read-tvar a))
            (tx-io!% (modify observed-as (Cons a-val)))
@@ -208,7 +208,7 @@
            (b-val <- (read-tvar b))
            (tx-io!% (modify observed-bs (Cons b-val)))
            (pure (Tuple a-val b-val)))))
-      (do-fork
+      (do-fork_
         (take-mvar read-gate)
         (do-run-tx
           (write-tvar a 1)
@@ -241,7 +241,7 @@
       (read-gate <- new-empty-mvar)
       (write-gate <- new-empty-mvar)
       (result-fut <-
-        (fork-future
+        (fork-future_
          (do-run-tx
            (a-val <- (read-tvar a))
            (tx-io!% (modify observed-as (Cons a-val)))
@@ -292,7 +292,7 @@
       (b <- (new-tvar 0))
       (retry-gate <- new-empty-mvar)
       (thd <-
-        (do-fork-future
+        (do-fork-future_
           (do-run-tx
             (or-else (do
                       (retried? <- (read-tvar retried?))
@@ -332,7 +332,7 @@
       (retry-gate <- new-empty-mvar)
       (allow-tx2-finish-gate <- new-empty-mvar)
       (thd <-
-        (do-fork-future
+        (do-fork-future_
           (do-run-tx
             (or-else (do
                       (tx-io!% (modify count-1-run 1+))

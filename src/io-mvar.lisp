@@ -140,7 +140,10 @@ they can block this thread until another thread takes the MVar."
                      (unmask-current-thread!%)
                      x)
                     ((None)
-                     (cv:await (.cvar mvar) (.lock mvar))
+                     (unmask-current-thread-finally!%
+                      (fn ()
+                        (cv:await (.cvar mvar) (.lock mvar))))
+                     (mask-current-thread!%)
                      (lp))))))
         (lp))))
 
@@ -161,7 +164,10 @@ they can block this thread until another thread takes the MVar."
                      (unmask-current-thread!%)
                      Unit)
                     ((Some _)
-                     (cv:await cvar lock)
+                     (unmask-current-thread-finally!%
+                      (fn ()
+                        (cv:await cvar lock)))
+                     (mask-current-thread!%)
                      (lp))))))
         (lp))))
 
@@ -211,7 +217,10 @@ they can block this thread until another thread takes the MVar."
                      (unmask-current-thread!%)
                      x)
                     ((None)
-                     (cv:await (.cvar mvar) (.lock mvar))
+                     (unmask-current-thread-finally!%
+                      (fn ()
+                        (cv:await (.cvar mvar) (.lock mvar))))
+                     (mask-current-thread!%)
                      (lp))))))
         (lp))))
 
@@ -246,7 +255,10 @@ they can block this thread until another thread takes the MVar."
                      (unmask-current-thread!%)
                      old-val)
                     ((None)
-                     (cv:await (.cvar mvar) (.lock mvar))
+                     (unmask-current-thread-finally!%
+                      (fn ()
+                        (cv:await (.cvar mvar) (.lock mvar))))
+                     (mask-current-thread!%)
                      (lp))))))
         (lp))))
 

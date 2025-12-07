@@ -9,6 +9,7 @@
    #:io/monad-io
    #:io/exception
    #:io/resource
+   #:io/term
    #:io/thread-impl/runtime
    )
   (:import-from #:coalton-library/experimental/do-control-loops-adv
@@ -16,7 +17,9 @@
   (:local-nicknames
    (:st #:coalton-library/monad/statet)
    (:env #:coalton-library/monad/environment)
-   (:io #:io/simple-io))
+   (:io #:io/simple-io)
+   (:t/l #:coalton-threads/lock)
+   )
   (:export
    ;; Re-export from the runtime
    #:IoThread
@@ -41,6 +44,8 @@
    #:stop
    #:with-mask
    #:do-with-mask
+
+   #:write-line-sync
    
    #:implement-monad-io-thread
    ))
@@ -108,6 +113,19 @@ afterward."
     (bracket-io_ mask-current
                  (const unmask-current)
                  (fn (_) op)))
+
+  ;;
+  ;; Other Threading Utilities
+  ;;
+
+  (declare write-line-sync ((Into :s String) (MonadIoTerm :m) => :s -> :m Unit))
+  (define (write-line-sync msg)
+    "Perform a synchrozied write-line to the terminal. Not performant - mainly useful
+for debugging."
+    (do
+     (wrap-io (t/l:acquire write-term-lock%))
+     (write-line msg)
+     (wrap-io (t/l:release write-term-lock%) Unit)))
   )
 
 (cl:defmacro do-with-mask (cl:&body body)
