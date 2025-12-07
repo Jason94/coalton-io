@@ -81,7 +81,7 @@ You can raise exceptions in `IO`. Any unhandled exceptions are thrown when the I
    (write-line "This won't run if str == ''"))
 ```
 
-Exceptions can be handled in several ways, including only handling exceptions of particular types. It's also possible to handle all exceptions:
+Exceptions can be handled in several ways, including only handling exceptions of particular types. For example, `handle-all` recovers from all exceptions:
 
 ```lisp
   (do
@@ -92,7 +92,7 @@ Exceptions can be handled in several ways, including only handling exceptions of
      (write-line str)))
 ```
 
-`wrap-io`, the main tool to run normal Coalton functions in `IO`, automatically handles any errors thrown from Coalton or Lisp:
+`wrap-io`, the main way to run normal Coalton functions in `IO`, automatically handles any errors thrown from Coalton or Lisp:
 
 ```lisp
   (do
@@ -103,6 +103,35 @@ Exceptions can be handled in several ways, including only handling exceptions of
                  (const (pure Nil))))
    (do-foreach (str file-data)
      (write-line str)))
+```
+
+### Terminal IO
+
+You can read and write to/from the terminal. Writing to the terminal supports any type with an `Into :a String` instance, not just `String`.
+
+```lisp
+  (define (prompt-integer)
+    (do
+     (write "Please enter an integer: ")
+     (input <- read-line)
+     (do-match (parse-int input)
+       ((None)
+        (prompt-integer))
+       ((Some x)
+        (write "You entered: ")
+        (write-line x)
+        (pure x)))))
+```
+
+### Random Numbers
+
+You can get, copy, and set the current random state. The `random` functions support generating numbers of several types from _[0, x)_:
+
+```lisp
+  (do
+   (rs <- make-random-state)
+   (set-current-random-state rs)
+   (random_ 0.5))
 ```
 
 ## Examples
