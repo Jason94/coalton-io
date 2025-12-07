@@ -105,6 +105,21 @@ Exceptions can be handled in several ways, including only handling exceptions of
      (write-line str)))
 ```
 
+### Resource Safety
+
+Use `bracket-io` to guarantee resources are released, even when exceptions are thrown. This wraps acquire, use, and cleanup in a single flow so files, connections, or locks never leak.
+
+```lisp
+  (bracket-io
+    (open-data-source)
+    (fn (source exit-case)
+      (if (== Completed exit-case)
+          (close-data-source source)
+          (report-data-source source)))
+    (fn (source)
+      (process-source source)))
+```
+
 ### Terminal IO
 
 You can read and write to/from the terminal. Writing to the terminal supports any type with an `Into :a String` instance, not just `String`.
