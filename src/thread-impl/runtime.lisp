@@ -77,14 +77,6 @@
         new
         (atomic-fetch-or at-int mask)))
 
-  (declare atomic-fetch-and (at:AtomicInteger -> Word -> Word))
-  (define (atomic-fetch-and at-int mask)
-    (let old = (at:read at-int))
-    (let new = (b:and old mask))
-    (if (at:cas! at-int old new)
-        new
-        (atomic-fetch-or at-int mask)))
-
   (inline)
   (declare matches-flag (Word -> Word -> Boolean))
   (define (matches-flag a b)
