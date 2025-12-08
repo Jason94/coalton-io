@@ -265,13 +265,10 @@ thread is alive before interrupting."
   (declare mask-inner% (IoThread -> Unit))
   (define (mask-inner% thread)
     (let flags = (.flags thread))
-    (write-line-sync% (build-str "mask-inner% on: " (force-string thread)))
     (let flag-state =
       (rec % ()
         (let old = (at:read flags))
         (let new = (mask-once% old))
-        (write-line-sync% (build-str "mask-inner% old" old))
-        (write-line-sync% (build-str "mask-inner% new" new))
         (if (at:cas! flags old new)
             new
             (%))))
@@ -297,7 +294,6 @@ thread is alive before interrupting."
 
   (declare unmask-finally!% (IoThread -> (UnmaskFinallyMode -> Unit) -> Unit))
   (define (unmask-finally!% thread thunk)
-    (write-line-sync% (build-str "unmask-finally!% targeting: " (force-string thread)))
     (let flags = (.flags thread))
     (let flag-state =
       (rec % ()
@@ -315,14 +311,11 @@ thread is alive before interrupting."
   (declare unmask-finally-current!% ((UnmaskFinallyMode -> Unit) -> Unit))
   (define (unmask-finally-current!% thunk)
     (let thread = (current-io-thread%))
-    (write-line-sync% (build-str "unmask-finally-current!% on: " (force-string thread)))
     (let flags = (.flags thread))
     (let flag-state =
       (rec % ()
         (let old = (at:read flags))
         (let new = (unmask-once% old))
-        (write-line-sync% (build-str "unmask-finally-current!% old" old))
-        (write-line-sync% (build-str "unmask-finally-current!% new" new))
         (if (at:cas! flags old new)
             new
             (%))))
@@ -381,11 +374,8 @@ thread is alive before interrupting."
   (declare stop% (MonadIo :m => IoThread -> :m Unit))
   (define (stop% thread)
     (wrap-io
-      (write-line-sync% (build-str "stop% thread to stop: " (force-string thread)))
       (let flag-state = (atomic-fetch-or (.flags thread) PENDING-KILL))
-      (write-line-sync% (build-str "stop% flagstate" flag-state))
       (when (unmasked? flag-state)
-        (write-line-sync% "stop% - sending stop!!!")
         (interrupt-iothread% thread))))
 
   )

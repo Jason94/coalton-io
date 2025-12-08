@@ -132,7 +132,6 @@ they can block this thread until another thread takes the MVar."
 or just release the LOCK."
     (unmask-current-thread-finally!%
      (fn (mode)
-       (write-line-sync% (build-str "In unmask-and-await-safely%, mode: " mode))
        (if (== Running mode)
            (cv:await cv lock)
            (progn
