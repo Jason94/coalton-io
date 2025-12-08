@@ -121,7 +121,6 @@
   (let result =
     (run-io!
      (do
-      (write-line-sync "")
       (masked-gate <- new-empty-mvar)
       (stopped-gate <- new-empty-mvar)
       (value <- new-empty-mvar)
@@ -129,18 +128,13 @@
         (do-fork_
           mask-current
           (put-mvar masked-gate Unit)
-          (write-line-sync "(Inner) Put to masked gate")
-          (write-line-sync "(Inner) Preparing to take from stopped gate")
           (take-mvar stopped-gate)
-          (write-line-sync "(Inner) Took from stopped gate")
           (put-mvar value 10)
-          (write-line-sync "(Inner) Put to value")
           ))
       ;; Wait for the thread to mask itself before stopping it
       (take-mvar masked-gate)
       (stop thread)
       (put-mvar stopped-gate Unit)
-      (write-line-sync "(Outer) Put to stopped-gate")
       (take-mvar value))))
   (is (== result 10)))
 
