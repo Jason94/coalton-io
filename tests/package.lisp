@@ -23,8 +23,8 @@
                #:coalton-io/tests/mut-fiasco
                #:coalton-io/tests/random-fiasco
                #:coalton-io/tests/thread-fiasco
-               #:coalton-io/tests/future-fiasco
                #:coalton-io/tests/mvar-fiasco
+               #:coalton-io/tests/future-fiasco
                #:coalton-io/tests/io-atomic-fiasco
                #:coalton-io/tests/stm-fiasco
                )

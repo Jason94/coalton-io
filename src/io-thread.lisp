@@ -127,10 +127,7 @@ afterward."
   (define (write-line-sync msg)
     "Perform a synchrozied write-line to the terminal. Not performant - mainly useful
 for debugging."
-    (do
-     (wrap-io (t/l:acquire write-term-lock%))
-     (write-line msg)
-     (wrap-io (t/l:release write-term-lock%) Unit)))
+    (wrap-io (write-line-sync% msg) Unit))
   )
 
 (cl:defmacro do-with-mask (cl:&body body)

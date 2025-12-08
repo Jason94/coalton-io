@@ -20,6 +20,7 @@
                  (:file "io-random")
                  (:file "io-file")
                  (:file "thread-impl/runtime")
+                 (:file "thread-impl/data-broadcast-pool")
                  (:file "io-thread")
                  (:file "io-atomic")
                  (:file "io-mvar")

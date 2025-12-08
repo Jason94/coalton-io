@@ -9,16 +9,20 @@
    #:io/monad-io
    #:io/exception
    #:io/resource
-   #:io/thread-impl/runtime)
+   #:io/thread-impl/runtime
+   #:io/thread-impl/data-broadcast-pool
+   )
   (:import-from #:coalton-library/experimental/do-control-loops-adv
    #:LoopT)
   (:local-nicknames
-   (:c   #:coalton-library/cell)
    (:lk  #:coalton-threads/lock)
    (:cv  #:coalton-threads/condition-variable)
+   (:opt #:coalton-library/optional)
    (:st  #:coalton-library/monad/statet)
    (:env #:coalton-library/monad/environment)
-   (:io #:io/simple-io))
+   (:io #:io/simple-io)
+   (:at #:io/atomics_)
+   )
   (:export
    #:MVar
 
@@ -46,7 +50,7 @@
    #:new-empty-chan
    #:push-chan
    #:pop-chan
-   
+
    #:implement-monad-io-mvar
    ))
 (in-package :io/mvar)
@@ -62,15 +66,17 @@
     "A synchronized container that can be empty or hold one :a.
 Can put data into the container, blocking until it is empty.
 Can take data out of the container, blocking until it is full."
-    (lock lk:Lock)
-    (cvar cv:ConditionVariable)
-    (data (c:Cell (Optional :a))))
+    (lock                lk:Lock)
+    (read-broadcast-pool (DataBroadcastPool :a))
+    (notify-full         cv:ConditionVariable)
+    (notify-empty        cv:ConditionVariable)
+    (data                (at:Atomic (Optional :a))))
 
   (define-class (MonadIo :m => MonadIoMVar :m)
     "Manage synchronized containers of mutable state.
 
-All MVar operations are masked, so stopping a thread that's operating on MVar's
-won't leave those MVar's in an inoperable state. However, irresponsible stopping
+All critical MVar operations are masked, so stopping a thread that's operating on
+MVar's won't leave MVar's in an inoperable state. However, irresponsible stopping
 could still cause deadlocks, race conditions, etc. if other threads were
 depending on the stopped thread operating on an MVar to continue."
     (new-mvar
@@ -117,14 +123,22 @@ they can block this thread until another thread takes the MVar."
   (define (new-mvar% val)
     "Create a new MVar containing VAL."
     (wrap-io
-      (MVar (lk:new) (cv:new) (c:new (Some val)))))
+      (MVar (lk:new)
+            (new-broadcast-pool)
+            (cv:new)
+            (cv:new)
+            (at:new (Some val)))))
 
   (inline)
   (declare new-empty-mvar% (MonadIo :m => :m (MVar :a)))
   (define new-empty-mvar%
     "Create a new empty MVar."
     (wrap-io
-      (MVar (lk:new) (cv:new) (c:new None))))
+      (MVar (lk:new)
+            (new-broadcast-pool)
+            (cv:new)
+            (cv:new)
+            (at:new None))))
 
   (inline)
   (define (unmask-and-await-safely% cv lock)
@@ -144,15 +158,15 @@ or just release the LOCK."
       (mask-current-thread!%)
       (lk:acquire (.lock mvar))
       (let ((lp (fn ()
-                  (match (c:read (.data mvar))
+                  (match (at:read (.data mvar))
                     ((Some val)
-                     (c:write! (.data mvar) None)
+                     (at:atomic-write (.data mvar) None)
                      (lk:release (.lock mvar))
-                     (cv:notify (.cvar mvar))
+                     (cv:notify (.notify-empty mvar))
                      (unmask-current-thread!%)
                      val)
                     ((None)
-                     (unmask-and-await-safely% (.cvar mvar) (.lock mvar))
+                     (unmask-and-await-safely% (.notify-full mvar) (.lock mvar))
                      (mask-current-thread!%)
                      (lp))))))
         (lp))))
@@ -162,19 +176,19 @@ or just release the LOCK."
     (wrap-io
       (let lock = (.lock mvar))
       (let data = (.data mvar))
-      (let cvar = (.cvar mvar))
       (mask-current-thread!%)
       (lk:acquire lock)
       (let ((lp (fn ()
-                  (match (c:read data)
+                  (match (at:read data)
                     ((None)
-                     (c:write! data (Some val))
+                     (at:atomic-write data (Some val))
                      (lk:release lock)
-                     (cv:notify cvar)
+                     (publish (.read-broadcast-pool mvar) val)
+                     (cv:notify (.notify-full mvar))
                      (unmask-current-thread!%)
                      Unit)
                     ((Some _)
-                     (unmask-and-await-safely% cvar lock)
+                     (unmask-and-await-safely% (.notify-empty mvar) lock)
                      (mask-current-thread!%)
                      (lp))))))
         (lp))))
@@ -184,11 +198,11 @@ or just release the LOCK."
     (wrap-io
       (mask-current-thread!%)
       (lk:acquire (.lock mvar))
-      (match (c:read (.data mvar))
+      (match (at:read (.data mvar))
         ((Some x)
-         (c:write! (.data mvar) None)
+         (at:atomic-write (.data mvar) None)
          (lk:release (.lock mvar))
-         (cv:notify (.cvar mvar))
+         (cv:notify (.notify-empty mvar))
          (unmask-current-thread!%)
          (Some x))
         ((None)
@@ -201,51 +215,32 @@ or just release the LOCK."
     (wrap-io
       (mask-current-thread!%)
       (lk:acquire (.lock mvar))
-      (match (c:read (.data mvar))
+      (match (at:read (.data mvar))
         ((Some _)
          (lk:release (.lock mvar))
          (unmask-current-thread!%)
          False)
         ((None)
-         (c:write! (.data mvar) (Some val))
+         (at:atomic-write (.data mvar) (Some val))
          (lk:release (.lock mvar))
-         (cv:notify (.cvar mvar))
+         (publish (.read-broadcast-pool mvar) val)
+         (cv:notify (.notify-full mvar))
          (unmask-current-thread!%)
          True))))
 
   (declare read-mvar% (MonadIo :m => MVar :a -> :m :a))
   (define (read-mvar% mvar)
     (wrap-io
-      (mask-current-thread!%)
-      (lk:acquire (.lock mvar))
-      (let ((lp (fn ()
-                  (match (c:read (.data mvar))
-                    ((Some x)
-                     (lk:release (.lock mvar))
-                     (unmask-current-thread!%)
-                     x)
-                    ((None)
-                     (unmask-and-await-safely% (.cvar mvar) (.lock mvar))
-                     (mask-current-thread!%)
-                     (lp))))))
-        (lp))))
+      (match (at:read (.data mvar))
+        ((Some x)
+         x)
+        ((None)
+         (subscribe (.read-broadcast-pool mvar))))))
 
-  ;; TODO: Could this be lock-free?
   (declare try-read-mvar% (MonadIo :m => MVar :a -> :m (Optional :a)))
   (define (try-read-mvar% mvar)
     (wrap-io
-      (mask-current-thread!%)
-      (lk:acquire (.lock mvar))
-      (match (c:read (.data mvar))
-        ((Some x)
-         (lk:release (.lock mvar))
-         (cv:notify (.cvar mvar))
-         (unmask-current-thread!%)
-         (Some x))
-        ((None)
-         (lk:release (.lock mvar))
-         (unmask-current-thread!%)
-         None))))
+      (at:read (.data mvar))))
 
   (declare swap-mvar% (MonadIo :m => MVar :a -> :a -> :m :a))
   (define (swap-mvar% mvar new-val)
@@ -253,15 +248,15 @@ or just release the LOCK."
       (mask-current-thread!%)
       (lk:acquire (.lock mvar))
       (let ((lp (fn ()
-                  (match (c:read (.data mvar))
+                  (match (at:read (.data mvar))
                     ((Some old-val)
-                     (c:write! (.data mvar) (Some new-val))
+                     (at:atomic-write (.data mvar) (Some new-val))
                      (lk:release (.lock mvar))
-                     (cv:notify (.cvar mvar))
+                     (cv:notify (.notify-full mvar))
                      (unmask-current-thread!%)
                      old-val)
                     ((None)
-                     (unmask-and-await-safely% (.cvar mvar) (.lock mvar))
+                     (unmask-and-await-safely% (.notify-full mvar) (.lock mvar))
                      (mask-current-thread!%)
                      (lp))))))
         (lp))))
@@ -269,15 +264,7 @@ or just release the LOCK."
   (declare is-empty-mvar% (MonadIo :m => MVar :a -> :m Boolean))
   (define (is-empty-mvar% mvar)
     (wrap-io
-      (mask-current-thread!%)
-      (lk:acquire (.lock mvar))
-      (let result =
-        (match (c:read (.data mvar))
-          ((Some _) False)
-          ((None)   True)))
-      (lk:release (.lock mvar))
-      (unmask-current-thread!%)
-      result))
+      (opt:none? (at:read (.data mvar)))))
 
   (declare with-mvar% ((MonadIo :m) (UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
                        => MVar :a -> (:a -> :r :b) -> :m :b))

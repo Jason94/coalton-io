@@ -43,7 +43,6 @@
    #:unmask-current-thread-finally%
    #:unmask-current-thread!%
 
-   #:write-term-lock%
    #:write-line-sync%
    ))
 (in-package :io/thread-impl/runtime)
