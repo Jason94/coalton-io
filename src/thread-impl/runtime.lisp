@@ -96,12 +96,6 @@
   (define-exception ThreadingException
     (InterruptCurrentThread String))
 
-  ;; (define-instance (Signalable ThreadingException)
-  ;;   (define (error e)
-  ;;     (match e
-  ;;       ((InterruptCurrentThread)
-  ;;        (error "The thread tried to interrupt itself.")))))
-
   ;; TODO: (t:Thread :a) is just bt2:Thread. Given the design differences, this should
   ;; just use bt2 directly and coalton-threads dependency should be dropped.
 
@@ -183,7 +177,10 @@ thread is alive before interrupting."
            (interrupt-current-thread%)
            (lisp Unit (native-thread)
              (cl:when (bt:thread-alive-p native-thread)
-               (bt:destroy-thread native-thread)))))))
+               (bt:interrupt-thread native-thread
+                                    (cl:lambda ()
+                                      (coalton
+                                       (throw (InterruptCurrentThread "")))))))))))
   )
 
 ;; To make sure that child threads have access to their current thread, store it
