@@ -51,7 +51,7 @@
                       (f:exists? data-filename)))
      (do-when (not exists?)
        (write-line "Writing data file...")
-       (f:do-with-open-file (f_:Output (into data-filename) f_:Overwrite) (fs)
+       (f:do-with-open-file_ (f_:Output (into data-filename) f_:Overwrite) (fs)
          (do-loop-times (_ data-rows)
            (x <- (random_ data-max))
            (f:write-line fs (into x)))
@@ -61,7 +61,7 @@
   (declare reader-thread (mv:MChan (Optional String) -> IO Unit))
   (define (reader-thread mchan-input)
     (do
-     (f:do-with-open-file (f_:Input (into data-filename)) (fs)
+     (f:do-with-open-file_ (f_:Input (into data-filename)) (fs)
        (do-loop-while-valM (line (f:read-line fs))
          (mv:push-chan mchan-input (Some line)))
        (pure Unit))

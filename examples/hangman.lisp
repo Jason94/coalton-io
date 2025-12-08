@@ -233,7 +233,7 @@
     (do
      (n-words-var <- (m:new-var 0))
      (do-reraise
-         (f:do-with-open-file (f_:Input (into fname)) (fs)
+         (f:do-with-open-file_ (f_:Input (into fname)) (fs)
            (do-loop-while-valM (_ (f:read-line fs))
              (m:modify n-words-var (+ 1)))
            (pure Unit))
@@ -241,7 +241,7 @@
        (write-line "(This often happens from Slime, try using ',cd')"))
      (n-words <- (m:read n-words-var))
      (n-word <- (random_ n-words))
-     (f:do-with-open-file (f_:Input (into fname)) (fs)
+     (f:do-with-open-file_ (f_:Input (into fname)) (fs)
        (do-loop-times (_ n-word)
          (f:read-line fs))
        (raise-result
