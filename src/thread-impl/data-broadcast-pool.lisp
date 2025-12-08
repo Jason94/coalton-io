@@ -43,10 +43,8 @@
   (define (checkout!% version version-entries)
     "Checkout the data for VERSION, decrementing the number of remaining subscribers.
 Errors if the version can't be found."
-    (let checked-entries = (c:new Nil))
     (for entry in version-entries
       (let _ = (the (VersionEntry :a) entry))
-      (c:push! checked-entries entry)
       (when (== (.version entry) version)
         (at:atomic-dec1 (.remaining-subscribers entry))
         (return (.data entry))))
@@ -141,6 +139,7 @@ THE THREAD IS MASKED."
                Unit))))
       ;; Protect against spurious wake-ups
       (when (== version (at:read-at-int (.version pool)))
+        (mask-current-thread!%)
         (%)))
     (lk:release (.notify-lock pool))
     (checkout!% version (.version-entries pool)))
