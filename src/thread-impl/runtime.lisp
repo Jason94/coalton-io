@@ -22,6 +22,10 @@
    #:ThreadingException
    #:InterruptCurrentThread
 
+   #:UnmaskFinallyMode
+   #:Stopped
+   #:Running
+
    ;; Library Private
    #:current-thread%
    #:fork%
@@ -40,6 +44,7 @@
    #:unmask-current-thread!%
 
    #:write-term-lock%
+   #:write-line-sync%
    ))
 (in-package :io/thread-impl/runtime)
 
@@ -56,7 +61,7 @@
 
   (define write-term-lock% (t/l:new))
 
-  (define (write-line-sync msg)
+  (define (write-line-sync% msg)
     (t/l:acquire write-term-lock%)
     (trace msg)
     (t/l:release write-term-lock%))
@@ -121,6 +126,18 @@
     (handle (c:Cell (Optional (t:Thread Unit))))
     (flags  at:AtomicInteger))
 
+  (derive Eq)
+  (repr :enum)
+  (define-type UnmaskFinallyMode
+    Running
+    Stopped)
+
+  (define-instance (Into UnmaskFinallyMode String)
+    (define (into a)
+      (match a
+        ((Running) "Running")
+        ((Stopped) "Stopped"))))
+
   (define-instance (Eq IoThread)
     (define (== a b)
       (and (unsafe-pointer-eq? (.handle a) (.handle b))
@@ -147,6 +164,7 @@
   (define (unmasked? word)
     (zero? (lisp Word (word)
              (cl:ash word -1))))
+
   )
 
 (coalton-toplevel
@@ -247,10 +265,13 @@ thread is alive before interrupting."
   (declare mask-inner% (IoThread -> Unit))
   (define (mask-inner% thread)
     (let flags = (.flags thread))
+    (write-line-sync% (build-str "mask-inner% on: " (force-string thread)))
     (let flag-state =
       (rec % ()
         (let old = (at:read flags))
         (let new = (mask-once% old))
+        (write-line-sync% (build-str "mask-inner% old" old))
+        (write-line-sync% (build-str "mask-inner% new" new))
         (if (at:cas! flags old new)
             new
             (%))))
@@ -274,9 +295,9 @@ thread is alive before interrupting."
   (define mask-current-thread%
     (wrap-io_ mask-current-thread!%))
 
-  (declare unmask-finally!% (IoThread -> (Unit -> Unit) -> Unit))
+  (declare unmask-finally!% (IoThread -> (UnmaskFinallyMode -> Unit) -> Unit))
   (define (unmask-finally!% thread thunk)
-    (write-line-sync (build-str "unmask-finally!% targeting: " (force-string thread)))
+    (write-line-sync% (build-str "unmask-finally!% targeting: " (force-string thread)))
     (let flags = (.flags thread))
     (let flag-state =
       (rec % ()
@@ -285,26 +306,31 @@ thread is alive before interrupting."
         (if (at:cas! flags old new)
             new
             (%))))
-    (thunk Unit)
-    (when (matches-flag flag-state PENDING-KILL)
-      (interrupt-iothread% thread)))
+    (if (matches-flag flag-state PENDING-KILL)
+        (progn
+          (thunk Stopped)
+          (interrupt-iothread% thread))
+        (thunk Running)))
 
-  (declare unmask-finally-current!% ((Unit -> Unit) -> Unit))
+  (declare unmask-finally-current!% ((UnmaskFinallyMode -> Unit) -> Unit))
   (define (unmask-finally-current!% thunk)
     (let thread = (current-io-thread%))
-    (write-line-sync (build-str "unmask-finally-current!% on: " (force-string thread)))
+    (write-line-sync% (build-str "unmask-finally-current!% on: " (force-string thread)))
     (let flags = (.flags thread))
     (let flag-state =
       (rec % ()
         (let old = (at:read flags))
         (let new = (unmask-once% old))
+        (write-line-sync% (build-str "unmask-finally-current!% old" old))
+        (write-line-sync% (build-str "unmask-finally-current!% new" new))
         (if (at:cas! flags old new)
             new
             (%))))
-    (thunk Unit)
-    (when (matches-flag flag-state PENDING-KILL)
-      (write-line-sync "Stopping current thread")
-      (interrupt-current-thread%)))
+    (if (matches-flag flag-state PENDING-KILL)
+      (progn
+        (thunk Stopped)
+        (interrupt-current-thread%))
+      (thunk Running)))
 
   (inline)
   (declare unmask-inner% (IoThread -> Unit))
@@ -317,25 +343,27 @@ thread is alive before interrupting."
     (wrap-io (unmask-inner% thread)))
 
   (inline)
-  (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m) => IoThread -> :r Unit -> :m Unit))
+  (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m)
+                            => IoThread -> (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-finally% thread thunk)
     (lift-to
      (with-run-in-io
          (fn (run)
-           (wrap-io (unmask-finally!% thread (fn (_) (run! (run thunk)))))))))
+           (wrap-io (unmask-finally!% thread (fn (m) (run! (run (thunk m))))))))))
 
   (inline)
-  (declare unmask-current-thread-finally!% ((Unit -> Unit) -> Unit))
+  (declare unmask-current-thread-finally!% ((UnmaskFinallyMode -> Unit) -> Unit))
   (define (unmask-current-thread-finally!% thunk)
     (unmask-finally-current!% thunk))
 
   (inline)
-  (declare unmask-current-thread-finally% ((UnliftIo :r :io) (LiftTo :r :m) => :r Unit -> :m Unit))
+  (declare unmask-current-thread-finally% ((UnliftIo :r :io) (LiftTo :r :m)
+                                           => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-current-thread-finally% thunk)
     (lift-to
      (with-run-in-io
          (fn (run)
-           (wrap-io (unmask-current-thread-finally!% (fn (_) (run! (run thunk)))))))))
+           (wrap-io (unmask-current-thread-finally!% (fn (m) (run! (run (thunk m))))))))))
 
   (inline)
   (declare unmask-current-thread!% (Unit -> Unit))
@@ -353,11 +381,11 @@ thread is alive before interrupting."
   (declare stop% (MonadIo :m => IoThread -> :m Unit))
   (define (stop% thread)
     (wrap-io
-      (write-line-sync (build-str "stop% thread to stop: " (force-string thread)))
+      (write-line-sync% (build-str "stop% thread to stop: " (force-string thread)))
       (let flag-state = (atomic-fetch-or (.flags thread) PENDING-KILL))
-      (write-line-sync (build-str "stop% flagstate" flag-state))
+      (write-line-sync% (build-str "stop% flagstate" flag-state))
       (when (unmasked? flag-state)
-        (write-line-sync "stop% - sending stop!!!")
+        (write-line-sync% "stop% - sending stop!!!")
         (interrupt-iothread% thread))))
 
   )

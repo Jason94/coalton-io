@@ -126,6 +126,19 @@ they can block this thread until another thread takes the MVar."
     (wrap-io
       (MVar (lk:new) (cv:new) (c:new None))))
 
+  (inline)
+  (define (unmask-and-await-safely% cv lock)
+    "Unmask the thread. Finally, either await (still running) the CV
+or just release the LOCK."
+    (unmask-current-thread-finally!%
+     (fn (mode)
+       (write-line-sync% (build-str "In unmask-and-await-safely%, mode: " mode))
+       (if (== Running mode)
+           (cv:await cv lock)
+           (progn
+             (lk:release lock)
+             Unit)))))
+
   (declare take-mvar% (MonadIo :m => MVar :a -> :m :a))
   (define (take-mvar% mvar)
     (wrap-io
@@ -140,9 +153,7 @@ they can block this thread until another thread takes the MVar."
                      (unmask-current-thread!%)
                      x)
                     ((None)
-                     (unmask-current-thread-finally!%
-                      (fn ()
-                        (cv:await (.cvar mvar) (.lock mvar))))
+                     (unmask-and-await-safely% (.cvar mvar) (.lock mvar))
                      (mask-current-thread!%)
                      (lp))))))
         (lp))))
@@ -164,9 +175,7 @@ they can block this thread until another thread takes the MVar."
                      (unmask-current-thread!%)
                      Unit)
                     ((Some _)
-                     (unmask-current-thread-finally!%
-                      (fn ()
-                        (cv:await cvar lock)))
+                     (unmask-and-await-safely% cvar lock)
                      (mask-current-thread!%)
                      (lp))))))
         (lp))))
@@ -217,9 +226,7 @@ they can block this thread until another thread takes the MVar."
                      (unmask-current-thread!%)
                      x)
                     ((None)
-                     (unmask-current-thread-finally!%
-                      (fn ()
-                        (cv:await (.cvar mvar) (.lock mvar))))
+                     (unmask-and-await-safely% (.cvar mvar) (.lock mvar))
                      (mask-current-thread!%)
                      (lp))))))
         (lp))))
@@ -255,9 +262,7 @@ they can block this thread until another thread takes the MVar."
                      (unmask-current-thread!%)
                      old-val)
                     ((None)
-                     (unmask-current-thread-finally!%
-                      (fn ()
-                        (cv:await (.cvar mvar) (.lock mvar))))
+                     (unmask-and-await-safely% (.cvar mvar) (.lock mvar))
                      (mask-current-thread!%)
                      (lp))))))
         (lp))))

@@ -26,6 +26,10 @@
    #:ThreadingException
    #:InterruptCurrentThread
 
+   #:UnmaskFinallyMode
+   #:Stopped
+   #:Running
+
    ;; MonadIoThread interface
    #:MonadIoThread
    #:derive-monad-io-thread
@@ -87,7 +91,8 @@ stopped after being unmasked N times."
     (unmask-finally
      "Unmask the given thread, run the provided action, and then honor any
  pending stop for that thread after the action finishes."
-     ((UnliftIo :r :io) (LiftTo :r :m) => IoThread -> :r Unit -> :m Unit))
+     ((UnliftIo :r :io) (LiftTo :r :m)
+      => IoThread -> (UnmaskFinallyMode -> :r Unit) -> :m Unit))
     (unmask-current
      "Unmask the current thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
@@ -96,7 +101,7 @@ stopped after being unmasked N times."
     (unmask-current-finally
      "Unmask the current thread, run the provided action, and then honor any
  pending stop for that thread after the action finishes."
-     ((UnliftIo :r :io) (LiftTo :r :m) => :r Unit -> :m Unit))
+     ((UnliftIo :r :io) (LiftTo :r :m) => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
     (stop
      "Stop a thread. If the thread has already stopped, does nothing."
      (:t -> :m Unit)))
@@ -157,13 +162,13 @@ Example:
      (define current-thread (lift current-thread))
      (define fork fork%)
      (define sleep (compose lift sleep))
-    (define mask (compose lift mask))
-    (define mask-current (lift mask-current))
-    (define unmask (compose lift unmask))
-    (define unmask-finally unmask-finally%)
-    (define unmask-current (lift unmask-current))
-    (define unmask-current-finally unmask-current-thread-finally%)
-    (define stop (compose lift stop))))
+     (define mask (compose lift mask))
+     (define mask-current (lift mask-current))
+     (define unmask (compose lift unmask))
+     (define unmask-finally unmask-finally%)
+     (define unmask-current (lift unmask-current))
+     (define unmask-current-finally unmask-current-thread-finally%)
+     (define stop (compose lift stop))))
 
 (coalton-toplevel
 
