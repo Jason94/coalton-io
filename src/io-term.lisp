@@ -4,7 +4,8 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/functions
-   #:io/monad-io)
+   #:io/monad-io
+   #:io/classes/monad-io-term)
   (:import-from #:coalton-library/monad/statet
    #:StateT)
   (:import-from #:coalton-library/monad/environment
@@ -14,12 +15,14 @@
   (:local-nicknames
    (:io #:io/simple-io))
   (:export
+   ;; Re-exports from io/classes/monad-io-term
    #:MonadIoTerm
-   #:derive-monad-io-term
-
    #:write
    #:write-line
    #:read-line
+
+   ;; Remaining exports
+   #:derive-monad-io-term
    #:implement-monad-io-term
    ))
 (in-package :io/term)
@@ -27,17 +30,6 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (define-class (MonadIo :m => MonadIoTerm :m)
-    (write
-     "Write a string to standard output."
-     (Into :a String => :a -> :m Unit))
-    (write-line
-     "Write a string to standard output followed by a newline."
-     (Into :a String => :a -> :m Unit))
-    (read-line
-     "Read a line from standard input."
-     (:m String)))
-
   (declare write% ((Into :a String) (MonadIo :m) => :a -> :m Unit))
   (define (write% obj)
     (let str = (the String (into obj)))

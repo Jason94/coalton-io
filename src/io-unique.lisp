@@ -3,7 +3,8 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:io/monad-io)
+   #:io/monad-io
+   #:io/classes/monad-io-unique)
   (:import-from #:coalton-library/experimental/do-control-loops-adv
    #:LoopT)
   (:local-nicknames
@@ -11,12 +12,14 @@
    (:st #:coalton-library/monad/statet)
    (:env #:coalton-library/monad/environment))
   (:export
+   ;; Re-exports from io/classes/monad-io-unique
    #:MonadIoUnique
-   #:derive-monad-io-unique
    #:Unique
    #:new-unique
    #:to-int
-   
+
+   ;; Remaining exports
+   #:derive-monad-io-unique
    #:implement-monad-io-unique
    ))
 (in-package :io/unique)
@@ -24,37 +27,13 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (define-class (Monad :m => MonadIoUnique :m)
-    (new-unique
-     "Generate a value that will be unique within this run of the program.
-Threadsafe - calling from different threads will still result in unique
-values across all threads."
-     (:m Unique)))
-
-  (derive Eq)
-  (repr :transparent)
-  (define-type Unique (Unique% Integer))
-
-  (define-instance (Ord Unique)
-    (define (<=> (Unique% a) (Unique% b))
-      (<=> a b)))
-
   (declare counter% (at:Atomic Integer))
   (define counter%
     (at:new 0))
 
   (declare new-unique% (MonadIo :m => :m Unique))
   (define new-unique%
-    (wrap-io (Unique% (at:atomic-update-swap counter% (+ 1)))))
-
-  (inline)
-  (declare to-int (Unique -> Integer))
-  (define (to-int (Unique% i))
-    "Convert a unique value to an integer.
-
-It is guaranteed that: (/= (to-int a) (to-int b))
-for any two different Unique instances."
-    i))
+    (wrap-io (Unique% (at:atomic-update-swap counter% (+ 1))))))
 
 (cl:defmacro implement-monad-io-unique (monad)
   `(define-instance (MonadIoUnique ,monad)

@@ -5,6 +5,7 @@
    #:coalton-prelude
    #:coalton-library/functions
    #:coalton-library/experimental/do-control-core
+   #:io/classes/monad-io-random
    #:io/utils
    #:io/monad-io)
   (:import-from #:coalton-library/experimental/do-control-loops-adv
@@ -16,17 +17,20 @@
    (:env #:coalton-library/monad/environment)
    (:io #:io/simple-io))
   (:export
-   #:MonadIoRandom
-   #:derive-monad-io-random
-   #:implement-monad-io-random
-
+   ;; Re-export: io/classes/monad-io-random
+   #:RandomLimit
    #:RandomState
+   #:MonadIoRandom
    #:make-random-state
    #:copy-random-state
    #:get-current-random-state
    #:set-current-random-state
    #:random
    #:random_
+
+   ;; Remaining exports
+   #:derive-monad-io-random
+   #:implement-monad-io-random
 
    #:random-elt
    #:random-elt_
@@ -38,76 +42,31 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (define-class (Num :a => RandomLimit :a)
-    "A number that can be used to bound a random number value.")
-
-  (define-instance (RandomLimit UFix))
-  (define-instance (RandomLimit Integer))
-  (define-instance (RandomLimit F32))
-  (define-instance (RandomLimit F64))
-
-  (repr :native cl:random-state)
-  (define-type RandomState)
-
-  ;;
-  ;; IO Implementation
-  ;;
-
-  (declare make-random-state% (MonadIo :m => :m RandomState))
   (define make-random-state%
     (wrap-io (lisp :a ()
                (cl:make-random-state cl:t))))
 
-  (declare copy-random-state% (MonadIo :m => RandomState -> :m RandomState))
   (define (copy-random-state% rs)
     (wrap-io (lisp :a (rs)
                (cl:make-random-state rs))))
 
-  (declare get-current-random-state% (MonadIo :m => :m RandomState))
   (define get-current-random-state%
     (wrap-io (lisp :a ()
                cl:*random-state*)))
 
-  (declare set-current-random-state% (MonadIo :m => RandomState -> :m Unit))
   (define (set-current-random-state% rs)
     (wrap-io
       (lisp :a (rs)
         (cl:setf cl:*random-state* rs))
       Unit))
 
-  (declare random% ((RandomLimit :a) (MonadIo :m) => RandomState -> :a -> :m :a))
   (define (random% rs limit)
     (wrap-io (lisp :a (rs limit)
                (cl:random limit rs))))
 
-  (declare random_% ((RandomLimit :a) (MonadIo :m) => :a -> :m :a))
   (define (random_% limit)
     (wrap-io (lisp :a (limit)
                (cl:random limit))))
-
-  ;;
-  ;; MonadIoRandom Interface
-  ;;
-
-  (define-class (Monad :m => MonadIoRandom :m)
-    (make-random-state
-     "Create a fresh random state."
-     (:m RandomState))
-    (copy-random-state
-     "Create a copy of another random state, starting at the same seed."
-     (RandomState -> :m RandomState))
-    (get-current-random-state
-     "Get the current thread's random state."
-     (:m RandomState))
-    (set-current-random-state
-     "Set the current thread's random state."
-     (RandomState -> :m Unit))
-    (random
-     "Generate a random value less than LIMIT using the given random state."
-     (RandomLimit :a => RandomState -> :a -> :m :a))
-    (random_
-     "Generate a random value less than LIMIT using the current random state."
-     (RandomLimit :a => :a -> :m :a)))
 
   ;;
   ;; Extra Functions (Use MonadIoRandom functions)

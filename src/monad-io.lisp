@@ -5,6 +5,10 @@
    #:coalton-prelude
    #:coalton-library/functions
    #:coalton-library/monad/classes
+   #:io/classes/base-io
+   #:io/classes/monad-io
+   #:io/classes/lift-io
+   #:io/classes/unlift-io
    #:io/utils)
   (:import-from #:coalton-library/experimental/loops
    #:dolist)
@@ -17,20 +21,24 @@
    (:it #:coalton-library/iterator)
    (:c #:coalton-library/cell))
   (:export
-   ;;; Core MonadIo & BaseIo classes
-   #:MonadIo
-   #:derive-monad-io
-   #:wrap-io_
-   #:wrap-io
+   ;;; Re-export: BaseIo
    #:BaseIo
    #:run!
+
+   ;;; Re-export: MonadIo
+   #:MonadIo
+   #:wrap-io_
+   #:wrap-io
+   #:derive-monad-io
    #:run-as!
    ;;; UnliftIo & LiftIo
+   ;;; Re-export: LiftIo
    #:LiftIo
    #:lift-io_
    #:lift-io
    #:derive-lift-io
 
+   ;;; Re-export: UnliftIo
    #:UnliftIo
    #:with-run-in-io
 
@@ -53,20 +61,6 @@ Example:
     (lisp :a (str)
       (cl:print str)))"
   `(wrap-io_ (fn () ,@body)))
-
-(coalton-toplevel
-  (define-class (Monad :m => MonadIo :m)
-    (wrap-io_
-     "Wrap a (potentially) side-effectful function in the monad."
-     ((Unit -> :a) -> :m :a)))
-
-  (define-class (MonadIo :m => BaseIo :m)
-    "A 'base' IO implementation, which can be run to execute some
-(potentially side-effectful) operation."
-    (run!
-     "Run a (potentially) side-effectful operation."
-     (:m :a -> :a))
-    ))
 
 (cl:defmacro derive-monad-io (monad-param monadT-form)
   "Automatically derive an instance of MonadIo for a monad transformer.
@@ -110,9 +104,6 @@ putting in the full type of M-OP, not just (IO :a).
 
 (coalton-toplevel
 
-  (define-class ((Monad :m) (BaseIo :i) => LiftIo :i :m)
-    (lift-io (BaseIo :i => :i :a -> :m :a)))
-
   (define-instance (BaseIo :i => LiftIo :i :i)
     (inline)
     (define lift-io id)))
@@ -139,24 +130,6 @@ Example:
 ;;;
 ;;; Unlift IO
 ;;;
-
-(coalton-toplevel
-  ;; NOTE: Defining a "wrapper" around with-run-in-io so that we can specialize on it.
-  (define-class ((MonadIo :m) (LiftIo :i :m) => UnliftIo :m :i (:m -> :i))
-    (with-run-in-io (((:m :a -> :i :a) -> :i :b) -> :m :b)))
-
-  (define-instance ((BaseIo :r) (UnliftIo :m :r) => UnliftIo (e:EnvT :env :m) :r)
-    (inline)
-    (define (with-run-in-io enva->ioa-->iob)
-      (e:EnvT
-       (fn (env)
-         (with-run-in-io
-           (fn (ma->ioa-->iob)
-             (enva->ioa-->iob
-              (fn (m-env)
-               (ma->ioa-->iob
-                (e:run-envT m-env env))))))))))
-  )
 
 ;;
 ;; Efficient Iteration Ops

@@ -4,6 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/functions
+   #:io/classes/monad-io-var
    #:io/utils
    #:io/monad-io)
   (:import-from #:coalton-library/experimental/loops
@@ -18,14 +19,16 @@
    (:st #:coalton-library/monad/statet)
    (:env #:coalton-library/monad/environment))
   (:export
+   ;; Re-export: io/classes/monad-io-var
    #:Var
-   #:derive-monad-var
    #:MonadIoVar
    #:new-var
    #:read
    #:write
    #:modify
-   
+
+   ;; Remaining exports
+   #:derive-monad-var
    #:implement-monad-io-var
    ))
 (in-package :io/mut)
@@ -33,25 +36,6 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (derive Eq)
-  (repr :transparent)
-  (define-type (Var :a)
-    (Var% (Cell :a)))
-
-  (define-class (Monad :m => MonadIoVar :m)
-    (new-var
-     "Create a new variable with an initial value."
-     (:a -> :m (Var :a)))
-    (read
-     "Read the current value stored in a variable."
-     (Var :a -> :m :a))
-    (write
-     "Set the value in a variable and return the old value."
-     (Var :a -> :a -> :m :a))
-    (modify
-     "Modify the value in a variable by applying F, and return the old value."
-     (Var :a -> (:a -> :a) -> :m :a)))
-
   (inline)
   (declare new-var% (MonadIo :m => :a -> :m (Var :a)))
   (define (new-var% val)

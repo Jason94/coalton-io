@@ -4,6 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/experimental/do-control-core
+   #:io/classes/monad-io-stm
    #:io/utils
    #:io/monad-io
    #:io/exception
@@ -23,7 +24,7 @@
    #:TVar
    #:STM
 
-   ;;; Export STM interface
+   ;;; Re-export: io/classes/monad-io-stm
    #:MonadIoSTM
    #:new-tvar
    #:read-tvar
@@ -32,6 +33,8 @@
    #:retry
    #:or-else
    #:run-tx
+
+   ;;; Remaining exports
    #:do-run-tx
 
    #:derive-monad-io-stm
@@ -41,41 +44,6 @@
 (in-package :io/stm)
 
 (named-readtables:in-readtable coalton:coalton)
-
-(coalton-toplevel
-
-  (define-class (MonadIo :m => MonadIoSTM :m)
-    "A MonadIo which can execute atomic transactions.
-
-The critical section of transaction commits is masked, so stopping a thread
-during a transaction won't leave the STM in an inoperable state. Read-only
-transactions never mask. Transactions are only masked during the brief commit
-period; the thread is still stoppable during the bulk of the transaction
-unless you mask it yourself."
-    (new-tvar
-     "Create a new mutable variable that can be used inside an atomic transaction."
-     (:a -> :m (TVar :a)))
-    (read-tvar
-     "Read a mutable variable inside an atomic transaction."
-     (TVar :a -> STM :m :a))
-    (write-tvar
-     "Write to a mutable variable inside an atomic transaction."
-     (TVar :a -> :a -> STM :m Unit))
-    (modify-tvar
-     "Modify a mutable variable inside an atomic transaction."
-     (TVar :a -> (:a -> :a) -> STM :m :a))
-    (retry
-     "Retry the current operation because the observed state is invalid."
-     (STM :m :a))
-    (or-else
-     "Run TX-A. If it signals a retry, run TX-b. If both transactions signal a
-retry, then the entire transaction retries."
-     (STM :m :a -> STM :m :a -> STM :m :a))
-    (run-tx
-     "Run an atomic transaction. If the transaction raises an exception,
-the transaction is aborted and the exception is re-raised."
-     (STM :m :a -> :m :a)))
-  )
 
 (cl:defmacro implement-monad-io-stm (monad)
   `(define-instance (MonadIoSTM ,monad)
