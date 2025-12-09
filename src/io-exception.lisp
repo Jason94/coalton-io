@@ -17,6 +17,7 @@
    (:st #:coalton-library/monad/statet)
    (:e #:coalton-library/monad/environment))
   (:export
+   #:Exception
    #:MonadException
    #:raise
    #:raise-dynamic
@@ -50,6 +51,9 @@
 
 (coalton-toplevel
 
+  (define-class ((RuntimeRepr :e) (Signalable :e) => Exception :e)
+    "Marker class for types that can be raised and signaled as exceptions." )
+
   ;; NOTE: The second argument for several of these could be :m :a. Wrapping
   ;; in a function call allows transformer instances to avoid running-down
   ;; to the base MonadException layer in the stack, even if no
@@ -61,7 +65,7 @@ must catch and wrap all unhandled errors inside a wrap-io call as an UnhandledEr
 See utils/catch-thunk."
     (raise
      "Raise an exception."
-     ((RuntimeRepr :e) (Signalable :e) => :e -> :m :a))
+     ((Exception :e) => :e -> :m :a))
     (raise-dynamic
      "Raise an exception wrapped in a Dynamic. Mainly useful to hand-off eexceptions
 between IO instances."
@@ -74,7 +78,7 @@ be emitted instead of the original exception."
     (handle
      "Run an operation, immediately handling if it raised an exception
 that matches :e."
-     (RuntimeRepr :e => :m :a -> (:e -> :m :a) -> :m :a))
+     (Exception :e => :m :a -> (:e -> :m :a) -> :m :a))
     (handle-all
      "Run an operation, immediately handling any exceptions raised."
      (:m :a -> (Unit -> :m :a) -> :m :a))
@@ -83,7 +87,7 @@ that matches :e."
      (:m :a -> :m (Result Dynamic :a))))
 
   (inline)
-  (declare try ((MonadException :m) (RuntimeRepr :e) => :m :a -> :m (Result :e :a)))
+  (declare try ((MonadException :m) (Exception :e) => :m :a -> :m (Result :e :a)))
   (define (try op)
      "Bring any unhandled exceptions of type :e up into a Result.
 Continues to carry any unhandeld exceptions not of type :e."
@@ -101,7 +105,7 @@ raised any exceptions."
      (const (pure None))))
 
   (inline)
-  (declare raise-result ((MonadException :m) (RuntimeRepr :e) (Signalable :e)
+  (declare raise-result ((MonadException :m) (Exception :e)
                          => :m (Result :e :a) -> :m :a))
   (define (raise-result io-res)
     "Raise any (Err :e) into :m. Useful if (Err :e) represents any unhandleable, fatal
@@ -177,7 +181,7 @@ Example:
 (coalton-toplevel
 
   (inline)
-  (declare handle-stateT ((MonadException :m) (RuntimeRepr :e)
+  (declare handle-stateT ((MonadException :m) (Exception :e)
                           => st:StateT :s :m :a -> (:e -> st:StateT :s :m :a)
                           -> st:StateT :s :m :a))
   (define (handle-stateT st-op st-handle-op)
@@ -240,7 +244,7 @@ Example:
     (define try-dynamic try-dynamic-stateT))
 
   (inline)
-  (declare handle-envT ((MonadException :m) (RuntimeRepr :err)
+  (declare handle-envT ((MonadException :m) (Exception :err)
                         => e:EnvT :e :m :a -> (:err -> e:EnvT :e :m :a)
                         -> e:EnvT :e :m :a))
   (define (handle-envT env-op env-handle-op)

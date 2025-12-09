@@ -45,6 +45,7 @@
    #:unmask-finally
    #:unmask-current
    #:unmask-current-finally
+   #:soft-mask
    #:stop
    #:with-mask
    #:do-with-mask
@@ -102,9 +103,39 @@ stopped after being unmasked N times."
      "Unmask the current thread, run the provided action, and then honor any
  pending stop for that thread after the action finishes."
      ((UnliftIo :r :io) (LiftTo :r :m) => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
-    (stop
+   (stop
      "Stop a thread. If the thread has already stopped, does nothing."
      (:t -> :m Unit)))
+
+  (declare soft-mask ((MonadIoThread :m IoThread) (MonadException :m) (Exception :e)
+                      => :m :a -> (Result :e :a -> :m Unit) -> :m :a))
+  (define (soft-mask op cleanup)
+    "Run OP and guarantee CLEANUP runs afterward, even if OP raises asynchronously.
+Returns the result of OP and re-raises any exceptions after cleanup finishes."
+    (do
+     (mask-current)
+     (unmask-current-finally
+      (fn (mode)
+        (match mode
+          ((Running)
+           (pure Unit))
+          ((Stopped)
+           (do
+            (cleanup (Err (InterruptCurrentThread "")))
+            (pure Unit))))))
+     (result? <- (try op))
+     (mask-current)
+     (cleanup-result? <- (try (cleanup result?)))
+     (unmask-current-finally
+      (match cleanup-result?
+        ((Err e)
+         (raise e))
+        ((Ok _)
+         (match result?
+           ((Ok val)
+            (pure val))
+           ((Err e)
+            (raise e))))))))
 
   ;;
   ;; Thread Masking Helpers
