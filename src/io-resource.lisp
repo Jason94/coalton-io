@@ -23,6 +23,8 @@
 
    #:bracket-io
    #:bracket-io_
+   #:bracket-masked
+   #:bracket-masked_
    #:bracket-no-mask
    #:bracket-no-mask_
    ))
@@ -75,6 +77,36 @@ then release is not guaranteed."
                     ((Err e)
                      (release-op resource (Errored e)))))))))
 
+  (declare bracket-masked ((MonadIoThread :m IoThread) (MonadException :m) (Exception :e)
+                           => :m :r
+                           -> (:r -> ExitCase :e -> :m :a)
+                           -> (:r -> :m :b)
+                           -> :m :b))
+  (define (bracket-masked acquire-op release-op computation-op)
+    "Like BRACKET-IO but masks the current thread from before acquiring the resource
+until after cleanup finishes. Uses a normal UNMASK to restore masking after
+cleanup completes."
+    (do
+     (mask-current)
+     (result? <-
+      (try
+       (do
+        (resource <- acquire-op)
+        (result? <- (try (computation-op resource)))
+        (do-match result?
+          ((Ok result)
+           (release-op resource Completed)
+           (pure result))
+          ((Err e)
+           (release-op resource (Errored e))
+           (raise e))))))
+     (unmask-current)
+     (match result?
+       ((Ok result)
+        (pure result))
+       ((Err e)
+        (raise e)))))
+
   (declare bracket-no-mask ((MonadException :m) (Exception :e)
                             => :m :r
                             -> (:r -> ExitCase :e -> :m :a)
@@ -118,6 +150,35 @@ Cleanup runs under a soft mask to ensure it can't be interrupted."
                         (pure Unit))))))
                  (computation-op resource))
                 (const (release-op resource)))))
+
+  (declare bracket-masked_ ((MonadIoThread :m IoThread) (MonadException :m)
+                            => :m :r
+                            -> (:r -> :m :a)
+                            -> (:r -> :m :b)
+                            -> :m :b))
+  (define (bracket-masked_ acquire-op release-op computation-op)
+    "Like BRACKET-IO_ but masks the current thread from before acquiring the
+resource until after cleanup completes, restoring masking with UNMASK-CURRENT."
+    (do
+     (mask-current)
+     (result? <-
+      (try
+       (do
+        (resource <- acquire-op)
+        (result? <- (try (computation-op resource)))
+        (do-match result?
+          ((Ok result)
+           (release-op resource)
+           (pure result))
+          ((Err e)
+           (release-op resource)
+           (raise e))))))
+     (unmask-current)
+     (match result?
+       ((Ok result)
+        (pure result))
+       ((Err e)
+        (raise e)))))
 
   (declare bracket-no-mask_ (MonadException :m
                             => :m :r
