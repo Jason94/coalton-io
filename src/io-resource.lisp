@@ -52,9 +52,9 @@
 (define (bracket-io acquire-op release-op computation-op)
   "First, acquire a resource with ACQUIRE-OP. Then run COMPUTATION-OP with the
 resource. Finally, run RELEASE-OP on the resource and ExitCase of the computation.
-Guarantees that RELEASE-OP will be run regardless of if COMPUTATION-OP raises
-an exception. If COMPUTATION-OP raises an exception, it will be re-raised after the
-resource cleans up. If ACQUIRE-OP or RELEASE-OP raise an exception,
+Guarantees RELEASE-OP runs whether COMPUTATION-OP raises an exception or the
+thread is stopped. If COMPUTATION-OP raises an exception, it will be re-raised
+after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise an exception,
 then release is not guaranteed."
     (do
      (mask-current)
@@ -83,8 +83,9 @@ then release is not guaranteed."
                            -> (:r -> :m :b)
                            -> :m :b))
   (define (bracket-masked acquire-op release-op computation-op)
-    "Like BRACKET-IO but masks the current thread from before acquiring the resource
-until after cleanup finishes. Uses a normal UNMASK to restore masking after
+    "Mask the current thread before acquiring a resource, run COMPUTATION-OP, and
+then clean up with RELEASE-OP while keeping masking in place until cleanup
+finishes. Uses UNMASK-CURRENT to restore the original masking state after
 cleanup completes."
     (do
      (mask-current)
@@ -113,7 +114,8 @@ cleanup completes."
                             -> (:r -> :m :b)
                             -> :m :b))
   (define (bracket-no-mask acquire-op release-op computation-op)
-    "Like BRACKET-IO but without masking cleanup operations."
+    "Acquire a resource, run COMPUTATION-OP with it, and always invoke
+RELEASE-OP with the ExitCase result without masking the cleanup phase."
     (do
      (resource <- acquire-op)
      (result? <- (try (computation-op resource)))
@@ -125,16 +127,15 @@ cleanup completes."
         (release-op resource (Errored e))
         (raise e)))))
 
-(declare bracket-io_ ((MonadIoThread :m IoThread) (MonadException :m)
+  (declare bracket-io_ ((MonadIoThread :m IoThread) (MonadException :m)
                        => :m :r
                        -> (:r -> :m :a)
                        -> (:r -> :m :b)
                        -> :m :b))
   (define (bracket-io_ acquire-op release-op computation-op)
-    "First, acquire a resource with ACQUIRE-OP. Then run COMPUTATION-OP with the
-resource. Finally, run RELEASE-OP on the resource and ExitCase of the computation.
-This version runs RELEASE-OP for any kind of error, and doesn't take an ExitCase.
-Cleanup runs under a soft mask to ensure it can't be interrupted."
+    "Acquire a resource with ACQUIRE-OP, run COMPUTATION-OP with it, and always
+invoke RELEASE-OP afterward. Cleanup runs under a soft mask so it executes even
+when COMPUTATION-OP raises an exception or the thread is stopped."
     (do
      (mask-current)
      (resource <- acquire-op)
@@ -157,8 +158,9 @@ Cleanup runs under a soft mask to ensure it can't be interrupted."
                             -> (:r -> :m :b)
                             -> :m :b))
   (define (bracket-masked_ acquire-op release-op computation-op)
-    "Like BRACKET-IO_ but masks the current thread from before acquiring the
-resource until after cleanup completes, restoring masking with UNMASK-CURRENT."
+    "Mask the current thread before acquiring a resource, run COMPUTATION-OP, and
+execute RELEASE-OP while masking remains in effect through cleanup, restoring
+with UNMASK-CURRENT afterward."
     (do
      (mask-current)
      (result? <-
@@ -186,7 +188,8 @@ resource until after cleanup completes, restoring masking with UNMASK-CURRENT."
                             -> (:r -> :m :b)
                             -> :m :b))
   (define (bracket-no-mask_ acquire-op release-op computation-op)
-    "Like BRACKET-IO_ but without masking the cleanup operation."
+    "Acquire a resource, run COMPUTATION-OP with it, and always invoke
+RELEASE-OP to clean up without masking the cleanup operation."
     (do
      (resource <- acquire-op)
      (reraise (do
