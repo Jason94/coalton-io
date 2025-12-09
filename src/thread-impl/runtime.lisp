@@ -148,6 +148,13 @@
     (- word 2))
 
   (inline)
+  (declare unmasked-once? (Word -> Boolean))
+  (define (unmasked-once? word)
+    "Check that WORD is masked only once."
+    (== 1 (lisp Word (word)
+            (cl:ash word -1))))
+
+  (inline)
   (declare unmasked? (Word -> Boolean))
   (define (unmasked? word)
     (zero? (lisp Word (word)
@@ -157,6 +164,7 @@
 
 (coalton-toplevel
 
+  ;; TODO: Remove this and just use interrupt-iothread% everywhere
   (inline)
   (declare interrupt-current-thread% (Unit -> Unit))
   (define (interrupt-current-thread%)
@@ -258,19 +266,16 @@ runtime."
   ;;; Stopping & Masking Threads
   ;;;
 
+  (inline)
   (declare mask-inner% (IoThread -> Unit))
   (define (mask-inner% thread)
     (let flags = (.flags thread))
-    (let (Tuple old-flag-state flag-state) =
-      (rec % ()
-        (let old = (at:read flags))
-        (let new = (mask-once% old))
-        (if (at:cas! flags old new)
-            (Tuple old new)
-            (%))))
-    (when (and (unmasked? old-flag-state)
-               (matches-flag flag-state PENDING-KILL))
-      (interrupt-iothread% thread))
+    (rec % ()
+      (let old = (at:read flags))
+      (let new = (mask-once% old))
+      (if (at:cas! flags old new)
+          (Tuple old new)
+          (%)))
     Unit)
 
   (inline)
@@ -293,39 +298,28 @@ runtime."
   (declare unmask-finally!% (IoThread -> (UnmaskFinallyMode -> Unit) -> Unit))
   (define (unmask-finally!% thread thunk)
     (let flags = (.flags thread))
-    (let flag-state =
-      (rec % ()
-        (let old = (at:read flags))
-        (let new = (unmask-once% old))
-        (if (at:cas! flags old new)
-            new
-            (%))))
+    ;; Wait to unmask until *after* we guarantee thunk has been run.
+    (let flag-state = (at:read flags))
+    ;; Only stop if there are no other masks applied besides the one
+    ;; we're undoing now.
     (if (and (matches-flag flag-state PENDING-KILL)
-             (unmasked? flag-state))
+             (unmasked-once? flag-state))
         (progn
           (thunk Stopped)
           (interrupt-iothread% thread))
-        (thunk Running)))
+        (thunk Running))
+    (rec % ()
+       (let old = (at:read flags))
+       (let new = (unmask-once% old))
+       (if (at:cas! flags old new)
+           new
+           (%)))
+    Unit)
 
+  (inline)
   (declare unmask-finally-current!% ((UnmaskFinallyMode -> Unit) -> Unit))
   (define (unmask-finally-current!% thunk)
-    (let thread = (current-io-thread%))
-    (let flags = (.flags thread))
-    (let flag-state =
-      (rec % ()
-        (let old = (at:read flags))
-        (let new = (unmask-once% old))
-        (if (at:cas! flags old new)
-            new
-            (%))))
-    (if (and (matches-flag flag-state PENDING-KILL)
-             (unmasked? flag-state))
-      (progn
-        (thunk Stopped)
-        (interrupt-current-thread%))
-      (thunk Running))
-    Unit
-    )
+    (unmask-finally!% (current-io-thread%) thunk))
 
   (inline)
   (declare unmask% (MonadIo :m => IoThread -> :m Unit))

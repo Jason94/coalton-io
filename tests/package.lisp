@@ -17,6 +17,7 @@
                #:coalton-io/tests/exception-fiasco
                #:coalton-io/tests/mut-fiasco
                #:coalton-io/tests/random-fiasco
+               #:coalton-io/tests/resource-fiasco
                #:coalton-io/tests/thread-fiasco
                #:coalton-io/tests/thread-async-boundary-fiasco
                #:coalton-io/tests/mvar-fiasco

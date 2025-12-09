@@ -8,7 +8,6 @@
    #:io/utils
    #:io/monad-io
    #:io/exception
-   #:io/resource
    #:io/term
    #:io/thread-impl/runtime
    )
@@ -46,8 +45,6 @@
    #:unmask-current
    #:unmask-current-finally
    #:stop
-   #:with-mask
-   #:do-with-mask
 
    #:write-line-sync
    
@@ -110,14 +107,6 @@ stopped after being unmasked N times."
   ;; Thread Masking Helpers
   ;;
 
-  (declare with-mask ((MonadIoThread :m IoThread) (MonadException :m)
-                      => :m :a -> :m :a))
-  (define (with-mask op)
-    "Mask the current thread while running OP, automatically unmasking
-afterward."
-    (bracket-io_ mask-current
-                 (const unmask-current)
-                 (fn (_) op)))
 
   ;;
   ;; Other Threading Utilities
@@ -130,12 +119,6 @@ for debugging."
     (wrap-io (write-line-sync% msg) Unit))
   )
 
-(cl:defmacro do-with-mask (cl:&body body)
-  "Evaluate BODY with the current thread masked, automatically unmasking
-afterward."
-  `(with-mask
-     (do
-      ,@body)))
 
 (cl:defmacro implement-monad-io-thread (monad)
   `(define-instance (MonadIoThread ,monad IoThread)

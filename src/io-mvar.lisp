@@ -7,6 +7,7 @@
    #:coalton-library/monad/classes
    #:io/utils
    #:io/monad-io
+   #:io/thread
    #:io/exception
    #:io/resource
    #:io/thread-impl/runtime
@@ -109,14 +110,7 @@ True if the put succeeds."
      (MVar :a -> :a -> :m :a))
     (is-empty-mvar
      "Return True if the MVar is currently empty."
-     (MVar :a -> :m Boolean))
-    (with-mvar
-     "Modify with the result of an operation. Blocks until MVar is full.
-If the operation raises an exception, will restore the MVar value and re-raise.
-If other threads are calling PUT-MVAR while the operation is running,
-they can block this thread until another thread takes the MVar."
-     ((UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
-      => MVar :a -> (:a -> :r :b) -> :m :b)))
+     (MVar :a -> :m Boolean)))
 
   (inline)
   (declare new-mvar% (MonadIo :m => :a -> :m (MVar :a)))
@@ -266,9 +260,14 @@ or just release the LOCK."
     (wrap-io
       (opt:none? (at:read (.data mvar)))))
 
-  (declare with-mvar% ((MonadIo :m) (UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
-                       => MVar :a -> (:a -> :r :b) -> :m :b))
-  (define (with-mvar% mvar op)
+  ;; TODO: Submit Coalton issue for chained fundeps here (see also io-file)
+  ;; (declare with-mvar ((UnliftIo :r :i) (LiftTo :r :m) (MonadException :i) (MonadIoThread :i :t)
+  ;;                      => MVar :a -> (:a -> :r :b) -> :m :b))
+  (define (with-mvar mvar op)
+    "Modify with the result of an operation. Blocks until MVar is full.
+If the operation raises an exception, will restore the MVar value and re-raise.
+If other threads are calling PUT-MVAR while the operation is running,
+they can block this thread until another thread takes the MVar."
     (lift-to
      (with-run-in-io
        (fn (run)
@@ -295,15 +294,14 @@ or just release the LOCK."
      (define read-mvar      read-mvar%)
      (define try-read-mvar  try-read-mvar%)
      (define swap-mvar      swap-mvar%)
-     (define is-empty-mvar  is-empty-mvar%)
-     (define with-mvar      with-mvar%)))
+     (define is-empty-mvar  is-empty-mvar%)))
 
 (cl:defmacro derive-monad-io-mvar (monad-param monadT-form)
   "Automatically derive MonadIoMVar for a monad transformer.
 
 Example:
   (derive-monad-io-mvar :m (st:StateT :s :m))"
-  `(define-instance (MonadIoMVar ,monad-param => MonadIoMVar ,monadT-form)
+  `(define-instance ((MonadIoMVar ,monad-param) (MonadIoThread ,monad-param :thrd) => MonadIoMVar ,monadT-form)
      (define new-mvar       (compose lift new-mvar))
      (define new-empty-mvar (lift new-empty-mvar))
      (define take-mvar      (compose lift take-mvar))
@@ -313,8 +311,7 @@ Example:
      (define read-mvar      (compose lift read-mvar))
      (define try-read-mvar  (compose lift try-read-mvar))
      (define swap-mvar      (compose2 lift swap-mvar))
-     (define is-empty-mvar  (compose lift is-empty-mvar))
-     (define with-mvar      with-mvar)))
+     (define is-empty-mvar  (compose lift is-empty-mvar))))
 
 (coalton-toplevel
   ;;
