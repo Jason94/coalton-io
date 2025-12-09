@@ -195,7 +195,7 @@ Example:
 
   (implement-monad-io-thread io:IO)
 
-  (declare fork_ ((MonadIoThread :m IoThread) (UnliftIo :m io:IO) (LiftTo io:IO :m)
+  (declare fork_ ((MonadIoThread :m IoThread) (LiftTo io:IO :m)
                   => io:IO :a -> :m IoThread))
   (define fork_ fork)
   )

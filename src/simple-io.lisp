@@ -24,6 +24,9 @@
    #:IO
    #:run-io!
 
+   #:ThreadingException
+   #:InterruptCurrentThread
+
    #:raise-io
    #:raise-io_
    #:raise-dynamic-io
@@ -51,7 +54,27 @@
 
 (named-readtables:in-readtable coalton:coalton)
 
+;;;
+;;; Debugging Helpers
+;;;
+
+(cl:defmacro compile-debug-sleep (sleep-ms)
+  "If environmental variable SIMPLE_IO_DEBUG_SLEEP = 'y', sleep for SLEEP-MS.
+See >>="
+  (cl:if (cl:equalp (uiop:getenv "SIMPLE_IO_DEBUG_SLEEP") "y")
+         `(lisp Void ()
+            (cl:sleep ,(cl:/ sleep-ms 1000.0)))
+         `Unit))
+
+;;;
+;;; Simple IO
+;;;
+
 (coalton-toplevel
+
+  (define-exception ThreadingException
+    (InterruptCurrentThread String))
+
   ;;
   ;; IO Monad
   ;;
@@ -65,18 +88,30 @@
     (IO%
      (fn ()
        (inline
-        (r:map-err to-dynamic
-                   (catch-thunk f))))))
+        (Ok (f))))))
 
   (inline)
-  (declare run-io!% (IO :a -> Result Dynamic :a))
-  (define (run-io!% (IO% f->a?))
-    (f->a?))
+  (declare run-io-handled!% (IO :a -> Result Dynamic :a))
+  (define (run-io-handled!% (IO% f->a?))
+    "Run an IO, but instead of raising, pass on any exceptions. Used internally to
+implement MonadException and handle asynchronous exception signals."
+    (match (catch-thunk f->a?)
+      ((Err unh-err)
+       (let (UnhandledError e) = unh-err)
+       (Err
+        (cond
+          ((lisp Boolean (e) (cl:typep e 'ThreadingException))
+           (force-dynamic (the (Proxy ThreadingException) Proxy) e))
+          (True
+           (to-dynamic unh-err)))))
+      ((Ok a)
+       a)))
 
   (inline)
   (declare run-io! (IO :a -> :a))
-  (define (run-io! (IO% fa?))
-    (match (fa?)
+  (define (run-io! io-op)
+    "Top-level run-io! that raises any unhandled exceptions."
+    (match (run-io-handled!% io-op)
       ((Ok a)
        a)
       ((Err dyn-e)
@@ -117,11 +152,19 @@
     (define (>>= (IO% f->a?) fa->io-b)
       (IO%
        (fn ()
+        ;; It's VERY difficult to determinalistically test the thread runtime's
+        ;; behavior for managing async exceptions outside of the wrap-io boundary.
+        ;; To support those test cases, IO provides a conditional compilation
+        ;; mechanism to insert a 5 MS sleep during the >>= operation, which is
+        ;; guaranteed to be outside of wrap-io.
+        ;;
+        ;; To trigger this, set SIMPLE_IO_DEBUG_SLEEP = 'y' and compile simple-io.lisp
         (match (f->a?)
           ((Err e)
            (Err e))
           ((Ok a)
-           (run-io!% (fa->io-b a))))))))
+           (compile-debug-sleep 5)
+           (run-io-handled!% (fa->io-b a))))))))
 
   (inline)
   (declare raise-io ((RuntimeRepr :e) (Signalable :e) => :e -> IO :a))
@@ -142,12 +185,12 @@
   (define (reraise-io op catch-op)
     (IO%
      (fn ()
-       (let result = (run-io!% op))
+       (let result = (run-io-handled!% op))
        (do-match result
          ((Ok _)
           result)
          ((Err _)
-          (let result2 = (run-io!% (catch-op)))
+          (let result2 = (run-io-handled!% (catch-op)))
           (match result2
             ((Ok _)
              result)
@@ -159,14 +202,14 @@
   (define (handle-io io-op handle-op)
     (IO%
      (fn ()
-      (let ((result (run-io!% io-op)))
+      (let ((result (run-io-handled!% io-op)))
         (match result
           ((Ok a)
            (Ok a))
           ((Err e?)
            (match (cast e?)
              ((Some e)
-              (run-io!% (handle-op e)))
+              (run-io-handled!% (handle-op e)))
              ((None)
               result))))))))
 
@@ -176,12 +219,12 @@
     "Run IO-OP, and run HANDLE-OP to handle exceptions of any type thrown by IO-OP."
     (IO%
      (fn ()
-      (let ((result (run-io!% io-op)))
+      (let ((result (run-io-handled!% io-op)))
         (match result
           ((Ok a)
            (Ok a))
           ((Err _)
-           (run-io!% (handle-op))))))))
+           (run-io-handled!% (handle-op))))))))
 
   (inline)
   (declare try-dynamic-io (IO :a -> IO (Result Dynamic :a)))
@@ -189,7 +232,7 @@
     (IO%
      (fn ()
        (Ok
-        (run-io!% io-op)))))
+        (run-io-handled!% io-op)))))
 
   (define-instance (BaseIo IO)
     (define run! run-io!))

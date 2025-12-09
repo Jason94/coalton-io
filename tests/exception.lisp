@@ -76,6 +76,29 @@
                1))))
   (is (== (Some 1) result)))
 
+(coalton-toplevel
+  (declare pop# (List Integer -> IO Integer))
+  (define (pop# ints)
+    (match ints
+      ((Cons x _)
+       (pure x))
+      ((Nil)
+       (raise (TE "No ints left"))))))
+
+(define-test test-handle-all ()
+  (let result =
+    (run-io!
+     (do
+      (ints <- (wrap-io Nil))
+      (b <- (handle-all (do
+                         (x <- (pop# ints))
+                         (pure (+ 1 x)))
+                        (fn ()
+                          (wrap-io -10))))
+      (pure b))))
+  (is (== -10 result)))
+
+
 ;;;
 ;;; StateT instance tests
 ;;;

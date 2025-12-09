@@ -12,6 +12,7 @@
    #:Word
    #:build-str
    #:UnhandledError
+   #:flatten-err
    #:catch-thunk
    #:force-string
    #:compose2
@@ -23,6 +24,7 @@
    #:anything-eq
    #:Dynamic
    #:to-dynamic
+   #:force-dynamic
    #:cast
    #:MockException
    #:throw-dynamic
@@ -54,13 +56,21 @@
     (define (error (UnhandledError e))
       (error e)))
 
+  (inline)
+  (declare flatten-err (Result :e (Result :e :a) -> Result :e :a))
+  (define (flatten-err res)
+    (match res
+      ((Ok a)
+       a)
+      ((Err e)
+       (Err e))))
+
   (declare catch-thunk ((Unit -> :a) -> Result (UnhandledError :e) :a))
   (define (catch-thunk thunk)
     "Wraps `thunk` in a Lisp `handler-case`, and captures the output
 as Err or Ok. Useful if you want to capture any thrown error, which is
 currently not possible natively in Coalton. Works even with custom
 Coalton exceptions via `define-exception`."
-    ;; TODO: Test this in release mode...
     (lisp (Result (UnhandledError :e) :a) (thunk)
       (cl:handler-case (Ok (call-coalton-function thunk))
         (cl:error (e)
@@ -125,6 +135,13 @@ Coalton exceptions via `define-exception`."
   (declare to-dynamic (RuntimeRepr :a => :a -> Dynamic))
   (define (to-dynamic a)
     (Dynamic% (to-anything a) (runtime-repr-of a)))
+
+  (inline)
+  (declare force-dynamic (RuntimeRepr :a => Proxy :a -> :b -> Dynamic))
+  (define (force-dynamic ty-prx val)
+    "Force anything into a Dynamic with runtime representation for the type
+represented by TY-PRX. Mainly useful after a type-test in CL."
+    (Dynamic% (to-anything val) (runtime-repr ty-prx)))
 
   (declare cast (RuntimeRepr :b => Dynamic -> Optional :b))
   (define (cast (Dynamic% dyn-val dyn-repr))

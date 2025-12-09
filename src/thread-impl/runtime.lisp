@@ -16,6 +16,9 @@
    (:at #:coalton-threads/atomic)
    (:bt #:bordeaux-threads-2)
    )
+  (:import-from #:io/simple-io
+   #:ThreadingException
+   #:InterruptCurrentThread)
   (:export
    ;; Library Public
    #:IoThread
@@ -92,15 +95,6 @@
   ;;;
   ;;; Basic Thread Type
   ;;;
-
-  (define-exception ThreadingException
-    (InterruptCurrentThread String))
-
-  ;; (define-instance (Signalable ThreadingException)
-  ;;   (define (error e)
-  ;;     (match e
-  ;;       ((InterruptCurrentThread)
-  ;;        (error "The thread tried to interrupt itself.")))))
 
   ;; TODO: (t:Thread :a) is just bt2:Thread. Given the design differences, this should
   ;; just use bt2 directly and coalton-threads dependency should be dropped.
@@ -179,11 +173,10 @@ thread is alive before interrupting."
       ((None)
        (error "Tried to kill misconstructed thread."))
       ((Some native-thread)
-       (if (unsafe-pointer-eq? native-thread (current-native-thread%))
-           (interrupt-current-thread%)
-           (lisp Unit (native-thread)
-             (cl:when (bt:thread-alive-p native-thread)
-               (bt:destroy-thread native-thread)))))))
+       (lisp Void (native-thread)
+         (cl:when (bt:thread-alive-p native-thread)
+           (bt:error-in-thread native-thread (InterruptCurrentThread ""))))
+       Unit)))
   )
 
 ;; To make sure that child threads have access to their current thread, store it
@@ -217,6 +210,10 @@ thread is alive before interrupting."
   (inline)
   (declare fork% ((MonadIo :m) (UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m IoThread))
   (define (fork% op)
+    "Fork a new thread that runs OP. This function constructs the top-level thread runner,
+which sets up the dynamic context and top-level error handling for asynchronous exceptions
+for the new thread. In some ways, this function is the most important point in the thread
+runtime."
     (lift-to
      (with-run-in-io
          (fn (run)
@@ -226,23 +223,28 @@ thread is alive before interrupting."
            ;; native thread reference separately before they do any work. This guarantees
            ;; it will be available in either thread before subsequent code could reference it,
            ;; regardless of race conditions.
-           (wrap-io
-             (let thread-container = (IoThread (c:new None) (at:new CLEAN)))
-             (let native-thread = (t:spawn (fn ()
-                                             (c:write! (.handle thread-container)
-                                                       (Some (current-native-thread%)))
-                                             (let f =
-                                               (fn ()
-                                                 (catch (run! (run op))
-                                                   ((InterruptCurrentThread "")
-                                                    (lisp :a ()
-                                                      cl:nil)))))
-                                             (lisp Void (f thread-container)
-                                               (cl:let ((*current-thread* thread-container))
-                                                 (call-coalton-function f)))
-                                             Unit)))
-             (c:write! (.handle thread-container) (Some native-thread))
-             thread-container)))))
+            (wrap-io
+              (let thread-container = (IoThread (c:new None) (at:new CLEAN)))
+              (let native-thread =
+                (t:spawn (fn ()
+                           (c:write! (.handle thread-container)
+                                     (Some (current-native-thread%)))
+                           (let f =
+                             (fn ()
+                               (catch (run! (run op))
+                                 ;; If we hit this point, then we've ended the thread's meaningful work.
+                                 ;; It will stop after this, so we don't need to raise again.
+                                 ((InterruptCurrentThread msg)
+                                  ;; Satisfy type inference; don't force (:r :a) => (:r Unit)
+                                  (lisp :a () cl:nil)))))
+                           ;; Set the thread-specific dynamic variables the runtime depends on. *current-thread*
+                           ;; is defined here, the others are defined in the core simple-io implementation.
+                           (lisp Void (f thread-container)
+                             (cl:let ((*current-thread* thread-container))
+                               (call-coalton-function f)))
+                           Unit)))
+              (c:write! (.handle thread-container) (Some native-thread))
+              thread-container)))))
 
   (inline)
   (declare sleep% (MonadIo :m => UFix -> :m Unit))

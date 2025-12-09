@@ -1,12 +1,6 @@
 
 (defpackage #:coalton-io/tests
-  (:use #:coalton #:coalton-prelude #:coalton-testing
-        #:coalton-io/tests/io
-        #:coalton-io/tests/mut
-        #:coalton-io/tests/random
-        #:coalton-io/tests/thread
-        #:coalton-io/tests/mvar
-        )
+  (:use #:coalton #:coalton-prelude #:coalton-testing)
   (:export #:run-tests))
 (in-package #:coalton-io/tests)
 
@@ -18,11 +12,13 @@
 
 (cl:defun run-tests ()
   (fiasco:run-package-tests
-   :packages '(#:coalton-io/tests/io-fiasco
+   :packages '(
+               #:coalton-io/tests/io-fiasco
                #:coalton-io/tests/exception-fiasco
                #:coalton-io/tests/mut-fiasco
                #:coalton-io/tests/random-fiasco
                #:coalton-io/tests/thread-fiasco
+               #:coalton-io/tests/thread-async-boundary-fiasco
                #:coalton-io/tests/mvar-fiasco
                #:coalton-io/tests/future-fiasco
                #:coalton-io/tests/io-atomic-fiasco

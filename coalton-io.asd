@@ -5,7 +5,7 @@
   :maintainer "Jason Walker"
   :mailto "Jason0@pm.me"
   :license "MIT"
-  :depends-on ("coalton" "named-readtables" "atomics" "coalton-threads")
+  :depends-on ("uiop" "coalton" "named-readtables" "atomics" "coalton-threads")
   :components ((:module "src"
                 :serial t
                 :components
@@ -45,11 +45,13 @@ mutable variables, multithreading, and several data structures to safely share s
   :components ((:module "tests"
                 :serial t
                 :components
-                ((:file "simple-io")
+                (
+                 (:file "simple-io")
                  (:file "exception")
                  (:file "mut")
                  (:file "random")
                  (:file "thread")
+                 (:file "thread-async-boundary")
                  (:file "io-atomic")
                  (:file "mvar")
                  (:file "future")
