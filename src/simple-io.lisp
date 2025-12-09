@@ -75,6 +75,10 @@ See >>="
   (define-exception ThreadingException
     (InterruptCurrentThread String))
 
+  (define-instance (Signalable ThreadingException)
+    (define (error x)
+      (error x)))
+
   ;;
   ;; IO Monad
   ;;

@@ -73,14 +73,31 @@ afterward."
                        -> (:r -> :m :b)
                        -> :m :b))
   (define (bracket-io acquire-op release-op computation-op)
-    "Acquire a resource, run a computation with it, and release it. Guarantees that
+    "WARNING: BRACKET-IO will *only* cleanup if the raised exception matches :e,
+or if the computation succeedes. To guarantee cleanup after any exception,
+use BRACKET-IO_
+
+Acquire a resource, run a computation with it, and release it. Guarantees that
 RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,
 it will be re-raised after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise
 an exception, then release is not guaranteed.
 
 Masks the thread during resource acquisition and release. The computation is not
 masked, but if another thread stops this one during the computation then the resource
-will release before the thread is stopped."
+will release before the thread is stopped (if :e = ThreadingException). Example of
+using BRACKET-IO to clean after stops:
+
+(bracket-io
+  (pure Unit)
+  (fn (_resource exit-case)
+    (do-match exit-case
+      ((Errored (InterruptCurrentThread _))
+       (write stopped True)
+       (s-signal cleanup-done-gate))
+      (_
+       (s-signal cleanup-done-gate))))
+  (fn (_) (do (s-signal start-gate)
+              (s-await wait-forever))))))"
     (do
      (resource <- (with-mask acquire-op))
      (result? <- (try (computation-op resource)))
