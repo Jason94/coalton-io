@@ -3,7 +3,7 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:io/gen-impl/exception)
+   #:io/classes/monad-exception)
   (:export
    ;; Re-exports from io/classes/monad-exception
    #:MonadException
@@ -14,18 +14,13 @@
    #:handle-all
    #:try-dynamic
 
-   ;; Remaining exports
    #:try
    #:try-all
+   #:raise-result
+   #:raise-result-dynamic
+
    #:do-reraise
    #:do-handle
    #:do-handle-all
-
-   #:raise-result
-   #:raise-result-dynamic
-   #:wrap-error_
-   #:wrap-error
-   ;; Re-export for convenience
-   #:UnhandledError
    ))
 (in-package :io/exception)

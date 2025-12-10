@@ -210,6 +210,7 @@ implement MonadException and handle asynchronous exception signals."
              ((None)
               result))))))))
 
+  ;; BUG: This handles thread interrupt exceptions, which it *definitely* shouldn't
   (inline)
   (declare handle-all-io (IO :a -> (Unit -> IO :a) -> IO :a))
   (define (handle-all-io io-op handle-op)

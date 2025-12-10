@@ -33,6 +33,11 @@
 
 (coalton-toplevel
 
+  ;; TODO: To solve all the problems where you can never guarantee re-masking
+  ;; in time after handling a thread interrupt, we should actually *re-mask*
+  ;; after getting interrupted! Then, any code-path that wants to handle
+  ;; an interrupt will need to be aware of that and is responsible for
+  ;; un-masking the re-mask, if it wants the thread to keep going.
   (define-class (MonadIo :m => MonadIoThread :m :t (:m -> :t))
     "A MonadIo which can spawn :t's. Other :t's error
 separately. A spawned :t erroring will not cause the parent
@@ -57,6 +62,10 @@ issues in some cases."
     (mask-current
      "Mask the current thread so it can't be stopped."
      (:m Unit))
+    ;; TODO: Functions unmasking *other* threads need to be removed because
+    ;; they aren't safe. There's no way to prevent thread stop race conditions
+    ;; if other threads can unmask the current thread, because unmaks itself can
+    ;; potentially stop the thread being unmasked.
     (unmask
      "Unmask the given thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be

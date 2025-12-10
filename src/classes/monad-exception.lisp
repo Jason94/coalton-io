@@ -82,6 +82,7 @@ Continues to carry any unhandeld exceptions not of type :e."
      (map Ok op)
      (compose pure Err)))
 
+  ;; BUG: This handles thread interrupt exceptions, which it *definitely* shouldn't
   (inline)
   (declare try-all (MonadException :m => :m :a -> :m (Optional :a)))
   (define (try-all op)

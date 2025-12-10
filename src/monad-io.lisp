@@ -3,33 +3,28 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:io/gen-impl/monad-io)
+   #:io/classes/monad-io)
   (:export
-   ;;; Re-export: BaseIo
-   #:BaseIo
-   #:run!
-
-   ;;; Re-export: MonadIo
+   ;; Re-exports from io/classes/monad-io
    #:MonadIo
+   #:derive-monad-io
    #:wrap-io_
    #:wrap-io
-   #:derive-monad-io
-   #:run-as!
-   ;;; UnliftIo & LiftIo
-   ;;; Re-export: LiftIo
-   #:LiftIo
-   #:lift-io_
-   #:lift-io
-   #:derive-lift-io
 
-   ;;; Re-export: UnliftIo
+   #:BaseIo
+   #:run!
+   #:run-as!
+
+   #:LiftIo
+   #:derive-lift-io
+   #:lift-io
+
    #:UnliftIo
    #:with-run-in-io
 
-   ;;; Fused Helpers
    #:map-into-io
-   #:foreach-io
    #:do-map-into-io
+   #:foreach-io
    #:do-foreach-io
    ))
 (in-package :io/monad-io)

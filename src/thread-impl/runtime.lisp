@@ -293,8 +293,83 @@ runtime."
   (define mask-current-thread%
     (wrap-io_ mask-current-thread!%))
 
+  ;; TODO: Merge this with unmask-current-thread-finally!% when MonadIoThread
+  ;; loses the unmask other thread functions
   (declare unmask-finally!% (IoThread -> (UnmaskFinallyMode -> Unit) -> Unit))
   (define (unmask-finally!% thread thunk)
+    "Unmask the thread. Guarantees that THUNK will be run, regardless of pending
+stop, with either the RUNNING or STOPPED mode. Finally, checks if there is a pending
+stop and interrupts the thread if it finds one.
+
+This function does NOT guarantee that THUNK will be called with STOPPED in all cases
+in which this function ultimately interrupts the current thread before exiting.
+However, even if the runtime used locks for masking threads, that is unavoidable.
+
+The fundamental problem is that it will always be possible for another thread to try
+to stop you while you're executing (THUNK RUNNING). You can do one of three things in
+that instance:
+
+1. Wrap (THUNK RUNNING) in a try/catch on this thread. Have the stopping thread signal us,
+interrupting (THUNK RUNNING). On this thread, in the catch, detect that (THUNK RUNNING)
+was stopped and re-call with (THUNK STOPPED).
+
+This sounds good. But the problem is that (THUNK RUNNING) is supposed to be guaranteed
+to execute. It could leave a resource in an un-recoverably inconsistent state.
+It would also require every call to this function or any of the user-facing bracket
+machinery to constantly hedge their cleanup functions against checking if it already
+partially or completely ran. The second problem is a deal breaker. The first is fatal.
+
+2. Ignore any stops that occur between checking the flag state, running the thunk, and
+finally unmasking the thread. This would be possibly workable, but it would require
+returning to stopping threads whether or not the stop succeeded. Then they could decide
+what to do with that. The stopping thread would be responsible for re-stopping.
+
+Again, this sounds good, but in practice it has serious problems. First, we don't
+currently expose a way to check if a thread is masked to users. We probably shouldn't
+because that's just too much surface area for race conditions that the runtime and
+concurrency primitives are supposed to manage themselves. Second, the stopping thread
+has no way of knowing how long it will take for this thread to finish its masked work.
+In theory this thread could run masked indefinitely, which would effectively either block
+the stopping thread or force it to give up on stopping this one.
+
+3. The solution implemented here, where the mode that THUNK sees and what this function
+ultimately decides to do can be inconsistent. This doesn't create any problems for the
+stopping therad, and the only onus it puts on this thread is to guarantee that both
+paths in THUNK cleanup whatever resource in a reasonable way. Ultimately that's something
+they should be doing anyway. Suppose a function calling this (or higher level bracket-io
+machinery, which will inherent this function's semantics) did something like this:
+
+(bracket-io (open-my-file)
+            (fn (mode)
+              (if (== Stopped mode)
+                 (cleanup-my-file)
+                 (write-line 'Actually Im good. Ill leave the file open, thank you.')))
+   (do-something-expensive-with-the-file))
+
+That function could get immediately killed as soon as that bracket-io finished, at which
+point the file would remain open and whatever subsequent code that was planning on using
+the file would not be run. A proper use of the Stopped/Running distinction is from
+the MVar implementation:
+
+    (unmask-current-thread-finally!%
+     (fn (mode)
+       (if (== Running mode)
+           (cv:await cv lock)
+           (progn
+             (lk:release lock)
+             Unit)))))
+
+Where both codepaths release the lock, but in a slightly different way. And notice that our
+choice to implement solution #3 doesn't have any negative impact, because even if the Running
+path did run, the thread could still be stopped right after it started awaiting the CV,
+which would have the same effect anyway.
+
+---
+Again, this is a fundamental problem with concurrency. Using locks instead of pure
+atomics to implement masking would not help. Forgoing asynchronous exceptions and switching
+to a purely cooperative model also wouldn't help. You'd have the same problem, but you'd
+just be limited to implementing only solutions #2 or #3.
+"
     (let flags = (.flags thread))
     ;; Wait to unmask until *after* we guarantee thunk has been run.
     (let flag-state = (at:read flags))
@@ -302,18 +377,23 @@ runtime."
     ;; we're undoing now.
     (if (and (matches-flag flag-state PENDING-KILL)
              (unmasked-once? flag-state))
-        (progn
-          (thunk Stopped)
-          (interrupt-iothread% thread))
+        (thunk Stopped)
         (thunk Running))
-    (rec % ()
-       (let old = (at:read flags))
-       (let new = (unmask-once% old))
-       (if (at:cas! flags old new)
-           new
-           (%)))
+    (let new-flag-state =
+      (rec % ()
+        (let old = (at:read flags))
+        (let new = (unmask-once% old))
+        (if (at:cas! flags old new)
+            new
+            (%))))
+    (when (and (unmasked-once? flag-state)
+               (matches-flag new-flag-state PENDING-KILL))
+      (interrupt-iothread% thread))
     Unit)
 
+  ;; TODO: Merge this into and replace with unmask-current-thread-finally!%
+  ;; At this point, they're the same, and that function is the only call-site
+  ;; of this one...
   (inline)
   (declare unmask-finally-current!% ((UnmaskFinallyMode -> Unit) -> Unit))
   (define (unmask-finally-current!% thunk)
