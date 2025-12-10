@@ -3,26 +3,9 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:coalton-library/functions
-   #:io/monad-io
+   #:io/classes/monad-io
    #:io/classes/monad-io-term)
-  (:import-from #:coalton-library/monad/statet
-   #:StateT)
-  (:import-from #:coalton-library/monad/environment
-   #:EnvT)
-  (:import-from #:coalton-library/experimental/do-control-loops-adv
-   #:LoopT)
-  (:local-nicknames
-   (:io #:io/simple-io))
   (:export
-   ;; Re-exports from io/classes/monad-io-term
-   #:MonadIoTerm
-   #:write
-   #:write-line
-   #:read-line
-
-   ;; Remaining exports
-   #:derive-monad-io-term
    #:implement-monad-io-term
    ))
 (in-package :io/gen-impl/term)
@@ -56,26 +39,3 @@
      (define write write%)
      (define write-line write-line%)
      (define read-line read-line%)))
-
-(cl:defmacro derive-monad-io-term (monad-param monadT-form)
-  "Automatically derive an instance of MonadIoTerm for a monad transformer.
-
-Example:
-  (derive-monad-io-term :m (st:StateT :s :m))"
-  `(define-instance (MonadIoTerm ,monad-param => MonadIoTerm ,monadT-form)
-     (define write (compose lift write))
-     (define write-line (compose lift write-line))
-     (define read-line (lift read-line))))
-
-;;
-;; Std. Library Transformer Instances
-;;
-
-(coalton-toplevel
-  (derive-monad-io-term :m (StateT :s :m))
-  (derive-monad-io-term :m (EnvT :e :m))
-  (derive-monad-io-term :m (LoopT :m)))
-
-;;
-;; Simple IO Implementation
-;;

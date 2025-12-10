@@ -6,8 +6,15 @@
    #:coalton-library/monad/classes
    #:io/classes/monad-io
    #:io/thread-impl/runtime)
+  (:import-from #:coalton-library/experimental/do-control-loops-adv
+   #:LoopT)
+  (:local-nicknames
+   (:st #:coalton-library/monad/statet)
+   (:env #:coalton-library/monad/environment)
+   )
   (:export
    #:MonadIoThread
+   #:derive-monad-io-thread
    #:current-thread
    #:fork
    #:sleep
@@ -17,7 +24,9 @@
    #:unmask-finally
    #:unmask-current
    #:unmask-current-finally
-   #:stop))
+   #:stop
+
+   #:do-fork))
 (in-package :io/classes/monad-io-thread)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -70,3 +79,35 @@ stopped after being unmasked N times."
     (stop
      "Stop a thread. If the thread has already stopped, does nothing."
      (:t -> :m Unit))))
+
+(cl:defmacro derive-monad-io-thread (monad-param monadT-form)
+  "Automatically derive an instance of MonadIoThread for a monad transformer.
+
+Example:
+  (derive-monad-io-thread :m (st:StateT :s :m))"
+  `(define-instance (MonadIoThread ,monad-param IoThread => MonadIoThread ,monadT-form IoThread)
+     (define current-thread (lift current-thread))
+     (define fork fork%)
+     (define sleep (compose lift sleep))
+     (define mask (compose lift mask))
+     (define mask-current (lift mask-current))
+     (define unmask (compose lift unmask))
+     (define unmask-finally unmask-finally%)
+     (define unmask-current (lift unmask-current))
+     (define unmask-current-finally unmask-current-thread-finally%)
+     (define stop (compose lift stop))))
+
+(coalton-toplevel
+
+  ;;
+  ;; Std. Library Transformer Instances
+  ;;
+
+  (derive-monad-io-thread :m (st:StateT :s :m))
+  (derive-monad-io-thread :m (env:EnvT :e :m))
+  (derive-monad-io-thread :m (LoopT :m)))
+
+(cl:defmacro do-fork (cl:&body body)
+  `(fork
+    (do
+     ,@body)))

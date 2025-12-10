@@ -9,3 +9,8 @@
                   => io:IO :a -> :m IoThread))
   (define fork_ fork)
   )
+
+(cl:defmacro do-fork_ (cl:&body body)
+  `(fork_
+    (do
+     ,@body)))
