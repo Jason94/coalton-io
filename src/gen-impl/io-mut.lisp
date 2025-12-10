@@ -50,7 +50,6 @@
 (cl:defmacro implement-monad-io-var (monad)
   `(define-instance (MonadIoVar ,monad)
      (define new-var new-var%)
-    (define read read%)
-    (define write write%)
-    (define modify modify%)))
-
+     (define read read%)
+     (define write write%)
+     (define modify modify%)))

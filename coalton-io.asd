@@ -30,15 +30,17 @@
                                (:file "monad-io-random")
                                (:file "monad-io-var")
                                (:file "monad-io-stm")))
+                 ;; These files don't define new, full MonadIoX capability classes. They just
+                 ;; do useful things with the capabilities provided by the classes in classes/
+                 (:file "io-resource")
                  (:module "gen-impl"
                   :serial t
                   :components ((:file "io-atomic")
                                (:file "io-mut")
-
-
-
-
                                (:file "io-mvar")
+
+
+
                                (:file "io-term")
                                (:file "io-thread")
                                (:file "io-resource")
@@ -60,7 +62,6 @@
                  (:file "io-term")
                  (:file "io-random")
                  (:file "io-thread")
-                 (:file "io-resource")
                  (:file "io-atomic")
                  (:file "io-mvar")
                  (:file "io-future")
