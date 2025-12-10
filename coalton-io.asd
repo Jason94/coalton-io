@@ -9,19 +9,23 @@
   :components ((:module "src"
                 :serial t
                 :components
-                ((:file "utils")
+                (;;;
+                 ;;; Library Private Packages
+                 ;;;
+                 (:file "utils")
                  (:file "thread-exceptions")
+                 ;; Load the two main "core classes" files first, before thread-impl/
+                 (:file "classes/monad-exception")
                  (:file "classes/monad-io")
                  (:module "thread-impl"
                   :serial t
                   :components ((:file "atomics")
                                (:file "runtime")
                                (:file "data-broadcast-pool")
-                               (:file "stm-types")))
+                               (:file "stm-impl")))
                  (:module "classes"
                   :serial t
-                  :components ((:file "monad-exception")
-                               (:file "monad-at-var")
+                  :components ((:file "monad-at-var")
                                (:file "monad-io-term")
                                (:file "monad-io-file")
                                (:file "monad-io-mvar")
@@ -31,10 +35,16 @@
                                (:file "monad-io-var")
                                (:file "monad-io-stm")))
 
+                 ;;;
+                 ;;; Library Public Packages
+                 ;;;
                  ;; These files don't define new, full MonadIoX capability classes. They just
                  ;; do useful things with the capabilities provided by the classes in classes/
                  (:file "io-resource")
 
+                 ;;;
+                 ;;; Library Private Packages
+                 ;;;
                  (:module "gen-impl"
                   :serial t
                   :components ((:file "io-atomic")
@@ -42,13 +52,9 @@
                                (:file "io-mut")
                                (:file "io-mvar")
                                (:file "io-thread")
-
-
-
                                (:file "io-file")
                                (:file "io-random")
                                (:file "io-unique")
-                               (:file "monad-io")
                                (:file "io-stm")))
                  (:module "io-impl"
                   :serial t
@@ -57,6 +63,9 @@
                                (:file "io-mvar")
                                (:file "io-future")
                                (:file "io-file")))
+                 ;;;
+                 ;;; Library Public Packages (Re-Export)
+                 ;;;
                  (:file "monad-io")
                  (:file "io-exception")
                  (:file "io-mut")
@@ -68,7 +77,6 @@
                  (:file "io-future")
                  (:file "io-file")
                  (:file "io-unique")
-                 (:file "thread-impl/stm-impl")
                  (:file "io-stm")
                  (:file "io-all")
                  (:file "stubs/term"))))

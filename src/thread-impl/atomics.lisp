@@ -21,6 +21,7 @@
    #:AtomicInteger
    #:new-at-int
    #:read-at-int
+   #:int-cas
    #:atomic-inc
    #:atomic-inc1
    #:atomic-dec
@@ -161,6 +162,14 @@ Returns the old value stored in `atm` after applying F."
   (define (read-at-int atm)
     (lisp Word (atm)
       (bt2:atomic-integer-value atm)))
+
+  (inline)
+  (declare int-cas (AtomicInteger -> Word -> Word -> Boolean))
+  (define (int-cas atm old new)
+    "Attempt to swap the contents of `atm` from OLD to NEW. Returns
+TRUE if the swap succeeded, FALSE otherwise. Does not repeat."
+    (lisp Boolean (atm old new)
+      (bt2:atomic-integer-compare-and-swap atm old new)))
 
   (inline)
   (declare atomic-inc (AtomicInteger -> Word -> Word))

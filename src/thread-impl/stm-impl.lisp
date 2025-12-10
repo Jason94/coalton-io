@@ -1,14 +1,13 @@
 (cl:in-package :cl-user)
-(defpackage :io/stm/stm-impl
+(defpackage :io/thread-impl/stm-impl
   (:use
    #:coalton
    #:coalton-prelude
    #:coalton-library/experimental/do-control-core
    #:io/utils
-   #:io/monad-io
-   #:io/exception
+   #:io/classes/monad-exception
+   #:io/classes/monad-io
    #:io/thread-impl/runtime
-   #:io/thread-impl/stm-types
    )
   (:local-nicknames
    (:opt #:coalton-library/optional)
@@ -16,11 +15,14 @@
    (:c #:coalton-library/cell)
    (:lk  #:coalton-threads/lock)
    (:cv  #:coalton-threads/condition-variable)
-   ;; (:ax #:alexandria)
+   (:at #:io/thread-impl/atomics)
    )
   (:export
+   ;; Library Public
    #:TVar
    #:STM
+
+   ;; Library Private
    #:new-tvar%
    #:read-tvar%
    #:write-tvar%
@@ -30,7 +32,7 @@
    #:run-tx%
    )
   )
-(in-package :io/stm/stm-impl)
+(in-package :io/thread-impl/stm-impl)
 
 (cl:defmacro mem-barrier ()
   `(lisp Void ()
@@ -42,10 +44,74 @@
 ;; https://pages.cs.wisc.edu/~markhill/restricted/757/ppopp10_norec.pdf
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;     Internal & Debug Helpers      ;;;
+;;;          Main STM Types           ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (coalton-toplevel
+
+  (derive Eq)
+  (repr :transparent)
+  (define-type (TVar :a)
+    (TVar% (c:Cell :a)))
+
+  (inline)
+  (declare unwrap-tvar% (TVar :a -> c:Cell :a))
+  (define (unwrap-tvar% (TVar% a))
+    a)
+
+  (inline)
+  (declare set-tvar% (TVar :a -> :a -> Unit))
+  (define (set-tvar% tvar val)
+    (c:write! (unwrap-tvar% tvar) val)
+    Unit)
+
+  (inline)
+  (declare tvar-value% (TVar :a -> :a))
+  (define (tvar-value% tvar)
+    (c:read (unwrap-tvar% tvar)))
+
+  (define-type (TxResult% :a)
+    (TxSuccess :a)
+    TxRetryAfterWrite
+    TxFailed)
+
+  (define-instance (Functor TxResult%)
+    (inline)
+    (define (map f result)
+      (match result
+        ((TxSuccess a)
+         (TxSuccess (f a)))
+        ((TxRetryAfterWrite)
+         TxRetryAfterWrite)
+        ((TxFailed)
+         TxFailed))))
+
+  (repr :native cl:cons)
+  (define-type ReadEntry%)
+
+  (repr :native cl:hash-table)
+  (define-type WriteHashTable%)
+
+  (define-struct TxData%
+    (lock-snapshot (c:cell Word))
+    (read-log (c:cell (List ReadEntry%)))
+    (write-log WriteHashTable%)
+    (parent-tx (c:cell (Optional TxData%))))
+
+  (repr :transparent)
+  (define-type (STM :io :a)
+    (STM% (TxData% -> :io (TxResult% :a))))
+
+  (inline)
+  (declare unwrap-stm% (STM :io :a -> (TxData% -> :io (TxResult% :a))))
+  (define (unwrap-stm% (STM% f-tx))
+    f-tx)
+
+  (inline)
+  (declare run-stm% (TxData% -> STM :io :a -> :io (TxResult% :a)))
+  (define (run-stm% tx-data tx)
+    ((unwrap-stm% tx) tx-data))
+
   (inline)
   (declare tx-const-io!% (MonadIo :m => :m (TxResult% :a) -> STM :m :a))
   (define (tx-const-io!% io-op)
@@ -53,19 +119,6 @@
      (fn (_)
        io-op)))
 
-  (inline)
-  (declare tx-io!% (MonadIo :m => :m :a -> STM :m :a))
-  (define (tx-io!% io-op)
-    "Not safe to use generally. Useful for writing unit-tests,
-for purposes like writing to Var's and using MVar's to coordinate
-threads inside of transactions to simulate different concurrent
-conditions. DONT USE THIS!"
-    (STM%
-     (fn (_)
-       (map TxSuccess io-op))))
-  )
-
-(coalton-toplevel
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;;           STM Instances           ;;;
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -168,6 +221,9 @@ conditions. DONT USE THIS!"
                      ((TxSuccess val)
                       (TxSuccess (Ok val)))))))
               (try-dynamic (run-stm% tx-data tx)))))))
+  )
+
+(coalton-toplevel
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;;          Internal Types           ;;;
@@ -236,7 +292,7 @@ conditions. DONT USE THIS!"
          :do (call-coalton-function set-tvar% addr value))))
 
   (inline)
-  (declare new-tx-data% (a::Word -> TxData%))
+  (declare new-tx-data% (Word -> TxData%))
   (define (new-tx-data% initial-snapshot)
     (TxData% (c:new initial-snapshot)
              (c:new Nil)
@@ -289,7 +345,7 @@ For safety, disconnects the transactions when done."
        Unit)))
 
   (inline)
-  (declare cached-snapshot (TxData% -> a::Word))
+  (declare cached-snapshot (TxData% -> Word))
   (define (cached-snapshot tx-data)
     (c:read (.lock-snapshot tx-data)))
 
@@ -332,15 +388,15 @@ For safety, disconnects the transactions when done."
   ;; is that whatever we do use HAS to eventually call something that is
   ;; a memory barrier in SBCL.
   ;; https://www.sbcl.org/manual/sbcl.pdf
-  (declare global-lock a:AtomicInteger)
-  (define global-lock (a:new 0))
+  (declare global-lock at:AtomicInteger)
+  (define global-lock (at:new-at-int 0))
 
   (inline)
-  (declare get-global-time (Unit -> a::Word))
+  (declare get-global-time (Unit -> Word))
   (define (get-global-time)
     "Read the global lock time and establish a memory barrier."
     (mem-barrier)
-    (a:read global-lock))
+    (at:read-at-int global-lock))
 
   ;; NOTE: In general, NOrec wants to avoid mutex locks and CV's wherever possible.
   ;; It does this by with an AtomicInteger-backed sequence lock and compressing
@@ -377,7 +433,7 @@ For safety, disconnects the transactions when done."
   (define (tx-begin-io%)
     (wrap-io
       (rec % ()
-        (let snapshot = (a:read global-lock))
+        (let snapshot = (at:read-at-int global-lock))
         (if (bit-odd? snapshot)
           (%)
           (new-tx-data% snapshot)))))
@@ -385,7 +441,7 @@ For safety, disconnects the transactions when done."
   (derive Eq)
   (define-type ValidateRes%
     TxAbort%
-    (TxContinue% a::Word))
+    (TxContinue% Word))
 
   (declare validate% (TxData% -> ValidateRes%))
   (define (validate% tx-data)
@@ -421,7 +477,7 @@ For safety, disconnects the transactions when done."
        (rec % ((val (progn (mem-barrier)
                            (tvar-value% tvar))))
          (if (== (cached-snapshot tx-data)
-                 (a:read global-lock))
+                 (at:read-at-int global-lock))
              (progn
                (log-read-value tvar val tx-data)
                (TxSuccess val))
@@ -483,9 +539,9 @@ For safety, disconnects the transactions when done."
             (while (and
                     ;; Stop looping if we already need to abort.
                     (c:read result)
-                    (not (a:cas! global-lock
-                                 (c:read (.lock-snapshot tx-data))
-                                 (1+ (c:read (.lock-snapshot tx-data))))))
+                    (not (at:int-cas global-lock
+                                     (c:read (.lock-snapshot tx-data))
+                                     (1+ (c:read (.lock-snapshot tx-data))))))
               (let validate-res = (validate% tx-data))
               (match validate-res
                 ((TxContinue% time)
@@ -496,7 +552,7 @@ For safety, disconnects the transactions when done."
                  Unit)))
             (when (c:read result)
               (commit-logged-writes (.write-log tx-data))
-              (a:incf! global-lock 1)
+              (at:atomic-inc1 global-lock)
               (broadcast-write-cv!%)
               (unmask-current-thread!%)
               Unit)

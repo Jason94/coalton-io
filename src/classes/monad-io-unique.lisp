@@ -4,10 +4,17 @@
    #:coalton
    #:coalton-prelude
    #:io/classes/monad-io)
+  (:import-from #:coalton-library/experimental/do-control-loops-adv
+   #:LoopT)
+  (:local-nicknames
+   (:st #:coalton-library/monad/statet)
+   (:env #:coalton-library/monad/environment)
+   )
   (:export
    ;; Library Public
    #:Unique
    #:MonadIoUnique
+   #:derive-monad-io-unique
    #:new-unique
    #:to-int
 
@@ -43,3 +50,20 @@ for any two different Unique instances."
 Threadsafe - calling from different threads will still result in unique
 values across all threads."
      (:m Unique))))
+
+(cl:defmacro derive-monad-io-unique (monad-param monadT-form)
+  "Automatically derive an instance of MonadIoUnique for a monad transformer.
+
+Example:
+  (derive-monad-io-unique :m (st:StateT :s :m))"
+  `(define-instance (MonadIoUnique ,monad-param => MonadIoUnique ,monadT-form)
+     (define new-unique (lift new-unique))))
+
+(coalton-toplevel
+  ;;
+  ;; Std. Library Transformer Instances
+  ;;
+
+  (derive-monad-io-unique :m (st:StateT :s :m))
+  (derive-monad-io-unique :m (env:EnvT :e :m))
+  (derive-monad-io-unique :m (LoopT :m)))

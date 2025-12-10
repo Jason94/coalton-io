@@ -3,13 +3,20 @@
   (:use
    #:coalton
    #:coalton-prelude
+   #:io/utils
    #:io/classes/monad-io)
   (:import-from #:coalton-library/types
    #:RuntimeRepr)
+  (:import-from #:coalton-library/experimental/do-control-loops-adv
+   #:LoopT)
   (:local-nicknames
+   (:st   #:coalton-library/monad/statet)
+   (:env  #:coalton-library/monad/environment)
    (:file #:coalton-library/file))
   (:export
+   ;; Library Public
    #:MonadIoFile
+   #:derive-monad-io-file
    #:exists?
    #:file-exists?
    #:directory-exists?
@@ -36,7 +43,12 @@
    #:write-vector
    #:write-to-file
    #:append-to-file
-   #:set-file-position))
+   #:set-file-position
+
+   ;; Library Private
+   #:create-temp-directory%
+   #:create-temp-file%
+   ))
 (in-package :io/classes/monad-io-file)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -124,3 +136,64 @@
      "Sets the file position of a file stream."
      ((file:FileStream :a) -> UFix -> :m (Result file:FileError Unit)))))
 
+;;;
+;;; These functions don't need to be lift-ed
+;;;
+
+(coalton-toplevel
+
+  (declare create-temp-directory% (MonadIo :m => :m (Result file:FileError file:Pathname)))
+  (define create-temp-directory%
+    (wrap-io (file:create-temp-directory!)))
+
+  (declare create-temp-file% (MonadIo :m => String -> :m (Result file:FileError file:Pathname)))
+  (define (create-temp-file% file-ext)
+    (wrap-io (file:create-temp-file! file-ext)))
+
+  )
+
+(cl:defmacro derive-monad-io-file (monad-param monadT-form)
+  "Derive a `MonadIoFile` instance for MONADT-FORM by lifting into the base instance.
+
+Example:
+  (derive-monad-io-file :m (st:StateT :s :m))"
+  `(define-instance (MonadIoFile ,monad-param => MonadIoFile ,monadT-form)
+     (define exists? (compose lift exists?))
+     (define file-exists? (compose lift file-exists?))
+     (define directory-exists? (compose lift directory-exists?))
+
+     (define open (compose lift open))
+     (define close (compose lift close))
+     (define abort (compose lift abort))
+
+     (define create-temp-directory create-temp-directory%)
+     (define create-temp-file create-temp-file%)
+
+     (define copy (compose2 lift copy))
+     (define create-directory (compose lift create-directory))
+     (define delete-file (compose lift delete-file))
+     (define remove-directory (compose lift remove-directory))
+     (define remove-directory-recursive (compose lift remove-directory-recursive))
+     (define system-relative-pathname (compose2 lift system-relative-pathname))
+
+     (define read-file-to-string (compose lift read-file-to-string))
+     (define read-file-lines (compose lift read-file-lines))
+
+     (define read-char (compose lift read-char))
+     (define read-line (compose lift read-line))
+     (define write-char (compose2 lift write-char))
+     (define write-line (compose2 lift write-line))
+     (define write-string (compose2 lift write-string))
+
+     (define read-file-to-vector (compose lift read-file-to-vector))
+     (define read-vector (compose2 lift read-vector))
+     (define write-vector (compose2 lift write-vector))
+     (define write-to-file (compose2 lift write-to-file))
+     (define append-to-file (compose2 lift append-to-file))
+     (define set-file-position (compose2 lift set-file-position))))
+
+(coalton-toplevel
+  (derive-monad-io-file :m (st:StateT :s :m))
+  (derive-monad-io-file :m (env:EnvT :e :m))
+  (derive-monad-io-file :m (LoopT :m))
+  )

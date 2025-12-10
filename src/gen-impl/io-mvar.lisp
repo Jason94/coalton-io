@@ -49,6 +49,8 @@
             (cv:new)
             (at:new None))))
 
+  ;; TODO: Add a catch thread interrupt macro helper in thread-exceptions for internal
+  ;; use, and then use it here.
   (inline)
   (define (unmask-and-await-safely% cv lock)
     "Unmask the thread. Finally, either await (still running) the CV

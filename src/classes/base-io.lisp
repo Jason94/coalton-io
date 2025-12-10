@@ -13,9 +13,3 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (define-class (Monad :m => BaseIo :m)
-    "A 'base' IO implementation, which can be run to execute some
-(potentially side-effectful) operation."
-    (run!
-     "Run a (potentially) side-effectful operation."
-     (:m :a -> :a))))

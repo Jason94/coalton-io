@@ -3,39 +3,12 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:coalton-library/functions
-   #:coalton-library/experimental/do-control-core
-   #:io/classes/monad-io-random
    #:io/utils
-   #:io/monad-io)
-  (:import-from #:coalton-library/experimental/do-control-loops-adv
-   #:LoopT)
-  (:local-nicknames
-   (:l #:coalton-library/list)
-   (:opt #:coalton-library/optional)
-   (:st  #:coalton-library/monad/statet)
-   (:env #:coalton-library/monad/environment)
-   (:io #:io/simple-io))
+   #:io/classes/monad-io
+   #:io/classes/monad-io-random
+   )
   (:export
-   ;; Re-export: io/classes/monad-io-random
-   #:RandomLimit
-   #:RandomState
-   #:MonadIoRandom
-   #:make-random-state
-   #:copy-random-state
-   #:get-current-random-state
-   #:set-current-random-state
-   #:random
-   #:random_
-
-   ;; Remaining exports
-   #:derive-monad-io-random
    #:implement-monad-io-random
-
-   #:random-elt
-   #:random-elt_
-   #:random-elt#
-   #:random-elt#_
    ))
 (in-package :io/gen-impl/random)
 
@@ -73,41 +46,6 @@
   (define (random_% limit)
     (wrap-io (lisp :a (limit)
                (cl:random limit))))
-
-  ;;;
-  ;;; Extra Functions
-  ;;;
-
-  (declare random-elt (MonadIoRandom :m => RandomState -> List :a -> :m (Optional :a)))
-  (define (random-elt rs lst)
-    "Get a random element from LST. Returns NONE if LST is empty."
-    (let len = (length lst))
-    (do-if (== 0 len)
-        (pure None)
-      (r <- (random rs len))
-      (pure (l:index r lst))))
-
-  (declare random-elt_ (MonadIoRandom :m => List :a -> :m (Optional :a)))
-  (define (random-elt_ lst)
-    "Get a random element from LST. Returns NONE if LST is empty."
-    (let len = (length lst))
-    (do-if (== 0 len)
-        (pure None)
-      (r <- (random_ len))
-      (pure (l:index r lst))))
-
-  (declare random-elt# (MonadIoRandom :m => RandomState -> List :a -> :m :a))
-  (define (random-elt# rs lst)
-    "Get a random element from LST. Errors if LST is empty."
-    (map (opt:from-some "Cannot get random element from empty list")
-         (random-elt rs lst)))
-
-  (declare random-elt#_ (MonadIoRandom :m => List :a -> :m :a))
-  (define (random-elt#_ lst)
-    "Get a random element from LST. Errors if LST is empty."
-    (map (opt:from-some "Cannot get random element from empty list")
-         (random-elt_ lst)))
-
   )
 
 (cl:defmacro implement-monad-io-random (monad)
@@ -118,29 +56,3 @@
      (define set-current-random-state set-current-random-state%)
      (define random random%)
      (define random_ random_%)))
-
-(cl:defmacro derive-monad-io-random (monad-param monadT-form)
-  "Automatically derive an instance of MonadIoRandom for a monad transformer.
-
-Example:
-  (derive-monad-io-random :m (st:StateT :s :m))"
-  `(define-instance (MonadIoRandom ,monad-param => MonadIoRandom ,monadT-form)
-     (define make-random-state (lift make-random-state))
-     (define copy-random-state (compose lift copy-random-state))
-     (define get-current-random-state (lift get-current-random-state))
-     (define set-current-random-state (compose lift set-current-random-state))
-     (define random (compose2 lift random))
-     (define random_ (compose lift random_))))
-
-(coalton-toplevel
-  ;;
-  ;; Std. Library Transformer Instances
-  ;;
-
-  (derive-monad-io-random :m (st:StateT :s :m))
-  (derive-monad-io-random :m (env:EnvT :e :m))
-  (derive-monad-io-random :m (LoopT :m)))
-
-;;
-;; Simple IO Implementation
-;;
