@@ -3,12 +3,15 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:coalton-library/functions
-   #:coalton-library/monad/classes
    #:io/classes/monad-io
-   #:io/stm/stm-impl)
+   #:io/thread-impl/stm-types)
+  (:local-nicknames
+   (:c #:coalton-library/cell))
   (:export
-   ;; Library Public
+   ;; Re-Export
+   #:TVar
+
+   ;; Export
    #:MonadIoSTM
    #:new-tvar
    #:read-tvar
@@ -16,12 +19,14 @@
    #:modify-tvar
    #:retry
    #:or-else
-   #:run-tx))
+   #:run-tx
+   ))
 (in-package :io/classes/monad-io-stm)
 
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
+
   (define-class (MonadIo :m => MonadIoSTM :m)
     "A MonadIo which can execute atomic transactions.
 

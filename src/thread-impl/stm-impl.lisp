@@ -8,12 +8,12 @@
    #:io/monad-io
    #:io/exception
    #:io/thread-impl/runtime
+   #:io/thread-impl/stm-types
    )
   (:local-nicknames
    (:opt #:coalton-library/optional)
    (:i #:coalton-library/iterator)
    (:c #:coalton-library/cell)
-   (:a #:coalton-threads/atomic)
    (:lk  #:coalton-threads/lock)
    (:cv  #:coalton-threads/condition-variable)
    ;; (:ax #:alexandria)
@@ -40,86 +40,6 @@
 
 ;; This is an implementation of the NOrec STM algorithm, described:
 ;; https://pages.cs.wisc.edu/~markhill/restricted/757/ppopp10_norec.pdf
-
-(coalton-toplevel
-
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  ;;;          Main STM Types           ;;;
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-  (derive Eq)
-  (repr :transparent)
-  (define-type (TVar :a)
-    (TVar% (c:Cell :a)))
-
-  (inline)
-  (declare unwrap-tvar% (TVar :a -> c:Cell :a))
-  (define (unwrap-tvar% (TVar% a))
-    a)
-
-  (inline)
-  (declare set-tvar% (TVar :a -> :a -> Unit))
-  (define (set-tvar% tvar val)
-    (c:write! (unwrap-tvar% tvar) val)
-    Unit)
-
-  (inline)
-  (declare tvar-value% (TVar :a -> :a))
-  (define (tvar-value% tvar)
-    (c:read (unwrap-tvar% tvar)))
-
-  (define-type (TxResult% :a)
-    (TxSuccess :a)
-    TxRetryAfterWrite
-    TxFailed)
-
-  (define-instance (Functor TxResult%)
-    (inline)
-    (define (map f result)
-      (match result
-        ((TxSuccess a)
-         (TxSuccess (f a)))
-        ((TxRetryAfterWrite)
-         TxRetryAfterWrite)
-        ((TxFailed)
-         TxFailed))))
-
-  (repr :native cl:cons)
-  (define-type ReadEntry%)
-
-  (repr :native cl:hash-table)
-  (define-type WriteHashTable%)
-
-  (define-struct TxData%
-    (lock-snapshot (c:cell a::Word))
-    (read-log (c:cell (List ReadEntry%)))
-    (write-log WriteHashTable%)
-    (parent-tx (c:cell (Optional TxData%))))
-
-  ;; (inline)
-  ;; (declare copy-txdata% (TxData% -> TxData%))
-  ;; (define (copy-txdata% tx-data)
-  ;;   (let write-log = (.write-log tx-data))
-  ;;   (TxData%
-  ;;    (c:new (c:read (.lock-snapshot tx-data)))
-  ;;    (c:new (c:read (.read-log tx-data)))
-  ;;    (lisp WriteHashTable% (write-log)
-  ;;        (ax:copy-hash-table write-log))))
-
-  (repr :transparent)
-  (define-type (STM :io :a)
-    (STM% (TxData% -> :io (TxResult% :a))))
-
-  (inline)
-  (declare unwrap-stm% (STM :io :a -> (TxData% -> :io (TxResult% :a))))
-  (define (unwrap-stm% (STM% f-tx))
-    f-tx)
-
-  (inline)
-  (declare run-stm% (TxData% -> STM :io :a -> :io (TxResult% :a)))
-  (define (run-stm% tx-data tx)
-    ((unwrap-stm% tx) tx-data))
-  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;     Internal & Debug Helpers      ;;;

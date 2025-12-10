@@ -10,7 +10,7 @@
    (:lk  #:coalton-threads/lock)
    (:c #:coalton-library/cell)
    (:cv  #:coalton-threads/condition-variable)
-   (:at #:io/atomics_)
+   (:at #:io/thread-impl/atomics)
    )
   (:export
    #:DataBroadcastPool

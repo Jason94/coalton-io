@@ -16,7 +16,8 @@
                   :serial t
                   :components ((:file "atomics")
                                (:file "runtime")
-                               (:file "data-broadcast-pool")))
+                               (:file "data-broadcast-pool")
+                               (:file "stm-types")))
                  (:module "classes"
                   :serial t
                   :components ((:file "monad-exception")

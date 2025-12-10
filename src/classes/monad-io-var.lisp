@@ -3,8 +3,6 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:coalton-library/functions
-   #:coalton-library/monad/classes
    #:io/classes/monad-io)
   (:local-nicknames
    (:c #:coalton-library/cell))
