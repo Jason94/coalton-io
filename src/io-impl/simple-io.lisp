@@ -24,9 +24,6 @@
    #:IO
    #:run-io!
 
-   #:ThreadingException
-   #:InterruptCurrentThread
-
    #:raise-io
    #:raise-io_
    #:raise-dynamic-io
@@ -71,13 +68,6 @@ See >>="
 ;;;
 
 (coalton-toplevel
-
-  (define-exception ThreadingException
-    (InterruptCurrentThread String))
-
-  (define-instance (Signalable ThreadingException)
-    (define (error x)
-      (error x)))
 
   ;;
   ;; IO Monad
@@ -238,6 +228,18 @@ implement MonadException and handle asynchronous exception signals."
        (Ok
         (run-io-handled!% io-op)))))
 
+  ;;
+  ;; MonadException Instance
+  ;;
+
+  (define-instance (MonadException IO)
+    (define raise raise-io)
+    (define raise-dynamic raise-dynamic-io)
+    (define reraise reraise-io)
+    (define handle handle-io)
+    (define handle-all handle-all-io)
+    (define try-dynamic try-dynamic-io))
+
   (define-instance (BaseIo IO)
     (define run! run-io!))
 
@@ -317,3 +319,17 @@ More efficient than foreach-io, if you can run your effect in a BaseIo."
      (fn (,var)
        (do
         ,@body))))
+
+;;;
+;;; IO Capability Implementations
+;;;
+
+(coalton-toplevel
+  (io/thread:implement-monad-io-thread IO)
+  (io/atomic:implement-monad-io-atomic IO)
+  (io/mut:implement-monad-io-var IO)
+  (io/mvar:implement-monad-io-mvar IO)
+  (io/file:implement-monad-io-file IO)
+  (io/random:implement-monad-io-random IO)
+  (io/term:implement-monad-io-term IO)
+  (io/stm:implement-monad-io-stm IO))

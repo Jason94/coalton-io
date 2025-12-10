@@ -10,16 +10,16 @@
                 :serial t
                 :components
                 ((:file "utils")
-                 (:file "atomics")
-                 (:file "thread-impl/runtime")
-                 (:file "thread-impl/data-broadcast-pool")
+                 (:file "thread-exceptions")
+                 (:file "classes/monad-io")
+                 (:module "thread-impl"
+                  :serial t
+                  :components ((:file "atomics")
+                               (:file "runtime")
+                               (:file "data-broadcast-pool")))
                  (:module "classes"
                   :serial t
-                  :components ((:file "base-io")
-                               (:file "monad-io")
-                               (:file "lift-io")
-                               (:file "unlift-io")
-                               (:file "monad-exception")
+                  :components ((:file "monad-exception")
                                (:file "monad-at-var")
                                (:file "monad-io-term")
                                (:file "monad-io-file")
@@ -29,8 +29,30 @@
                                (:file "monad-io-random")
                                (:file "monad-io-var")
                                (:file "monad-io-stm")))
+                 (:module "gen-impl"
+                  :serial t
+                  :components
+                  ((:file "io-atomic")
+                   (:file "io-mut")
+                   (:file "io-mvar")
+                   (:file "io-term")
+                   (:file "io-thread")
+                   (:file "io-resource")
+                   (:file "io-file")
+                   (:file "io-random")
+                   (:file "io-unique")
+                   (:file "monad-io")
+                   (:file "io-exception")
+                   (:file "io-stm")))
+                 (:module "io-impl"
+                  :serial t
+                  :components
+                  ((:file "simple-io")
+                   (:file "io-thread")
+                   (:file "io-mvar")
+                   (:file "io-future")
+                   (:file "io-file")))
                  (:file "monad-io")
-                 (:file "simple-io")
                  (:file "io-exception")
                  (:file "io-mut")
                  (:file "io-term")
@@ -42,11 +64,10 @@
                  (:file "io-future")
                  (:file "io-file")
                  (:file "io-unique")
-                 (:file "stm/stm-impl")
+                 (:file "thread-impl/stm-impl")
                  (:file "io-stm")
                  (:file "io-all")
-                 (:file "stubs/term")
-                 )))
+                 (:file "stubs/term"))))
   :description "Functional IO interfaces and implementation for Coalton."
   :long-description "Functional IO interfaces and implementation for Coalton. Includes terminal IO, file system IO, random variables,
 mutable variables, multithreading, and several data structures to safely share state between threads."

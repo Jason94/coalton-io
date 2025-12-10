@@ -4,10 +4,9 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/monad/classes
-   #:io/monad-io
+   #:io/classes/monad-io
    #:io/thread-impl/runtime)
   (:export
-   ;; Library Public
    #:MonadIoThread
    #:current-thread
    #:fork

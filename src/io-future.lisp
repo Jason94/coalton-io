@@ -57,13 +57,6 @@ the produced :m is run."
        (put-mvar value-var result))
      (pure (Future% value-var))))
 
-  (declare fork-future_ ((MonadIoThread :m :t) (MonadIoMVar :m) (LiftTo io:IO :m)
-                         => io:IO :a -> :m (Future :a)))
-  (define fork-future_
-    "Spawn a new future, which will run and eventually return the result
-from TASK. The future is guaranteed to only ever run at most once, when
-the produced :m is run."
-    fork-future)
 
   (inline)
   (declare await ((MonadIoMVar :m) (MonadException :m) => Future :a -> :m :a))
@@ -95,10 +88,6 @@ that were raised in the future thread."
           (raise-dynamic dyn-e))))))
   )
 
-(cl:defmacro do-fork-future_ (cl:&body body)
-  `(fork-future_
-    (do
-     ,@body)))
 
 (cl:defmacro do-fork-future (cl:&body body)
   `(fork-future

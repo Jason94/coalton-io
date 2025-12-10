@@ -4,14 +4,13 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/functions
-   #:io/monad-io
+   #:io/classes/monad-io
    #:io/thread-impl/data-broadcast-pool)
   (:local-nicknames
    (:lk #:coalton-threads/lock)
    (:cv #:coalton-threads/condition-variable)
-   (:at #:io/atomics_))
+   (:at #:io/thread-impl/atomics))
   (:export
-   ;; Library Public
    #:MVar
    #:MonadIoMVar
    #:new-mvar

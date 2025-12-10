@@ -7,7 +7,6 @@
    #:coalton-library/monad/classes
    #:io/classes/monad-io)
   (:export
-   ;; Library Public
    #:RandomLimit
    #:RandomState
    #:MonadIoRandom
@@ -17,13 +16,7 @@
    #:set-current-random-state
    #:random
    #:random_
-   ;; Library Private
-   #:make-random-state%
-   #:copy-random-state%
-   #:get-current-random-state%
-   #:set-current-random-state%
-   #:random%
-   #:random_%))
+   ))
 (in-package :io/classes/monad-io-random)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -39,13 +32,6 @@
 
   (repr :native cl:random-state)
   (define-type RandomState)
-
-  (declare make-random-state% (MonadIo :m => :m RandomState))
-  (declare copy-random-state% (MonadIo :m => RandomState -> :m RandomState))
-  (declare get-current-random-state% (MonadIo :m => :m RandomState))
-  (declare set-current-random-state% (MonadIo :m => RandomState -> :m Unit))
-  (declare random% ((RandomLimit :a) (MonadIo :m) => RandomState -> :a -> :m :a))
-  (declare random_% ((RandomLimit :a) (MonadIo :m) => :a -> :m :a))
 
   (define-class (Monad :m => MonadIoRandom :m)
     (make-random-state

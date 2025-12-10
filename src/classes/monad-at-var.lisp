@@ -3,9 +3,9 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:io/monad-io)
+   #:io/classes/monad-io)
   (:local-nicknames
-   (:at #:io/atomics_))
+   (:at #:io/thread-impl/atomics))
   (:export
    ;; Library Public
    #:AtVar

@@ -5,7 +5,8 @@
    #:coalton-prelude
    #:coalton-library/monad/classes
    #:io/utils
-   #:io/monad-io
+   #:io/classes/monad-io
+   #:io/thread-exceptions
    )
   (:local-nicknames
    (:c #:coalton-library/cell)
@@ -16,9 +17,6 @@
    (:at #:coalton-threads/atomic)
    (:bt #:bordeaux-threads-2)
    )
-  (:import-from #:io/simple-io
-   #:ThreadingException
-   #:InterruptCurrentThread)
   (:export
    ;; Library Public
    #:IoThread

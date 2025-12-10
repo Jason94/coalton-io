@@ -3,7 +3,7 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:io/monad-io)
+   #:io/classes/monad-io)
   (:export
    ;; Library Public
    #:Unique
