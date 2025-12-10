@@ -69,7 +69,6 @@
                  ;;;
                  (:file "io-exception")
                  (:file "monad-io")
-                 (:file "simple-io")
                  (:file "io-mut")
                  (:file "io-term")
                  (:file "io-random")
@@ -80,7 +79,9 @@
                  (:file "io-unique")
                  (:file "io-stm")
                  (:file "io-all")
-                 (:file "stubs/term"))))
+                 (:file "stubs/term")
+                 (:file "simple-io")
+                 )))
   :description "Functional IO interfaces and implementation for Coalton."
   :long-description "Functional IO interfaces and implementation for Coalton. Includes terminal IO, file system IO, random variables,
 mutable variables, multithreading, and several data structures to safely share state between threads."

@@ -1,17 +1,19 @@
 (cl:in-package :cl-user)
 (defpackage :io/mut
   (:use
-   #:coalton
-   #:coalton-prelude
-   #:io/gen-impl/mut)
+   #:io/classes/monad-io-var
+   #:io/gen-impl/mut
+   )
   (:export
+   ;; Re-exports from io/classes/monad-io-var
    #:Var
    #:MonadIoVar
+   #:derive-monad-var
    #:new-var
    #:read
    #:write
    #:modify
 
-   #:derive-monad-var
+   ;; Re-exports from io/gen-impl/mut
    #:implement-monad-io-var))
 (in-package :io/mut)

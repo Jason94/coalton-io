@@ -1,10 +1,9 @@
 (cl:in-package :cl-user)
 (defpackage :io/mvar
   (:use
-   #:coalton
-   #:coalton-prelude
    #:io/gen-impl/mvar)
   (:export
+   ;; Re-exports from io/classes/monad-io-mvar
    #:MVar
    #:MonadIoMVar
    #:new-mvar
