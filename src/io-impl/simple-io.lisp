@@ -40,15 +40,6 @@
    #:do-foreach-io_
    #:map-into-io_
    #:do-map-into-io_
-
-   ;; ;; Re-export the basic IO operations for usability, so that users
-   ;; ;; who want to use IO don't have to import two files.
-   ;; #:wrap-io
-   ;; #:wrap-io_
-   ;; #:map-into-io
-   ;; #:foreach-io
-   ;; #:do-map-into-io
-   ;; #:do-foreach-io
    ))
 (in-package :io/io-impl/simple-io)
 

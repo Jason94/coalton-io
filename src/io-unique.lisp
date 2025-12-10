@@ -1,18 +1,17 @@
 (cl:in-package :cl-user)
 (defpackage :io/unique
   (:use
-   #:coalton
-   #:coalton-prelude
+   #:io/classes/monad-io-unique
    #:io/gen-impl/unique)
   (:export
    ;; Re-exports from io/classes/monad-io-unique
    #:MonadIoUnique
+   #:derive-monad-io-unique
    #:Unique
    #:new-unique
    #:to-int
 
-   ;; Remaining exports
-   #:derive-monad-io-unique
+   ;; Re-exports from io/gen-impl/unique
    #:implement-monad-io-unique
    ))
 (in-package :io/unique)

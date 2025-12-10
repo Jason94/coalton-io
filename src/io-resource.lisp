@@ -5,9 +5,8 @@
    #:coalton-prelude
    #:coalton-library/experimental/do-control-core
    #:io/classes/monad-io-thread
-   #:io/classes/monad-exception)
-  (:import-from #:coalton-library/types
-   #:RuntimeRepr)
+   #:io/classes/monad-exception
+   #:coalton-library/types)
   (:export
    #:ExitCase
    #:Completed

@@ -15,6 +15,7 @@
    ;; Library Public
    #:Var
    #:MonadIoVar
+   #:derive-monad-var
    #:new-var
    #:read
    #:write

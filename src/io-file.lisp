@@ -1,12 +1,12 @@
 (cl:in-package :cl-user)
 (defpackage :io/file
   (:use
-   #:coalton
-   #:coalton-prelude
+   #:io/classes/monad-io-file
    #:io/gen-impl/file)
   (:export
    ;; Re-exports from io/classes/monad-io-file
    #:MonadIoFile
+   #:derive-monad-io-file
    #:exists?
    #:file-exists?
    #:directory-exists?
@@ -39,8 +39,6 @@
    #:append-to-file
    #:set-file-position
 
-   ;; Remaining exports
-   #:derive-monad-io-file
    #:read-line#
    #:with-open-file
    #:with-temp-file
@@ -55,6 +53,8 @@
    #:do-with-open-file
    #:do-with-temp-file
    #:do-with-temp-directory
+
+   ;; Re-exports from io/gen-impl/file
    #:implement-monad-io-file
    ))
 (in-package :io/file)
