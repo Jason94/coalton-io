@@ -3,24 +3,20 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:coalton-library/functions
    #:coalton-library/monad/classes
    #:coalton-library/experimental/do-control-core
    #:io/utils
-   #:io/monad-io
-   #:io/exception
-   #:io/thread
-   #:io/mvar)
-  (:local-nicknames
-   (:io #:io/simple-io))
+   #:io/classes/monad-exception
+   #:io/classes/monad-io
+   #:io/classes/monad-io-thread
+   #:io/classes/monad-io-mvar
+   )
   (:export
    #:Future
    #:fork-future
-   #:fork-future_
    #:await
    #:try-read-future
 
-   #:do-fork-future_
    #:do-fork-future
    ))
 (in-package :io/future)

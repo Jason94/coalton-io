@@ -41,6 +41,7 @@
                  ;; These files don't define new, full MonadIoX capability classes. They just
                  ;; do useful things with the capabilities provided by the classes in classes/
                  (:file "io-resource")
+                 (:file "io-future")
 
                  ;;;
                  ;;; Library Private Packages
@@ -66,15 +67,15 @@
                  ;;;
                  ;;; Library Public Packages (Re-Export)
                  ;;;
-                 (:file "monad-io")
                  (:file "io-exception")
+                 (:file "monad-io")
+                 (:file "simple-io")
                  (:file "io-mut")
                  (:file "io-term")
                  (:file "io-random")
                  (:file "io-thread")
                  (:file "io-atomic")
                  (:file "io-mvar")
-                 (:file "io-future")
                  (:file "io-file")
                  (:file "io-unique")
                  (:file "io-stm")

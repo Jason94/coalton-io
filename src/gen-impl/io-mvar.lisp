@@ -19,7 +19,8 @@
    (:cv  #:coalton-threads/condition-variable)
    )
   (:export
-   #:implement-monad-io-var
+   #:implement-monad-io-mvar
+   #:with-mvar
    ))
 (in-package :io/gen-impl/mvar)
 

@@ -4,6 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:io/classes/monad-io
+   #:io/classes/monad-io-thread
    #:io/classes/monad-io-term
    #:io/thread-impl/runtime
    )

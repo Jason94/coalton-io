@@ -1,12 +1,27 @@
 (cl:in-package :cl-user)
-(in-package :io/future)
+(defpackage :io/io-impl/future
+  (:use
+   #:coalton
+   #:coalton-prelude
+   #:coalton-library/monad/classes
+   #:io/thread-impl/runtime
+   #:io/future
+   #:io/classes/monad-io-thread
+   #:io/classes/monad-io-mvar
+   #:io/io-impl/simple-io
+   )
+  (:export
+   #:with-mvar_
+   #:do-with-mvar_
+   ))
+(in-package :io/io-impl/future)
 
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
 
-  (declare fork-future_ ((MonadIoThread :m :t) (MonadIoMVar :m) (LiftTo io:IO :m)
-                         => io:IO :a -> :m (Future :a)))
+  (declare fork-future_ ((MonadIoThread :m :t) (MonadIoMVar :m) (LiftTo IO :m)
+                         => IO :a -> :m (Future :a)))
   (define fork-future_
     "Spawn a new future, which will run and eventually return the result
 from TASK. The future is guaranteed to only ever run at most once, when

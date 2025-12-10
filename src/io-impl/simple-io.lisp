@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/simple-io
+(defpackage :io/io-impl/simple-io
   (:use
    #:coalton
    #:coalton-prelude
@@ -7,7 +7,10 @@
    #:coalton-library/types
    #:coalton-library/experimental/do-control-core
    #:io/utils
-   #:io/monad-io)
+   #:io/thread-exceptions
+   #:io/classes/monad-exception
+   #:io/classes/monad-io
+   )
   (:import-from #:coalton-library/experimental/loops
    #:dolist)
   (:import-from #:coalton-library/experimental/do-control-loops-adv
@@ -38,16 +41,16 @@
    #:map-into-io_
    #:do-map-into-io_
 
-   ;; Re-export the basic IO operations for usability, so that users
-   ;; who want to use IO don't have to import two files.
-   #:wrap-io
-   #:wrap-io_
-   #:map-into-io
-   #:foreach-io
-   #:do-map-into-io
-   #:do-foreach-io
+   ;; ;; Re-export the basic IO operations for usability, so that users
+   ;; ;; who want to use IO don't have to import two files.
+   ;; #:wrap-io
+   ;; #:wrap-io_
+   ;; #:map-into-io
+   ;; #:foreach-io
+   ;; #:do-map-into-io
+   ;; #:do-foreach-io
    ))
-(in-package :io/simple-io)
+(in-package :io/io-impl/simple-io)
 
 (named-readtables:in-readtable coalton:coalton)
 
@@ -325,11 +328,11 @@ More efficient than foreach-io, if you can run your effect in a BaseIo."
 ;;;
 
 (coalton-toplevel
-  (io/thread:implement-monad-io-thread IO)
-  (io/atomic:implement-monad-io-atomic IO)
-  (io/mut:implement-monad-io-var IO)
-  (io/mvar:implement-monad-io-mvar IO)
-  (io/file:implement-monad-io-file IO)
-  (io/random:implement-monad-io-random IO)
-  (io/term:implement-monad-io-term IO)
-  (io/stm:implement-monad-io-stm IO))
+  (io/gen-impl/thread:implement-monad-io-thread IO)
+  (io/gen-impl/atomic:implement-monad-at-var IO)
+  (io/gen-impl/mut:implement-monad-io-var IO)
+  (io/gen-impl/mvar:implement-monad-io-mvar IO)
+  (io/gen-impl/file:implement-monad-io-file IO)
+  (io/gen-impl/random:implement-monad-io-random IO)
+  (io/gen-impl/term:implement-monad-io-term IO)
+  (io/gen-impl/stm:implement-monad-io-stm IO))
