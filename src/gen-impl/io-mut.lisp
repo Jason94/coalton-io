@@ -3,33 +3,21 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:coalton-library/functions
+   #:io/classes/monad-io
    #:io/classes/monad-io-var
-   #:io/utils
-   #:io/monad-io)
-  (:import-from #:coalton-library/experimental/loops
-   #:dolist)
-  (:import-from #:coalton-library/experimental/do-control-loops-adv
-   #:LoopT)
+   )
   (:local-nicknames
-   (:at #:io/atomics_)
-   (:io #:io/simple-io)
-   (:it #:coalton-library/iterator)
    (:c #:coalton-library/cell)
-   (:st #:coalton-library/monad/statet)
-   (:env #:coalton-library/monad/environment))
+   )
   (:export
-   ;; Re-export: io/classes/monad-io-var
-   #:Var
-   #:MonadIoVar
-   #:new-var
-   #:read
-   #:write
-   #:modify
-
-   ;; Remaining exports
-   #:derive-monad-var
+   ;; Library Public
    #:implement-monad-io-var
+
+   ;; Library Private
+   #:new-var%
+   #:read%
+   #:write%
+   #:modify%
    ))
 (in-package :io/gen-impl/mut)
 
@@ -66,27 +54,3 @@
     (define write write%)
     (define modify modify%)))
 
-(cl:defmacro derive-monad-var (monad-param monadT-form)
-  "Automatically derive an instance of MonadIoVar for a monad transformer.
-
-Example:
-  (derive-monad-var :m (st:StateT :s :m))"
-  `(define-instance (MonadIoVar ,monad-param => MonadIoVar ,monadT-form)
-     (define new-var (compose lift new-var))
-     (define read (compose lift read))
-     (define write (compose2 lift write))
-     (define modify (compose2 lift modify))))
-
-(coalton-toplevel
-
-  ;;
-  ;; Std. Library Transformer Instances
-  ;;
-
-  (derive-monad-var :m (st:StateT :s :m))
-  (derive-monad-var :m (env:EnvT :e :m))
-  (derive-monad-var :m (LoopT :m)))
-
-;;
-;; Simple IO Implementation
-;;

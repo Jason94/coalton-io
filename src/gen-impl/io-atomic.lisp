@@ -3,33 +3,25 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:io/classes/monad-at-var
-   #:coalton-library/functions
    #:io/utils
-   #:io/monad-io)
-  (:import-from #:coalton-library/experimental/do-control-loops-adv
-   #:LoopT)
+   #:io/classes/monad-io
+   #:io/classes/monad-at-var
+   )
    (:local-nicknames
-    (:at #:io/atomics_)
-    (:io #:io/simple-io)
-    (:st #:coalton-library/monad/statet)
-    (:env #:coalton-library/monad/environment))
+    (:at #:io/thread-impl/atomics)
+    )
   (:export
-   ;; Re-exports from io/classes/monad-at-var
-   #:AtVar
-   #:unwrap-atvar
-   #:MonadAtVar
-   #:new-at-var
-   #:read
-   #:write
-   #:modify
-   #:modify-swap
-   #:push
-   #:pop
+   ;; Library Public
+   #:implement-monad-at-var
 
-   ;; Remaining exports
-   #:derive-monad-at-var
-   #:implement-monad-io-atomic
+   ;; Library Private
+   #:new-at-var%
+   #:read%
+   #:write%
+   #:modify%
+   #:modify-swap%
+   #:push%
+   #:pop%
    ))
 (in-package :io/gen-impl/atomic)
 
@@ -72,7 +64,7 @@
   (define (pop% atm)
     (wrap-io (at:atomic-pop (unwrap-atvar atm)))))
 
-(cl:defmacro implement-monad-io-atomic (monad)
+(cl:defmacro implement-monad-at-var (monad)
   `(define-instance (MonadAtVar ,monad)
      (define new-at-var new-at-var%)
      (define read read%)
@@ -82,30 +74,3 @@
      (define push push%)
      (define pop pop%)))
 
-(cl:defmacro derive-monad-at-var (monad-param monadT-form)
-  "Automatically derive an instance of MonadAtVar for a monad transformer.
-
-Example:
-  (derive-monad-at-var :m (st:StateT :s :m))"
-  `(define-instance (MonadAtVar ,monad-param => MonadAtVar ,monadT-form)
-     (define new-at-var (compose lift new-at-var))
-     (define read (compose lift read))
-     (define write (compose2 lift write))
-     (define modify (compose2 lift modify))
-     (define modify-swap (compose2 lift modify-swap))
-     (define push (compose2 lift push))
-     (define pop (compose lift pop))))
-
-(coalton-toplevel
-
-  ;;
-  ;; Std. Library Transformer Instances
-  ;;
-
-  (derive-monad-at-var :m (st:StateT :s :m))
-  (derive-monad-at-var :m (env:EnvT :e :m))
-  (derive-monad-at-var :m (LoopT :m)))
-
-;;
-;; Simple IO Implementation
-;;

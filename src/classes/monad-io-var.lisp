@@ -3,8 +3,13 @@
   (:use
    #:coalton
    #:coalton-prelude
+   #:io/utils
    #:io/classes/monad-io)
+  (:import-from #:coalton-library/experimental/do-control-loops-adv
+   #:LoopT)
   (:local-nicknames
+   (:st #:coalton-library/monad/statet)
+   (:env #:coalton-library/monad/environment)
    (:c #:coalton-library/cell))
   (:export
    ;; Library Public
@@ -40,3 +45,24 @@
     (modify
      "Modify the value in a variable by applying F, and return the old value."
      (Var :a -> (:a -> :a) -> :m :a))))
+
+(cl:defmacro derive-monad-var (monad-param monadT-form)
+  "Automatically derive an instance of MonadIoVar for a monad transformer.
+
+Example:
+  (derive-monad-var :m (st:StateT :s :m))"
+  `(define-instance (MonadIoVar ,monad-param => MonadIoVar ,monadT-form)
+     (define new-var (compose lift new-var))
+     (define read (compose lift read))
+     (define write (compose2 lift write))
+     (define modify (compose2 lift modify))))
+
+(coalton-toplevel
+
+  ;;
+  ;; Std. Library Transformer Instances
+  ;;
+
+  (derive-monad-var :m (st:StateT :s :m))
+  (derive-monad-var :m (env:EnvT :e :m))
+  (derive-monad-var :m (LoopT :m)))

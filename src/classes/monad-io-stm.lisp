@@ -8,10 +8,6 @@
   (:local-nicknames
    (:c #:coalton-library/cell))
   (:export
-   ;; Re-Export
-   #:TVar
-
-   ;; Export
    #:MonadIoSTM
    #:new-tvar
    #:read-tvar

@@ -32,27 +32,28 @@
                                (:file "monad-io-stm")))
                  (:module "gen-impl"
                   :serial t
-                  :components
-                  ((:file "io-atomic")
-                   (:file "io-mut")
-                   (:file "io-mvar")
-                   (:file "io-term")
-                   (:file "io-thread")
-                   (:file "io-resource")
-                   (:file "io-file")
-                   (:file "io-random")
-                   (:file "io-unique")
-                   (:file "monad-io")
-                   (:file "io-exception")
-                   (:file "io-stm")))
+                  :components ((:file "io-atomic")
+                               (:file "io-mut")
+
+
+
+
+                               (:file "io-mvar")
+                               (:file "io-term")
+                               (:file "io-thread")
+                               (:file "io-resource")
+                               (:file "io-file")
+                               (:file "io-random")
+                               (:file "io-unique")
+                               (:file "monad-io")
+                               (:file "io-stm")))
                  (:module "io-impl"
                   :serial t
-                  :components
-                  ((:file "simple-io")
-                   (:file "io-thread")
-                   (:file "io-mvar")
-                   (:file "io-future")
-                   (:file "io-file")))
+                  :components ((:file "simple-io")
+                               (:file "io-thread")
+                               (:file "io-mvar")
+                               (:file "io-future")
+                               (:file "io-file")))
                  (:file "monad-io")
                  (:file "io-exception")
                  (:file "io-mut")

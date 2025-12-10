@@ -3,8 +3,13 @@
   (:use
    #:coalton
    #:coalton-prelude
+   #:io/utils
    #:io/classes/monad-io)
+  (:import-from #:coalton-library/experimental/do-control-loops-adv
+   #:LoopT)
   (:local-nicknames
+    (:st #:coalton-library/monad/statet)
+    (:env #:coalton-library/monad/environment)
    (:at #:io/thread-impl/atomics))
   (:export
    ;; Library Public
@@ -18,6 +23,8 @@
    #:modify-swap
    #:push
    #:pop
+
+   #:derive-monad-at-var
 
    ;; Library Private
    #:AtVar%))
@@ -67,3 +74,26 @@ variable will not be modified."
      "Atomically pop and retrieve the head of an atomic list."
      (AtVar (List :a) -> :m (Optional :a)))))
 
+(cl:defmacro derive-monad-at-var (monad-param monadT-form)
+  "Automatically derive an instance of MonadAtVar for a monad transformer.
+
+Example:
+  (derive-monad-at-var :m (st:StateT :s :m))"
+  `(define-instance (MonadAtVar ,monad-param => MonadAtVar ,monadT-form)
+     (define new-at-var (compose lift new-at-var))
+     (define read (compose lift read))
+     (define write (compose2 lift write))
+     (define modify (compose2 lift modify))
+     (define modify-swap (compose2 lift modify-swap))
+     (define push (compose2 lift push))
+     (define pop (compose lift pop))))
+
+(coalton-toplevel
+
+  ;;
+  ;; Std. Library Transformer Instances
+  ;;
+
+  (derive-monad-at-var :m (st:StateT :s :m))
+  (derive-monad-at-var :m (env:EnvT :e :m))
+  (derive-monad-at-var :m (LoopT :m)))
