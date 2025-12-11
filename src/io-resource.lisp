@@ -26,20 +26,20 @@
 
 (coalton-toplevel
 
-  (declare with-mask ((MonadIoThread :m :t) (MonadException :m)
-                      => :m :a -> :m :a))
+  ;; (declare with-mask ((MonadIoThread :rt :t :m) (MonadException :m)
+  ;;                     => :m :a -> :m :a))
   (define (with-mask op)
     "Mask the current thread while running OP, automatically unmasking
 afterward."
     (do
-     mask-current
+     (mask-current-thread)
      (reraise
       (do
        (result <- op)
-       unmask-current
+       (unmask-current-thread)
        (pure result))
       (fn (_)
-        unmask-current))))
+        (unmask-current-thread)))))
 
   (derive Eq)
   (repr :lisp)
@@ -56,11 +56,11 @@ afterward."
      (map Ok op)
      (compose pure Err)))
 
-  (declare bracket-io ((MonadException :m) (MonadIoThread :m :t) (RuntimeRepr :e) (Signalable :e)
-                       => :m :r
-                       -> (:r -> ExitCase :e -> :m :a)
-                       -> (:r -> :m :b)
-                       -> :m :b))
+  ;; (declare bracket-io ((MonadException :m) (MonadIoThread :rt :t :m) (RuntimeRepr :e) (Signalable :e)
+  ;;                      => :m :r
+  ;;                      -> (:r -> ExitCase :e -> :m :a)
+  ;;                      -> (:r -> :m :b)
+  ;;                      -> :m :b))
   (define (bracket-io acquire-op release-op computation-op)
     "WARNING: BRACKET-IO will *only* cleanup if the raised exception matches :e,
 or if the computation succeedes. To guarantee cleanup after any exception,
@@ -99,11 +99,11 @@ using BRACKET-IO to clean after stops:
             (release-op resource (Errored e))
             (raise e))))))
 
-  (declare bracket-io_ ((MonadException :m) (MonadIoThread :m :t)
-                        => :m :r
-                        -> (:r -> :m :a)
-                        -> (:r -> :m :b)
-                        -> :m :b))
+  ;; (declare bracket-io_ ((MonadException :m) (MonadIoThread :rt :t :m)
+  ;;                       => :m :r
+  ;;                       -> (:r -> :m :a)
+  ;;                       -> (:r -> :m :b)
+  ;;                       -> :m :b))
   (define (bracket-io_ acquire-op release-op computation-op)
     "Acquire a resource, run a computation with it, and release it. Guarantees that
 RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,

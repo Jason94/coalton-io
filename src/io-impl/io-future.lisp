@@ -8,6 +8,7 @@
    #:io/classes/monad-io-mvar
    #:io/gen-impl/future
    #:io/thread-impl/runtime
+   #:io/io-impl/runtime
    #:io/io-impl/simple-io
    )
   (:export
@@ -20,7 +21,7 @@
 
 (coalton-toplevel
 
-  (declare fork-future_ ((MonadIoThread :m :t) (MonadIoMVar :m) (LiftTo IO :m)
+  (declare fork-future_ ((MonadIoThread IoRuntime IoThread :m) (MonadIoMVar :m) (LiftTo IO :m)
                          => IO :a -> :m (Future :a)))
   (define fork-future_
     "Spawn a new future, which will run and eventually return the result

@@ -10,6 +10,8 @@
    #:io/thread-exceptions
    #:io/classes/monad-exception
    #:io/classes/monad-io
+   #:io/io-impl/runtime
+   #:io/thread-impl/runtime
    )
   (:import-from #:coalton-library/experimental/loops
    #:dolist)
@@ -320,7 +322,7 @@ More efficient than foreach-io, if you can run your effect in a BaseIo."
 ;;;
 
 (coalton-toplevel
-  (io/gen-impl/thread:implement-monad-io-thread IO)
+  (io/gen-impl/thread:implement-monad-io-thread IO IoRuntime IoThread)
   (io/gen-impl/atomic:implement-monad-at-var IO)
   (io/gen-impl/mut:implement-monad-io-var IO)
   (io/gen-impl/mvar:implement-monad-io-mvar IO)

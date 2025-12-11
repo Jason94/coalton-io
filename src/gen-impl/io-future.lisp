@@ -50,7 +50,7 @@ from TASK. The future is guaranteed to only ever run at most once, when
 the produced :m is run."
     (do
      (value-var <- new-empty-mvar)
-     (do-fork
+     (do-fork-thread
        (result <- (try-dynamic task))
        (put-mvar value-var result))
      (pure (Future% value-var))))
