@@ -55,7 +55,7 @@
   ;; See simple-io.lisp
   (lisp Void ()
     (cl:setf (uiop:getenv "SIMPLE_IO_DEBUG_SLEEP") "y")
-    (cl:compile-file "src/simple-io.lisp"
+    (cl:compile-file "src/io-impl/simple-io.lisp"
                      :output-file "tests/simple-io---sleep.fasl"
                      :verbose cl:nil
                      :print cl:nil)
@@ -71,7 +71,7 @@
 
   (lisp Void ()
     (cl:setf (uiop:getenv "SIMPLE_IO_DEBUG_SLEEP") "")
-    (cl:compile-file "src/simple-io.lisp"
+    (cl:compile-file "src/io-impl/simple-io.lisp"
                      :output-file "tests/simple-io---sleep.fasl"
                      :verbose cl:nil
                      :print cl:nil)

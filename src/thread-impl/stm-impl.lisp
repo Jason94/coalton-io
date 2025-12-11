@@ -119,6 +119,17 @@
      (fn (_)
        io-op)))
 
+  (inline)
+  (declare tx-io!% (MonadIo :m => :m :a -> STM :m :a))
+  (define (tx-io!% io-op)
+    "Not safe to use generally. Useful for writing unit-tests,
+for purposes like writing to Var's and using MVar's to coordinate
+threads inside of transactions to simulate different concurrent
+conditions. DONT USE THIS!"
+    (STM%
+     (fn (_)
+       (map TxSuccess io-op))))
+
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;;           STM Instances           ;;;
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

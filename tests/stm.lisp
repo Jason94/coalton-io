@@ -11,7 +11,7 @@
         #:io/stm)
   (:import-from #:io/term
    #:write-line)
-  (:import-from #:io/stm/stm-impl
+  (:import-from #:io/thread-impl/stm-impl
    #:tx-io!%)
   (:local-nicknames
    (:l #:coalton-library/list))
