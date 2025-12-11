@@ -1,0 +1,37 @@
+(cl:in-package :cl-user)
+(defpackage :io/io-impl/runtime
+  (:use
+   #:coalton
+   #:coalton-prelude
+   #:io/classes/monad-io-thread
+   #:io/thread-impl/runtime
+   )
+  (:export
+   #:IoRuntime
+   ))
+(in-package :io/io-impl/runtime)
+
+(named-readtables:in-readtable coalton:coalton)
+
+(coalton-toplevel
+
+  (define-type IoRuntime)
+
+  (define-instance (Runtime IoRuntime IoThread)
+    (inline)
+    (define (current-thread! _)
+      (current-thread!%))
+    (inline)
+    (define (sleep! _) sleep!%)
+    (inline)
+    (define (fork! _) fork!%)
+    (inline)
+    (define (stop! _) stop!%)
+    (inline)
+    (define (mask! _) mask!%)
+    (inline)
+    (define (unmask! _) unmask!%)
+    (inline)
+    (define (unmask-finally! _) unmask-finally!%))
+
+  )

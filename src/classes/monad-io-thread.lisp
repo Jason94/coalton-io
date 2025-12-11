@@ -14,6 +14,15 @@
    (:env #:coalton-library/monad/environment)
    )
   (:export
+   #:Runtime
+   #:current-thread!
+   #:sleep!
+   #:fork!
+   #:stop!
+   #:mask!
+   #:unmask!
+   #:unmask-finally!
+
    #:MonadIoThread
    #:derive-monad-io-thread
    #:current-thread
@@ -49,6 +58,9 @@ over the underlying thread type."
     (current-thread!
      "Get a handle for the current thread."
      (Proxy :r -> :t))
+    (sleep!
+     "Sleep the current thread for MSECS milliseconds."
+     (Proxy :r -> UFix -> Unit))
     (fork!
      "Spawn a new thread, which starts running immediately.
 Returns the handle to the thread."
@@ -72,7 +84,7 @@ there are any pending stops, it will immediately be stopped."
     (unmask-finally!
      "Unmask the given thread, run the provided action, and then honor any
  pending stop for that thread after the action finishes."
-      (Proxy :r -> (UnmaskFinallyMode -> Unit) -> :t -> Unit)))
+      (Proxy :r -> :t -> (UnmaskFinallyMode -> :a) -> Unit)))
 
   ;; TODO: Decide if this should have mask/unmask or not. See below.
   ;; For now, docstrings are written assuming we'll make masking available.
@@ -100,7 +112,7 @@ The most important property of Concurrents is that they can be composed."
   ;; more data into the IoThread word. We could set aside some bits for pending
   ;; unmasks from other threads, and then treat those unmasks sort of like we
   ;; treat pending kills. That could help solve some of the race conditions.
-  (define-class (MonadIo :m => MonadIoThread :m :rt (:m -> :rt))
+  (define-class (MonadIo :m => MonadIoThread :m :t (:m -> :t))
     "A MonadIo which can spawn :t's. Other :t's error
 separately. A spawned :t erroring will not cause the parent
 :t to fail. :t can be any 'thread-like' object, depending on the

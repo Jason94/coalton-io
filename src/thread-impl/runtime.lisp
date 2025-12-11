@@ -28,6 +28,13 @@
    #:Running
 
    ;; Library Private
+   #:current-thread!%
+   #:sleep!%
+   #:fork!%
+   #:stop!%
+   #:mask!%
+   #:unmask!%
+
    #:current-thread%
    #:fork%
    #:sleep%
@@ -207,11 +214,46 @@ thread is alive before interrupting."
       *current-thread*))
 
   (inline)
+  (declare current-thread!% (Unit -> IoThread))
+  (define (current-thread!%)
+    (lisp IoThread ()
+      *current-thread*))
+
+  (inline)
   (declare current-thread% (MonadIo :m => :m IoThread))
   (define current-thread%
-    (wrap-io
-      (lisp IoThread ()
-        *current-thread*)))
+    (wrap-io_ current-thread!%))
+
+  (inline)
+  (declare fork!% ((Unit -> :a) -> IoThread))
+  (define (fork!% thunk)
+    ;; Both the returning thread handle and the one made available to the child
+    ;; thread have to have the IoThread packaged together before they do anything
+    ;; meaningful. As such, we'll construct it and then each thread will set
+    ;; native thread reference separately before they do any work. This guarantees
+    ;; it will be available in either thread before subsequent code could reference it,
+    ;; regardless of race conditions.
+    (let thread-container = (IoThread (c:new None) (at:new CLEAN)))
+    (let native-thread =
+      (t:spawn (fn ()
+                 (c:write! (.handle thread-container)
+                           (Some (current-native-thread%)))
+                 (let f =
+                   (fn ()
+                     (catch (thunk)
+                       ;; If we hit this point, then we've ended the thread's meaningful work.
+                       ;; It will stop after this, so we don't need to raise again.
+                       ((InterruptCurrentThread msg)
+                        ;; Satisfy type inference; don't force (:r :a) => (:r Unit)
+                        (lisp :a () cl:nil)))))
+                 ;; Set the thread-specific dynamic variables the runtime depends on. *current-thread*
+                 ;; is defined here, the others are defined in the core simple-io implementation.
+                 (lisp Void (f thread-container)
+                   (cl:let ((*current-thread* thread-container))
+                     (call-coalton-function f)))
+                 Unit)))
+    (c:write! (.handle thread-container) (Some native-thread))
+    thread-container)
 
   (inline)
   (declare fork% ((MonadIo :m) (UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m IoThread))
@@ -223,50 +265,29 @@ runtime."
     (lift-to
      (with-run-in-io
          (fn (run)
-           ;; Both the returning thread handle and the one made available to the child
-           ;; thread have to have the IoThread packaged together before they do anything
-           ;; meaningful. As such, we'll construct it and then each thread will set
-           ;; native thread reference separately before they do any work. This guarantees
-           ;; it will be available in either thread before subsequent code could reference it,
-           ;; regardless of race conditions.
             (wrap-io
-              (let thread-container = (IoThread (c:new None) (at:new CLEAN)))
-              (let native-thread =
-                (t:spawn (fn ()
-                           (c:write! (.handle thread-container)
-                                     (Some (current-native-thread%)))
-                           (let f =
-                             (fn ()
-                               (catch (run! (run op))
-                                 ;; If we hit this point, then we've ended the thread's meaningful work.
-                                 ;; It will stop after this, so we don't need to raise again.
-                                 ((InterruptCurrentThread msg)
-                                  ;; Satisfy type inference; don't force (:r :a) => (:r Unit)
-                                  (lisp :a () cl:nil)))))
-                           ;; Set the thread-specific dynamic variables the runtime depends on. *current-thread*
-                           ;; is defined here, the others are defined in the core simple-io implementation.
-                           (lisp Void (f thread-container)
-                             (cl:let ((*current-thread* thread-container))
-                               (call-coalton-function f)))
-                           Unit)))
-              (c:write! (.handle thread-container) (Some native-thread))
-              thread-container)))))
+              (fork!% (fn (_)
+                        (run! (run op)))))))))
+
+  (inline)
+  (declare sleep!% (UFix -> Unit))
+  (define (sleep!% msecs)
+    (lisp :a (msecs)
+      (cl:sleep (cl:/ msecs 1000)))
+    Unit)
 
   (inline)
   (declare sleep% (MonadIo :m => UFix -> :m Unit))
   (define (sleep% msecs)
-    (wrap-io
-      (lisp :a (msecs)
-        (cl:sleep (cl:/ msecs 1000)))
-      Unit))
+    (wrap-io (sleep!% msecs)))
 
   ;;;
   ;;; Stopping & Masking Threads
   ;;;
 
   (inline)
-  (declare mask-inner% (IoThread -> Unit))
-  (define (mask-inner% thread)
+  (declare mask!% (IoThread -> Unit))
+  (define (mask!% thread)
     (let flags = (.flags thread))
     (rec % ()
       (let old = (at:read flags))
@@ -279,12 +300,12 @@ runtime."
   (inline)
   (declare mask% (MonadIo :m => IoThread -> :m Unit))
   (define (mask% thread)
-    (wrap-io (mask-inner% thread)))
+    (wrap-io (mask!% thread)))
 
   (inline)
   (declare mask-current-thread!% (Unit -> Unit))
   (define (mask-current-thread!%)
-    (mask-inner%
+    (mask!%
      (lisp IoThread ()
        *current-thread*)))
 
@@ -295,7 +316,7 @@ runtime."
 
   ;; TODO: Merge this with unmask-current-thread-finally!% when MonadIoThread
   ;; loses the unmask other thread functions
-  (declare unmask-finally!% (IoThread -> (UnmaskFinallyMode -> Unit) -> Unit))
+  (declare unmask-finally!% (IoThread -> (UnmaskFinallyMode -> :a) -> Unit))
   (define (unmask-finally!% thread thunk)
     "Unmask the thread. Guarantees that THUNK will be run, regardless of pending
 stop, with either the RUNNING or STOPPED mode. Finally, checks if there is a pending
@@ -400,6 +421,11 @@ just be limited to implementing only solutions #2 or #3.
     (unmask-finally!% (current-io-thread%) thunk))
 
   (inline)
+  (declare unmask!% (IoThread -> Unit))
+  (define (unmask!% thread)
+    (unmask-finally!% thread (const Unit)))
+
+  (inline)
   (declare unmask% (MonadIo :m => IoThread -> :m Unit))
   (define (unmask% thread)
     (wrap-io (unmask-finally!% thread (const Unit))))
@@ -439,11 +465,15 @@ just be limited to implementing only solutions #2 or #3.
     (wrap-io_ unmask-current-thread!%))
 
   (inline)
+  (declare stop!% (IoThread -> Unit))
+  (define (stop!% thread)
+    (let flag-state = (atomic-fetch-or (.flags thread) PENDING-KILL))
+    (when (unmasked? flag-state)
+      (interrupt-iothread% thread)))
+
+  (inline)
   (declare stop% (MonadIo :m => IoThread -> :m Unit))
   (define (stop% thread)
-    (wrap-io
-      (let flag-state = (atomic-fetch-or (.flags thread) PENDING-KILL))
-      (when (unmasked? flag-state)
-        (interrupt-iothread% thread))))
+    (wrap-io (stop!% thread)))
 
   )

@@ -59,7 +59,8 @@
                                (:file "io-stm")))
                  (:module "io-impl"
                   :serial t
-                  :components ((:file "simple-io")
+                  :components ((:file "runtime")
+                               (:file "simple-io")
                                (:file "io-thread")
                                (:file "io-mvar")
                                (:file "io-future")
