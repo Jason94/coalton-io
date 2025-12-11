@@ -5,6 +5,7 @@
    #:coalton-prelude
    #:coalton-library/monad/classes
    #:coalton-library/types
+   #:io/utils
    #:io/classes/monad-io
    #:io/thread-impl/runtime)
   (:import-from #:coalton-library/experimental/do-control-loops-adv
@@ -35,6 +36,9 @@
    #:unmask-current
    #:unmask-current-finally
    #:stop
+
+   #:runtime-for
+   #:get-runtime-for
 
    #:do-fork))
 (in-package :io/classes/monad-io-thread)
@@ -112,7 +116,7 @@ The most important property of Concurrents is that they can be composed."
   ;; more data into the IoThread word. We could set aside some bits for pending
   ;; unmasks from other threads, and then treat those unmasks sort of like we
   ;; treat pending kills. That could help solve some of the race conditions.
-  (define-class (MonadIo :m => MonadIoThread :m :t (:m -> :t))
+  (define-class ((MonadIo :m) => MonadIoThread :m :rt (:m -> :rt))
     "A MonadIo which can spawn :t's. Other :t's error
 separately. A spawned :t erroring will not cause the parent
 :t to fail. :t can be any 'thread-like' object, depending on the
@@ -120,65 +124,107 @@ underlying implementation - system threads, software-managed green
 threads, etc."
     (current-thread
      "Get the current thread."
-     (:m :t))
-    (fork
-     "Spawn a new thread, which starts running immediately.
-Returns the handle to the thread. This version can accept
-any underlying BaseIo, which can be useful, but causes inference
-issues in some cases."
-     ((UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m :t))
+     (Runtime :rt :t => :m :t))
     (sleep
      "Sleep the current thread for MSECS milliseconds."
      (UFix -> :m Unit))
-    (mask
+    (mask-thread
      "Mask the given thread so it can't be stopped."
-     (:t -> :m Unit))
-    (mask-current
+     (Runtime :rt :t => :t -> :m Unit))
+    (mask-current-thread
      "Mask the current thread so it can't be stopped."
      (:m Unit))
     ;; TODO: Functions unmasking *other* threads need to be removed because
     ;; they aren't safe. There's no way to prevent thread stop race conditions
     ;; if other threads can unmask the current thread, because unmaks itself can
     ;; potentially stop the thread being unmasked.
-    (unmask
+    (unmask-thread
      "Unmask the given thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
 stopped after being unmasked N times."
-     (IoThread -> :m Unit))
-    (unmask-finally
-     "Unmask the given thread, run the provided action, and then honor any
- pending stop for that thread after the action finishes."
-     ((UnliftIo :r :io) (LiftTo :r :m)
-      => IoThread -> (UnmaskFinallyMode -> :r Unit) -> :m Unit))
-    (unmask-current
+     (Runtime :rt :t => :t -> :m Unit))
+    (unmask-current-thread
      "Unmask the current thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
 stopped after being unmasked N times."
      (:m Unit))
-    (unmask-current-finally
-     "Unmask the current thread, run the provided action, and then honor any
- pending stop for that thread after the action finishes."
-     ((UnliftIo :r :io) (LiftTo :r :m) => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
-    (stop
+    (stop-thread
      "Stop a thread. If the thread has already stopped, does nothing."
-     (:t -> :m Unit))))
+     (Runtime :rt :t => :t -> :m Unit)))
+
+  (inline)
+  (declare runtime-for (MonadIoThread :m :rt => Proxy (:m :a) -> Proxy :rt))
+  (define (runtime-for _)
+    "Get the Runtime type for a MonadIoThread type."
+    Proxy)
+
+  (inline)
+  (declare get-runtime-for (MonadIoThread :m :rt => :m :a -> Proxy :rt))
+  (define (get-runtime-for op)
+    "Get the Runtime type for a MonadIoThread operation."
+    (runtime-for (proxy-of op)))
+
+  (inline)
+  ;; TODO: This also seems to be a victim of the declare type inference bug. When that gets
+  ;; fixed, probably move this and the rest back into the typeclass.
+  ;; (declare fork ((UnliftIo :r :i) (LiftTo :r :m) (Runtime :rt :t) (MonadIoThread :m :rt)
+  ;;                => :r :a -> :m :t))
+  (define (fork-thread op)
+    "Spawn a new thread, which starts running immediately.
+Returns the handle to the thread. This version can accept
+any underlying BaseIo, which can be useful, but causes inference
+issues in some cases."
+    (lift-to
+     (with-run-in-io
+         (fn (run)
+           (wrap-io
+             (fork! (get-runtime-for op)
+                    (fn (_)
+                      (run! (run op)))))))))
+
+  (inline)
+  ;; (declare unmask-finally ((UnliftIo :r :io) (LiftTo :r :m) (Runtime :rt :t) (MonadIoThread :m :rt)
+  ;;                          => :t -> (UnmaskFinallyMode -> :r Unit) -> :m Unit))
+  (define (unmask-thread-finally thread op-finally)
+    "Unmask the given thread, run the provided action, and then honor any
+ pending stop for that thread after the action finishes."
+    (lift-to
+     (with-run-in-io
+         (fn (run)
+           (wrap-io (unmask-finally! (get-runtime-for (proxy-result-of op-finally))
+                                     thread
+                                     (fn (m) (run! (run (op-finally m))))))))))
+
+  (inline)
+  ;; (declare unmask-current-finally ((UnliftIo :r :io) (LiftTo :r :m)
+  ;;                                  => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
+  (define (unmask-current-thread-finally op-finally)
+    "Unmask the current thread, run the provided action, and then honor any
+ pending stop for that thread after the action finishes."
+    (lift-to
+     (with-run-in-io
+       (fn (run)
+         (wrap-io
+           (unmask-finally! (get-runtime-for (proxy-result-of op-finally))
+                            (current-thread! (proxy-result-of op-finally))
+                            (fn (m) (run! (run op-finally m)))))))))
+
+
+  )
 
 (cl:defmacro derive-monad-io-thread (monad-param monadT-form)
   "Automatically derive an instance of MonadIoThread for a monad transformer.
 
 Example:
   (derive-monad-io-thread :m (st:StateT :s :m))"
-  `(define-instance (MonadIoThread ,monad-param IoThread => MonadIoThread ,monadT-form IoThread)
+  `(define-instance (MonadIoThread ,monad-param :runtime => MonadIoThread ,monadT-form :runtime)
      (define current-thread (lift current-thread))
-     (define fork fork%)
      (define sleep (compose lift sleep))
-     (define mask (compose lift mask))
-     (define mask-current (lift mask-current))
-     (define unmask (compose lift unmask))
-     (define unmask-finally unmask-finally%)
-     (define unmask-current (lift unmask-current))
-     (define unmask-current-finally unmask-current-thread-finally%)
-     (define stop (compose lift stop))))
+     (define mask-thread (compose lift mask-thread))
+     (define mask-current-thread (lift mask-current-thread))
+     (define unmask-thread (compose lift unmask-thread))
+     (define unmask-current-thread (lift unmask-current-thread))
+     (define stop-thread (compose lift stop-thread))))
 
 (coalton-toplevel
 
@@ -186,9 +232,10 @@ Example:
   ;; Std. Library Transformer Instances
   ;;
 
-  (derive-monad-io-thread :m (st:StateT :s :m))
+  (derive-monad-io-thread :m (st:statet :s :m))
   (derive-monad-io-thread :m (env:EnvT :e :m))
-  (derive-monad-io-thread :m (LoopT :m)))
+  (derive-monad-io-thread :m (LoopT :m))
+  )
 
 (cl:defmacro do-fork (cl:&body body)
   `(fork

@@ -29,6 +29,8 @@
    #:MockException
    #:throw-dynamic
    #:proxy-swap-inner
+   #:proxy-outer
+   #:proxy-result-of
    ))
 (in-package :io/utils)
 
@@ -76,17 +78,25 @@ Coalton exceptions via `define-exception`."
         (cl:error (e)
           (Err (UnhandledError e))))))
 
+  (inline)
   (declare force-string (:a -> String))
   (define (force-string x)
     (lisp String (x)
       (cl:format cl:nil "~a" x)))
 
+  (inline)
   (declare compose2 ((:c -> :d) -> (:a -> :b -> :c) -> :a -> :b -> :d))
   (define (compose2 fcd fabc a b)
     (fcd (fabc a b)))
 
+  (inline)
   (declare proxy-outer (Proxy :a -> Proxy (:m :a)))
   (define (proxy-outer _)
+    Proxy)
+
+  (inline)
+  (declare proxy-result-of ((:a -> :b) -> Proxy :b))
+  (define (proxy-result-of _)
     Proxy)
 
   (inline)

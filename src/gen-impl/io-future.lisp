@@ -39,9 +39,11 @@
   (define (value-mvar (Future% mvar))
     mvar)
 
-  (declare fork-future ((MonadIoThread :m :t) (MonadIoMVar :m) (MonadIoMVar :r)
-                        (UnliftIo :r :i) (LiftTo :r :m) (MonadException :r)
-                        => :r :a -> :m (Future :a)))
+  (inline)
+  ;; TODO: See MonadIoThread
+  ;; (declare fork-future ((MonadIoThread :m :t) (MonadIoMVar :m) (MonadIoMVar :r)
+  ;;                       (UnliftIo :r :i) (LiftTo :r :m) (MonadException :r)
+  ;;                       => :r :a -> :m (Future :a)))
   (define (fork-future task)
     "Spawn a new future, which will run and eventually return the result
 from TASK. The future is guaranteed to only ever run at most once, when
