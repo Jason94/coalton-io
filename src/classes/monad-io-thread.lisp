@@ -46,12 +46,33 @@ It should not be used by normal application code. Its two main purposes are:
 (1) to make MonadIoThread generic over the type of thread it forks, and
 (2) to build low-level, efficient concurrency tools that are generic
 over the underlying thread type."
+    (current-thread!
+     "Get a handle for the current thread."
+     (Proxy :r -> :t))
     (fork!
      "Spawn a new thread, which starts running immediately.
-Returns the handle to the thread. This version can accept
-any underlying BaseIo, which can be useful, but causes inference
-issues in some cases."
-     (Proxy :r -> :t)))
+Returns the handle to the thread."
+     (Proxy :r -> (Unit -> :a) -> :t))
+    (stop!
+     "Stop a :t. If the thread has already stopped, does nothing.
+If the :t is masked, this will pend a stop on the :t. When/if
+the :t becomes completely unmaksed, it will stop iself. Regardless
+of whether the target :t is masked, STOP does not block or wait for
+the target thread to complete."
+     (Proxy :r -> :t -> Unit))
+    (mask!
+     "Mask the given thread so it can't be stopped."
+     (Proxy :r -> :t -> Unit))
+    (unmask!
+     "Unmask the given thread so it can be stopped. Unmask respects
+nested masks - if the thread has been masked N times, it can only be
+stopped after being unmasked N times. When the thread unmasks, if
+there are any pending stops, it will immediately be stopped."
+     (Proxy :r -> :t -> Unit))
+    (unmask-finally!
+     "Unmask the given thread, run the provided action, and then honor any
+ pending stop for that thread after the action finishes."
+      (Proxy :r -> (UnmaskFinallyMode -> Unit) -> :t -> Unit)))
 
   ;; TODO: Decide if this should have mask/unmask or not. See below.
   ;; For now, docstrings are written assuming we'll make masking available.
@@ -93,13 +114,13 @@ threads, etc."
 Returns the handle to the thread. This version can accept
 any underlying BaseIo, which can be useful, but causes inference
 issues in some cases."
-     ((UnliftIo :r :i) (LiftTo :r :m) (Runtime :rt :t) => :r :a -> :m :t))
+     ((UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m :t))
     (sleep
      "Sleep the current thread for MSECS milliseconds."
      (UFix -> :m Unit))
     (mask
      "Mask the given thread so it can't be stopped."
-     (Concurrent :c :a => :c -> :m Unit))
+     (:t -> :m Unit))
     (mask-current
      "Mask the current thread so it can't be stopped."
      (:m Unit))
@@ -128,7 +149,7 @@ stopped after being unmasked N times."
      ((UnliftIo :r :io) (LiftTo :r :m) => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
     (stop
      "Stop a thread. If the thread has already stopped, does nothing."
-     (Concurrent :c :a => :c -> :m Unit))))
+     (:t -> :m Unit))))
 
 (cl:defmacro derive-monad-io-thread (monad-param monadT-form)
   "Automatically derive an instance of MonadIoThread for a monad transformer.
