@@ -1,7 +1,9 @@
 (cl:in-package :cl-user)
+
 (defpackage :io/mvar
   (:use
    #:io/classes/monad-io-mvar
+   #:io/io-impl/mvar
    #:io/gen-impl/mvar)
   (:export
    ;; Re-exports from io/classes/monad-io-mvar
@@ -18,17 +20,19 @@
    #:try-read-mvar
    #:swap-mvar
    #:is-empty-mvar
-
-   #:with-mvar
-   #:with-mvar_
    #:do-with-mvar
-   #:do-with-mvar_
 
-   ;; Re-exports from io/gen-impl/mvar
    #:MChan
    #:new-empty-chan
    #:push-chan
    #:pop-chan
 
-   #:implement-monad-io-mvar))
+   ;; Re-exports from io/gen-impl/mvar
+   #:with-mvar
+   #:implement-monad-io-mvar
+
+   ;; Re-exports from io/io-impl/mvar
+   #:with-mvar_
+   #:do-with-mvar_))
+
 (in-package :io/mvar)

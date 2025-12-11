@@ -1,18 +1,21 @@
 (cl:in-package :cl-user)
+
 (defpackage :io/thread
   (:use
    #:io/thread-exceptions
+   #:io/thread-impl/runtime
    #:io/classes/monad-io-thread
+   #:io/io-impl/thread
    #:io/gen-impl/thread)
   (:export
-   ;; Re-exports from io/thread-exceptions
-   #:IoThread
-   #:ThreadingException
-   #:InterruptCurrentThread
-
+   ;; Re-exports from io/thread-impl/runtime
    #:UnmaskFinallyMode
    #:Stopped
    #:Running
+
+   ;; Re-exports from io/thread-exceptions
+   #:ThreadingException
+   #:InterruptCurrentThread
 
    ;; Re-exports from io/classes/monad-io-thread
    #:MonadIoThread
@@ -27,13 +30,14 @@
    #:unmask-current
    #:unmask-current-finally
    #:stop
-   #:fork_
    #:do-fork
+
+   ;; Re-exports from io/io-impl/thread
+   #:fork_
    #:do-fork_
 
-   #:write-line-sync
-
    ;; Re-exports from io/gen-impl/thread
-   #:implement-monad-io-thread
-   ))
+   #:write-line-sync
+   #:implement-monad-io-thread))
+
 (in-package :io/thread)

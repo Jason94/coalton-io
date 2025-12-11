@@ -4,15 +4,15 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/monad/classes
-   #:io/thread-impl/runtime
-   #:io/future
    #:io/classes/monad-io-thread
    #:io/classes/monad-io-mvar
+   #:io/gen-impl/future
+   #:io/thread-impl/runtime
    #:io/io-impl/simple-io
    )
   (:export
-   #:with-mvar_
-   #:do-with-mvar_
+   #:fork-future_
+   #:do-fork-future_
    ))
 (in-package :io/io-impl/future)
 

@@ -18,6 +18,8 @@
    #:try-all
    #:raise-result
    #:raise-result-dynamic
+   #:wrap-error_
+   #:wrap-error
 
    #:do-reraise
    #:do-handle

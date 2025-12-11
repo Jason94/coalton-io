@@ -8,6 +8,7 @@
   (:import-from #:coalton-library/types
    #:RuntimeRepr)
   (:local-nicknames
+   (:r #:coalton-library/result)
    (:st #:coalton-library/monad/statet)
    (:e #:coalton-library/monad/environment)
    )
@@ -24,6 +25,8 @@
    #:try-all
    #:raise-result
    #:raise-result-dynamic
+   #:wrap-error_
+   #:wrap-error
 
    #:do-reraise
    #:do-handle
@@ -112,7 +115,21 @@ exception to the program."
        (pure a))
       ((Err dyn-e)
        (raise-dynamic dyn-e))))
+
+  (inline)
+  (declare wrap-error_ (MonadException :m => (Unit -> :a) -> :m :a))
+  (define (wrap-error_ thunk)
+    "Run thunk, catching any unhandled Lisp/Coalton errors and raising
+them as exceptions."
+    (raise-result-dynamic (pure
+                           (r:map-err to-dynamic
+                                      (catch-thunk thunk)))))
   )
+
+(cl:defmacro wrap-error (cl:&body body)
+    "Run BODY, catching any unhandled Lisp/Coalton errors and raising
+them as exceptions."
+  `(wrap-error_ (fn () ,@body)))
 
 ;;;
 ;;; Syntax Macros
