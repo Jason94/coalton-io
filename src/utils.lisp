@@ -30,6 +30,7 @@
    #:throw-dynamic
    #:proxy-swap-inner
    #:proxy-outer
+   #:proxies-eql
    #:proxy-result-of
    ))
 (in-package :io/utils)
@@ -93,6 +94,12 @@ Coalton exceptions via `define-exception`."
   (declare proxy-outer (Proxy :a -> Proxy (:m :a)))
   (define (proxy-outer _)
     Proxy)
+
+  (inline)
+  (declare proxies-eql (Proxy :a -> Proxy :a -> Unit))
+  (define (proxies-eql _ _)
+    "Force two proxies to represent the same type."
+    Unit)
 
   (inline)
   (declare proxy-result-of ((:a -> :b) -> Proxy :b))

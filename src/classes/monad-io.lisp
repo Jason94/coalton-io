@@ -3,6 +3,7 @@
   (:use
    #:coalton
    #:coalton-prelude
+   #:coalton-library/types
    #:coalton-library/monad/classes)
   (:import-from #:coalton-library/experimental/loops
    #:dolist)
@@ -29,6 +30,8 @@
 
    #:UnliftIo
    #:with-run-in-io
+   #:base-io-prx-for
+   #:unlift-io-prx-for
 
    #:map-into-io
    #:do-map-into-io
@@ -116,6 +119,18 @@ Example:
               (fn (m-env)
                (ma->ioa-->iob
                 (e:run-envT m-env env))))))))))
+
+  (inline)
+  (declare base-io-prx-for (UnliftIo :r :i => Proxy (:r :a) -> Proxy (:i :b)))
+  (define (base-io-prx-for _)
+    "For an UnliftIo, get a proxy for its BaseIo."
+    Proxy)
+
+  (inline)
+  (declare unlift-io-prx-for (UnliftIo :r :i => Proxy (:i :a) -> Proxy (:r :b)))
+  (define (unlift-io-prx-for _)
+    "For an BaseIo, get a proxy for one of its UnliftIo's."
+    Proxy)
   )
 
 ;;;

@@ -46,11 +46,13 @@
    #:write-line-sync
 
    #:runtime-for
+   #:as-runtime-prx
    #:get-runtime-for
 
    ;; Library Private
    #:inject-runtime
    #:wrap-io-with-runtime
+   #:prxs-same-runtime
    ))
 (in-package :io/classes/monad-io-thread)
 
@@ -137,7 +139,9 @@ The most important property of Concurrents is that they can be composed."
   ;; more data into the IoThread word. We could set aside some bits for pending
   ;; unmasks from other threads, and then treat those unmasks sort of like we
   ;; treat pending kills. That could help solve some of the race conditions.
-  (define-class ((MonadIo :m) (Runtime :rt :t) => MonadIoThread :rt :t :m (:m -> :rt))
+  ;; TODO: Hopefully remove :t from this definition when this issue is fixed:
+  ;; https://github.com/coalton-lang/coalton/issues/1717
+  (define-class ((MonadIo :m) (Runtime :rt :t) => MonadIoThread :rt :t :m (:m -> :rt) (:m -> :t))
     "A MonadIo which can spawn :t's. Other :t's error
 separately. A spawned :t erroring will not cause the parent
 :t to fail. :t can be any 'thread-like' object, depending on the
@@ -150,6 +154,12 @@ threads, etc."
   (define (runtime-for _)
     "Get the Runtime type for a MonadIoThread type."
     Proxy)
+
+  (inline)
+  (declare as-runtime-prx (MonadIoThread :rt :t :m => :m :a -> Proxy :rt -> :m :a))
+  (define (as-runtime-prx op _rt-prx)
+    "Get the Runtime type for a MonadIoThread operation."
+    op)
 
   (inline)
   (declare get-runtime-for (MonadIoThread :rt :t :m => :m :a -> Proxy :rt))
@@ -190,12 +200,14 @@ Assumes the output has type :m :a for some MonadIoThread :m."
 
 (cl:defmacro wrap-io-with-runtime ((rt-prx-sym) cl:&body body)
   "Wrap the body in a wrap-io and pass a proxy to the runtime with RT-PRX-SYM."
-  `(progn
-     (let ,rt-prx-sym = Proxy)
-     (as-proxy-of
-      (wrap-io
-        ,@body)
-      ,rt-prx-sym)))
+  (cl:let ((m-prx (cl:gensym)))
+    `(progn
+       (let ,m-prx = Proxy)
+       (let ,rt-prx-sym = (runtime-for ,m-prx))
+       (as-proxy-of
+        (wrap-io
+          ,@body)
+        ,m-prx))))
 
 (coalton-toplevel
   (declare write-line-sync ((Into :s String) (MonadIoTerm :m) => :s -> :m Unit))
@@ -208,10 +220,8 @@ for debugging."
 
 (coalton-toplevel
   (inline)
-  ;; TODO: Fix these (and others) when the issue gets fixed.
-  ;; https://github.com/coalton-lang/coalton/issues/1717
-  ;; (declare fork ((UnliftIo :r :i) (LiftTo :r :m) (Runtime :rt :t) (MonadIoThread :rt :t :m)
-  ;;                => :r :a -> :m :t))
+  (declare fork-thread ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :r)
+                        => :r :a -> :m :t))
   (define (fork-thread op)
     "Spawn a new thread, which starts running immediately.
 Returns the handle to the thread. This version can accept
@@ -316,3 +326,11 @@ stopped after being unmasked N times."
   `(fork-thread
     (do
      ,@body)))
+
+(coalton-toplevel
+  (inline)
+  (declare prxs-same-runtime ((MonadIoThread :rt :t :m1) (MonadIoThread :rt :t :m2)
+                              => Proxy (:m1 :a) -> Proxy (:m2 :b) -> Unit))
+  (define (prxs-same-runtime _ _)
+    "Force two MonadIoThread's to have the same runtime and thread type."
+    Unit))

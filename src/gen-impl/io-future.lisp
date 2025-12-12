@@ -3,6 +3,7 @@
   (:use
    #:coalton
    #:coalton-prelude
+   #:coalton-library/types
    #:coalton-library/monad/classes
    #:coalton-library/experimental/do-control-core
    #:io/utils
@@ -39,18 +40,7 @@
   (define (value-mvar (Future% mvar))
     mvar)
 
-  (declare type-test ((MonadException :r) (LiftTo :r :m) (UnliftIo :r :i)
-                        (MonadIoThread :rt :t :r) (MonadIoThread :rt :t :m)
-                        => :r Unit -> :m Unit))
-  (define (type-test _)
-    (pure Unit)
-    )
-
   (inline)
-  ;; TODO: See MonadIoThread
-  ;; (declare fork-future ((MonadIoThread :m :t) (MonadIoMVar :m) (MonadIoMVar :r)
-  ;;                       (UnliftIo :r :i) (LiftTo :r :m) (MonadException :r)
-  ;;                       => :r :a -> :m (Future :a)))
   (declare fork-future ((MonadException :r) (LiftTo :r :m) (UnliftIo :r :i)
                         (MonadIoThread :rt :t :r) (MonadIoThread :rt :t :m)
                         => :r :a -> :m (Future :a)))
@@ -60,13 +50,14 @@ from TASK. The future is guaranteed to only ever run at most once, when
 the produced :m is run."
     (do
      (value-var <- new-empty-mvar)
-     (do-fork-thread
-       (result <- (try-dynamic task))
-       (put-mvar value-var result))
+     (fork-thread
+      (do
+        (result <- (try-dynamic task))
+        (put-mvar value-var result)))
      (pure (Future% value-var))))
 
   (inline)
-  ;; (declare await ((MonadIoMVar :m) (MonadException :m) => Future :a -> :m :a))
+  (declare await ((MonadIoThread :rt :t :m) (MonadException :m) => Future :a -> :m :a))
   (define (await future)
     "Read the value from FUTURE, blocking until it is available.
 Raises any exceptions in the awaiting thread that were raised in
@@ -78,8 +69,8 @@ the future thread."
        (raise-dynamic dyn-e))))
 
   (inline)
-  ;; (declare try-read-future ((MonadIoMvar :m) (MonadException :m)
-  ;;                           => Future :a -> :m (Optional :a)))
+  (declare try-read-future ((MonadIoThread :rt :t :m) (MonadException :m)
+                            => Future :a -> :m (Optional :a)))
   (define (try-read-future future)
     "Try to read the current value from FUTURE, returning NONE
 if it is not available. Raises any exceptions in the awaiting thread

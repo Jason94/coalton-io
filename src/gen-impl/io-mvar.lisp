@@ -98,7 +98,7 @@ or just release the LOCK."
              (lk:release lock)
              Unit)))))
 
-  ;; (declare take-mvar (MonadIoThread :rt :t :m => MVar :a -> :m :a))
+  (declare take-mvar (MonadIoThread :rt :t :m => MVar :a -> :m :a))
   (define (take-mvar mvar)
     "Take a value from an MVar, blocking until one is available."
     (wrap-io-with-runtime (rt-prx)
@@ -120,7 +120,7 @@ or just release the LOCK."
                      (lp))))))
         (lp))))
 
-  ;; (declare put-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m Unit))
+  (declare put-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m Unit))
   (define (put-mvar mvar val)
     "Put a value into an MVar, blocking until it becomes empty."
     (wrap-io-with-runtime (rt-prx)
@@ -144,7 +144,7 @@ or just release the LOCK."
                      (lp))))))
         (lp))))
 
-  ;; (declare try-take-mvar (MonadIoThread :rt :t :m => MVar :a -> :m (Optional :a)))
+  (declare try-take-mvar (MonadIoThread :rt :t :m => MVar :a -> :m (Optional :a)))
   (define (try-take-mvar mvar)
     "Attempt to take a value from an MVar; returns None if empty."
     (wrap-io-with-runtime (rt-prx)
@@ -163,7 +163,7 @@ or just release the LOCK."
          (unmask-current! rt-prx)
          None))))
 
-  ;; (declare try-put-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m Boolean))
+  (declare try-put-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m Boolean))
   (define (try-put-mvar mvar val)
     "Attempt to put a value into an MVar; returns False if full and the put fails,
 True if the put succeeds."
@@ -184,7 +184,7 @@ True if the put succeeds."
          (unmask-current! rt-prx)
          True))))
 
-  ;; (declare read-mvar (MonadIoThread :rt :t :m => MVar :a -> :m :a))
+  (declare read-mvar (MonadIoThread :rt :t :m => MVar :a -> :m :a))
   (define (read-mvar mvar)
     "Read (without removing) the value from an MVar, blocking until one is available."
     (let _ = (the (MVar :a) mvar))
@@ -195,14 +195,14 @@ True if the put succeeds."
         ((None)
          (subscribe (.read-broadcast-pool mvar))))))
 
-  ;; (declare try-read-mvar (MonadIoThread :rt :t :m => MVar :a -> :m (Optional :a)))
+  (declare try-read-mvar (MonadIoThread :rt :t :m => MVar :a -> :m (Optional :a)))
   (define (try-read-mvar mvar)
     "Attempt to read (without removing) the value from an MVar; returns None if empty."
     (let _ = (the (MVar :a) mvar))
     (wrap-io
       (at:read (.data mvar))))
 
-  ;; (declare swap-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m :a))
+  (declare swap-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m :a))
   (define (swap-mvar mvar new-val)
     "Atomically replace the value in an MVar and return the old value."
     (let _ = (the (MVar :a) mvar))
@@ -241,16 +241,15 @@ they can block this thread until another thread takes the MVar."
     (lift-to
      (with-run-in-io
        (fn (run)
-         (lift-io
-          (do
-           (mask-current-thread)
-           (result <-
-            (bracket-io_ (take-mvar mvar)
-                         (put-mvar mvar)
-                         (fn (x)
-                           (run (op x)))))
-           (unmask-current-thread)
-           (pure result)))))))
+         (do
+          (mask-current-thread)
+          (result <-
+           (bracket-io_ (take-mvar mvar)
+                        (put-mvar mvar)
+                        (fn (x)
+                          (run (op x)))))
+          (unmask-current-thread)
+          (pure result))))))
   )
 
 (cl:defmacro do-with-mvar ((sym mvar) cl:&body body)
