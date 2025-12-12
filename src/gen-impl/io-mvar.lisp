@@ -237,18 +237,17 @@ True if the put succeeds."
 If the operation raises an exception, will restore the MVar value and re-raise.
 If other threads are calling PUT-MVAR while the operation is running,
 they can block this thread until another thread takes the MVar."
-    (let _ = (the (MVar :a) mvar))
+    ;; (let _ = (the (MVar :a) mvar))
     (lift-to
      (with-run-in-io
        (fn (run)
          (do
-          (mask-current-thread)
           (result <-
            (bracket-io_ (take-mvar mvar)
                         (put-mvar mvar)
                         (fn (x)
                           (run (op x)))))
-          (unmask-current-thread)
+
           (pure result))))))
   )
 
@@ -272,8 +271,8 @@ they can block this thread until another thread takes the MVar."
     (head-var (MVar (MVar (ChanNode :a))))
     (tail-var (MVar (MVar (ChanNode :a)))))
 
-  ;; (declare new-empty-chan (MonadIoThread :rt :t :m => :m (Chan :a)))
-  (define (new-empty-chan)
+  (declare new-empty-chan (MonadIoThread :rt :t :m => :m (Chan :a)))
+  (define new-empty-chan
     "Create a new empty channel."
     (do
      (cell <- new-empty-mvar)
@@ -281,7 +280,7 @@ they can block this thread until another thread takes the MVar."
      (tail-var <- (new-mvar cell))
      (pure (Chan head-var tail-var))))
 
-  ;; (declare push-chan (MonadIoThread :rt :t :m => Chan :a -> :a -> :m Unit))
+  (declare push-chan (MonadIoThread :rt :t :m => Chan :a -> :a -> :m Unit))
   (define (push-chan chan val)
     "Push VAL onto CHAN."
     (let _ = (the (Chan :a) chan))
@@ -291,7 +290,7 @@ they can block this thread until another thread takes the MVar."
      (put-mvar old-tail-var (ChanNode% val new-tail-var))
      (put-mvar (.tail-var chan) new-tail-var)))
 
-  ;; (declare pop-chan (MonadIoThread :rt :t :m => Chan :a -> :m :a))
+  (declare pop-chan (MonadIoThread :rt :t :m => Chan :a -> :m :a))
   (define (pop-chan chan)
     "Pop the front value in CHAN. Blocks while CHAN is empty."
     (let _ = (the (Chan :a) chan))

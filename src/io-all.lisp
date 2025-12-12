@@ -9,9 +9,6 @@
   (:import-from #:io/mut
    #:implement-monad-io-var
    #:derive-monad-var)
-  (:import-from #:io/mvar
-   #:implement-monad-io-mvar
-   #:derive-monad-io-mvar)
   (:import-from #:io/file
    #:implement-monad-io-file
    #:derive-monad-io-file)
@@ -34,7 +31,6 @@
      (derive-monad-io ,monad-param ,monadT-form)
      (derive-monad-io-thread ,monad-param ,monadT-form)
      (derive-monad-var ,monad-param ,monadT-form)
-     (derive-monad-io-mvar ,monad-param ,monadT-form)
      (derive-monad-io-file ,monad-param ,monadT-form)
      (derive-monad-io-random ,monad-param ,monadT-form)
      (derive-monad-io-term ,monad-param ,monadT-form)
@@ -44,7 +40,6 @@
   `(progn
      (implement-monad-io-thread ,monad)
      (implement-monad-io-var ,monad)
-     (implement-monad-io-mvar ,monad)
      (implement-monad-io-file ,monad)
      (implement-monad-io-random ,monad)
      (implement-monad-io-term ,monad)
