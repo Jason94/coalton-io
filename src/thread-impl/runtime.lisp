@@ -20,12 +20,6 @@
   (:export
    ;; Library Public
    #:IoThread
-   #:ThreadingException
-   #:InterruptCurrentThread
-
-   #:UnmaskFinallyMode
-   #:Stopped
-   #:Running
 
    ;; Library Private
    #:current-thread!%
@@ -118,18 +112,6 @@
   (define-struct IoThread
     (handle (c:Cell (Optional (t:Thread Unit))))
     (flags  at:AtomicInteger))
-
-  (derive Eq)
-  (repr :enum)
-  (define-type UnmaskFinallyMode
-    Running
-    Stopped)
-
-  (define-instance (Into UnmaskFinallyMode String)
-    (define (into a)
-      (match a
-        ((Running) "Running")
-        ((Stopped) "Stopped"))))
 
   (define-instance (Eq IoThread)
     (define (== a b)

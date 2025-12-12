@@ -6,6 +6,7 @@
    #:coalton-library/types
    #:coalton-library/monad/classes
    #:io/utils
+   #:io/thread-exceptions
    #:io/classes/monad-io
    #:io/classes/monad-io-term
    #:io/thread-impl/runtime)
@@ -16,6 +17,7 @@
    (:env #:coalton-library/monad/environment)
    )
   (:export
+   ;; Library Public
    #:Runtime
    #:current-thread!
    #:sleep!
@@ -24,6 +26,8 @@
    #:mask!
    #:unmask!
    #:unmask-finally!
+   #:mask-current!
+   #:unmask-current!
 
    #:MonadIoThread
    #:derive-monad-io-thread
@@ -43,6 +47,10 @@
 
    #:runtime-for
    #:get-runtime-for
+
+   ;; Library Private
+   #:inject-runtime
+   #:wrap-io-with-runtime
    ))
 (in-package :io/classes/monad-io-thread)
 
@@ -92,6 +100,18 @@ there are any pending stops, it will immediately be stopped."
      "Unmask the given thread, run the provided action, and then honor any
  pending stop for that thread after the action finishes."
       (Proxy :r -> :t -> (UnmaskFinallyMode -> :a) -> Unit)))
+
+  (inline)
+  (declare mask-current! (Runtime :rt :t => Proxy :rt -> Unit))
+  (define (mask-current! rt-prx)
+    "Mask the current thread."
+    (mask! rt-prx (current-thread! rt-prx)))
+
+  (inline)
+  (declare unmask-current! (Runtime :rt :t => Proxy :rt -> Unit))
+  (define (unmask-current! rt-prx)
+    "Mask the current thread."
+    (mask! rt-prx (current-thread! rt-prx)))
 
   (define-class (Concurrent :c :a (:c -> :a))
     "A Concurrent is a type that has thread-like semantics. It can be
@@ -167,6 +187,15 @@ Assumes the output has type :m :a for some MonadIoThread :m."
      (as-proxy-of
       (wrap-io (,f (runtime-for m-prx) ,@args))
       m-prx)))
+
+(cl:defmacro wrap-io-with-runtime ((rt-prx-sym) cl:&body body)
+  "Wrap the body in a wrap-io and pass a proxy to the runtime with RT-PRX-SYM."
+  `(progn
+     (let ,rt-prx-sym = Proxy)
+     (as-proxy-of
+      (wrap-io
+        ,@body)
+      ,rt-prx-sym)))
 
 (coalton-toplevel
   (declare write-line-sync ((Into :s String) (MonadIoTerm :m) => :s -> :m Unit))

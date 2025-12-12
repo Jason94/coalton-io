@@ -9,7 +9,7 @@
    #:io/classes/monad-exception
    #:io/classes/monad-io
    #:io/classes/monad-io-thread
-   #:io/classes/monad-io-mvar
+   #:io/gen-impl/mvar
    )
   (:export
    #:Future

@@ -13,7 +13,7 @@
                  ;;; Library Private Packages
                  ;;;
                  (:file "utils")
-                 (:file "thread-exceptions")
+                 (:file "threading-exceptions")
                  ;; Load the two main "core classes" files first, before thread-impl/
                  (:file "classes/monad-exception")
                  (:file "classes/monad-io")
@@ -25,10 +25,8 @@
                                (:file "stm-impl")))
                  (:module "classes"
                   :serial t
-                  :components ((:file "monad-at-var")
-                               (:file "monad-io-term")
+                  :components ((:file "monad-io-term")
                                (:file "monad-io-file")
-                               (:file "monad-io-mvar")
                                (:file "monad-io-thread")
                                (:file "monad-io-unique")
                                (:file "monad-io-random")

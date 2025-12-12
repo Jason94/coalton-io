@@ -6,7 +6,12 @@
    )
   (:export
    #:ThreadingException
-   #:InterruptCurrentThread))
+   #:InterruptCurrentThread
+
+   #:UnmaskFinallyMode
+   #:Stopped
+   #:Running
+   ))
 (in-package :io/thread-exceptions)
 
 (coalton-toplevel
@@ -15,4 +20,17 @@
 
   (define-instance (Signalable ThreadingException)
     (define (error x)
-      (error x))))
+      (error x)))
+
+  (derive Eq)
+  (repr :enum)
+  (define-type UnmaskFinallyMode
+    Running
+    Stopped)
+
+  (define-instance (Into UnmaskFinallyMode String)
+    (define (into a)
+      (match a
+        ((Running) "Running")
+        ((Stopped) "Stopped"))))
+  )
