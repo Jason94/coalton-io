@@ -20,11 +20,9 @@
 
 (coalton-toplevel
 
-  ;; (declare with-mvar_ ((LiftTo IO :m) (MonadIoThread IoRuntime IoThread IO) => MVar :a -> (:a -> IO :b) -> :m :b))
-  ;; (declare with-mvar_ ((MonadIoThread IoRuntime IoThread :m) (LiftTo IO :m) => MVar :a -> (:a -> IO :b) -> :m :b))
+  (declare with-mvar_ ((MonadIoThread IoRuntime IoThread :m) (LiftTo IO :m) => MVar :a -> (:a -> IO :b) -> :m :b))
   (define (with-mvar_ mvar op)
-    (the (IO :b)
-         (with-mvar mvar op)))
+    (with-mvar mvar op))
 
   )
 

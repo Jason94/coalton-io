@@ -39,7 +39,7 @@
       (do
         (lock <- (wrap-io (lk:new)))
         (flag <- (new-var Unset))
-        (fork_
+        (fork-thread_
           (do
             (wrap-io (lk:acquire lock))
             (write flag Set)
@@ -65,7 +65,7 @@
       (do
         (lock <- (wrap-io (lk:new)))
         (flag <- (new-var Unset))
-        (do-fork_
+        (do-fork-thread_
           (wrap-io (lk:acquire lock))
           (write flag Set)
           (wrap-io (lk:release lock)))
@@ -94,12 +94,12 @@
       (gate <- new-empty-mvar)
       (flag <- (new-var Unset))
       (thread <-
-        (do-fork_
+        (do-fork-thread_
           (put-mvar gate Unit)
           (sleep 2)
           (write flag Set)))
       (take-mvar gate)
-      (stop thread)
+      (stop-thread thread)
       (sleep 4)
       (read flag))))
   (is (== Unset result)))
@@ -110,14 +110,14 @@
      (do
       (pass-inner-handle <- new-empty-mvar)
       (outer-handle <-
-        (do-fork_
+        (do-fork-thread_
           (inner-handle <- current-thread)
           (put-mvar pass-inner-handle inner-handle)))
       (inner-handle <- (take-mvar pass-inner-handle))
       (pure (Tuple outer-handle inner-handle)))))
   (is (== outer-handle inner-handle)))
 
-(define-test test-mask-current-thread ()
+(define-test test-mask-current-thread-thread ()
   (let result =
     (run-io!
      (do
@@ -125,20 +125,20 @@
       (stopped-gate <- new-empty-mvar)
       (value <- new-empty-mvar)
       (thread <-
-        (do-fork_
-          mask-current
+        (do-fork-thread_
+          mask-current-thread
           (put-mvar masked-gate Unit)
           (take-mvar stopped-gate)
           (put-mvar value 10)
           ))
       ;; Wait for the thread to mask itself before stopping it
       (take-mvar masked-gate)
-      (stop thread)
+      (stop-thread thread)
       (put-mvar stopped-gate Unit)
       (take-mvar value))))
   (is (== result 10)))
 
-(define-test test-unmask-current-thread ()
+(define-test test-unmask-current-thread-thread ()
   (let result =
     (run-io!
      (do
@@ -146,15 +146,15 @@
       (stopped-gate <- new-empty-mvar)
       (value <- new-empty-mvar)
       (thread <-
-        (do-fork_
-          mask-current
-          unmask-current
+        (do-fork-thread_
+          mask-current-thread
+          unmask-current-thread
           (put-mvar masked-gate Unit)
           (take-mvar stopped-gate)
           (put-mvar value 10)))
       ;; Wait for the thread to mask and unmask itself before stopping it
       (take-mvar masked-gate)
-      (stop thread)
+      (stop-thread thread)
       (put-mvar stopped-gate Unit)
       ;; Unfortunately the thread can't signal back, so sleep a few MS to make sure
       (sleep 5)
@@ -169,16 +169,16 @@
       (stopped-gate <- new-empty-mvar)
       (value <- new-empty-mvar)
       (thread <-
-        (do-fork_
-          mask-current
+        (do-fork-thread_
+          mask-current-thread
           (put-mvar masked-gate Unit)
           (take-mvar stopped-gate)
           (put-mvar value 5)
-          unmask-current
+          unmask-current-thread
           (swap-mvar value 10)))
       ;; Wait for the thread to mask itself before stopping it
       (take-mvar masked-gate)
-      (stop thread)
+      (stop-thread thread)
       (put-mvar stopped-gate Unit)
       ;; Unfortunately the thread can't signal back, so sleep a few MS to make sure
       (sleep 5)
@@ -193,16 +193,16 @@
       (stopped-gate <- new-empty-mvar)
       (value <- new-empty-mvar)
       (thread <-
-        (do-fork_
-          mask-current
-          mask-current
-          unmask-current
+        (do-fork-thread_
+          mask-current-thread
+          mask-current-thread
+          unmask-current-thread
           (put-mvar masked-gate Unit)
           (take-mvar stopped-gate)
           (put-mvar value 10)))
       ;; Wait for the thread to mask itself before stopping it
       (take-mvar masked-gate)
-      (stop thread)
+      (stop-thread thread)
       (put-mvar stopped-gate Unit)
       (take-mvar value))))
   (is (== result 10)))

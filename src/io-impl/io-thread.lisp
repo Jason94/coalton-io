@@ -10,8 +10,8 @@
    #:io/io-impl/simple-io
    )
   (:export
-   #:fork_
-   #:do-fork_
+   #:fork-thread_
+   #:do-fork-thread_
    ))
 (in-package :io/io-impl/thread)
 
@@ -24,7 +24,7 @@
   (define fork-thread_ fork-thread)
   )
 
-(cl:defmacro do-fork_ (cl:&body body)
-  `(fork_
+(cl:defmacro do-fork-thread_ (cl:&body body)
+  `(fork-thread_
     (do
      ,@body)))

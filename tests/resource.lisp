@@ -66,7 +66,7 @@
       (cleanup-done-gate <- s-new)
       (wait-forever <- s-new)
       (thread <-
-        (do-fork_
+        (do-fork-thread_
           (bracket-io_
             (pure Unit)
             (fn (_) (do
@@ -76,7 +76,7 @@
                         (s-await wait-forever))))))
       ;; Ensure the computation has started before stopping it
       (s-await start-gate)
-      (stop thread)
+      (stop-thread thread)
       (s-await cleanup-done-gate)
       (read cleanup))))
   (is cleanup-completed?))
@@ -120,7 +120,7 @@
       (cleanup-done-gate <- s-new)
       (wait-forever <- s-new)
       (thread <-
-        (do-fork_
+        (do-fork-thread_
           (bracket-io
             (pure Unit)
             (fn (_resource exit-case)
@@ -134,7 +134,7 @@
                         (s-await wait-forever))))))
       ;; Ensure the computation has started before stopping it
       (s-await start-gate)
-      (stop thread)
+      (stop-thread thread)
       (s-await cleanup-done-gate)
       (read cleanup))))
   (is cleanup-completed?))

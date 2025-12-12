@@ -241,8 +241,8 @@ issues in some cases."
     (inject-runtime stop! thread))
 
   (inline)
-  (declare sleep_ (MonadIoThread :rt :t :m => UFix -> :m Unit))
-  (define (sleep_ msec)
+  (declare sleep (MonadIoThread :rt :t :m => UFix -> :m Unit))
+  (define (sleep msec)
     "Sleep the current thread for MSECS milliseconds."
     (inject-runtime sleep! msec))
 

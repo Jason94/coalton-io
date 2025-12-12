@@ -30,19 +30,19 @@
     (let thread = ((fn ()
                      (run-io!
                       ;; This should wait 5 MS between the signal and write!
-                      (fork_ ((noinline >>=)
-                              (wrap-io
-                                (s:signal gate 1)
-                                Unit)
-                              (fn (_)
-                                (wrap-io
-                                  (c:write! result 100)))))))))
+                      (fork-thread_ ((noinline >>=)
+                                     (wrap-io
+                                       (s:signal gate 1)
+                                       Unit)
+                                     (fn (_)
+                                       (wrap-io
+                                         (c:write! result 100)))))))))
 
     ;; Wait until the thread is running, wait 2 MS, kill it, wait 8 MS, then read.
     (s:await gate)
     (lisp Void ()
       (cl:sleep (cl:/ 2.0 1000)))
-    (run-io! (stop thread))
+    (run-io! (stop-thread thread))
     (lisp Void ()
       (cl:sleep (cl:/ 80.0 1000)))
 

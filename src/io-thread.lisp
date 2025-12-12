@@ -21,20 +21,20 @@
    #:MonadIoThread
    #:derive-monad-io-thread
    #:current-thread
-   #:fork
+   #:fork-thread
    #:sleep
-   #:mask
-   #:mask-current
-   #:unmask
-   #:unmask-finally
-   #:unmask-current
-   #:unmask-current-finally
-   #:stop
-   #:do-fork
+   #:mask-thread
+   #:mask-current-thread
+   #:unmask-thread
+   #:unmask-thread-finally
+   #:unmask-current-thread
+   #:unmask-current-thread-finally
+   #:stop-thread
+   #:do-fork-thread
 
    ;; Re-exports from io/io-impl/thread
-   #:fork_
-   #:do-fork_
+   #:fork-thread_
+   #:do-fork-thread_
 
    ;; Re-exports from io/gen-impl/thread
    #:write-line-sync

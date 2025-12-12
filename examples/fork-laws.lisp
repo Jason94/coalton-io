@@ -30,7 +30,7 @@
     (var <- (at:new-at-var 0))
     (chan <- new-empty-chan)
      (let fork-op =
-       (do-fork_
+       (do-fork-thread_
          (x <- (at:modify-swap var (+ 1)))
          (push-chan chan x)))
      fork-op
@@ -45,10 +45,10 @@
    (do
     (var <- (at:new-at-var 0))
     (chan <- new-empty-chan)
-     (do-fork_
+     (do-fork-thread_
        (x <- (at:modify-swap var (+ 1)))
        (push-chan chan x))
-     (do-fork_
+     (do-fork-thread_
        (x <- (at:modify-swap var (+ 1)))
        (push-chan chan x))
      (a <- (pop-chan chan))
