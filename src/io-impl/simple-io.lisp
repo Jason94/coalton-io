@@ -323,7 +323,6 @@ More efficient than foreach-io, if you can run your effect in a BaseIo."
 
 (coalton-toplevel
   (io/gen-impl/thread:implement-monad-io-thread IO IoRuntime IoThread)
-  (io/gen-impl/atomic:implement-monad-at-var IO)
   (io/gen-impl/mut:implement-monad-io-var IO)
   (io/gen-impl/mvar:implement-monad-io-mvar IO)
   (io/gen-impl/file:implement-monad-io-file IO)

@@ -54,6 +54,9 @@
   (define (unmask-and-await-safely% cv lock)
     "Unmask the thread. Finally, either await (still running) the CV
 or just release the LOCK."
+    ;; BUG: This awaits before returning the thunk. Probably just need to go with
+    ;; the catch-macro option. There's just no other good way. Or, probably even
+    ;; better, try to switch away from CV's to a better, less/no contention mechanism.
     (unmask-current-thread-finally!%
      (fn (mode)
        (if (== Running mode)

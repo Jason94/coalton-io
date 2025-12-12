@@ -135,10 +135,7 @@ threads, etc."
   (declare get-runtime-for (MonadIoThread :rt :t :m => :m :a -> Proxy :rt))
   (define (get-runtime-for op)
     "Get the Runtime type for a MonadIoThread operation."
-    (runtime-for (proxy-of op)))
-
-
-  )
+    (runtime-for (proxy-of op))))
 
 (cl:defmacro derive-monad-io-thread (monad-param monadT-form)
   "Automatically derive an instance of MonadIoThread for a monad transformer.
