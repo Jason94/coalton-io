@@ -565,8 +565,8 @@ For safety, disconnects the transactions when done."
               (commit-logged-writes (.write-log tx-data))
               (at:atomic-inc1 global-lock)
               (broadcast-write-cv!%)
-              (unmask-current-thread!%)
               Unit)
+            (unmask-current-thread!%)
             (c:read result)))))
 
   (inline)
