@@ -97,6 +97,7 @@ mutable variables, multithreading, and several data structures to safely share s
                 :serial t
                 :components
                 (
+                 (:file "test-utils")
                  (:file "simple-io")
                  (:file "exception")
                  (:file "mut")

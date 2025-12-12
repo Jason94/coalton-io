@@ -4,7 +4,9 @@
         #:io/simple-io
         #:io/thread
         #:io/mut
-        #:io/mvar)
+        #:io/mvar
+        #:io/tests/utils
+        )
   (:local-nicknames
    (:lk #:coalton-threads/lock))
   )
@@ -21,17 +23,6 @@
   (define-type Flag
     Unset
     Set))
-
-;;; NOTE:
-;;; (1) MVar's are preferred over Locks to signal between threads.
-;;; Here, using locks avoids a circular "dependency" between the tests.
-;;; (2) This is *not* an efficient way to use locks. MVar's or Condition
-;;; Variables would be much better. However, for testing purposes iterating
-;;; until the forked thread has completed keeps the tests simple.
-;;; (3) In production code, it would be better to write an IO layer over
-;;; a non-pure datastructure like Lock, instead of using `wrap-io` throughout.
-;;; Using `wrap-io` like this makes it easier to accidentally leak side
-;;; effects in an unpredictable way.
 
 (define-test test-fork-executes ()
   (let result =
@@ -84,22 +75,23 @@
                 (%)))))))
   (is (== Set result)))
 
-;;; NOTE: Switching back to MVar's from locks for tests that aren't
-;;; on the basics of forking threads.
+;;; TODO: Replace the rest of these mvar's in tests with semaphores
 
 (define-test test-stop ()
   (let result =
     (run-io!
      (do
-      (gate <- new-empty-mvar)
+      (gate <- s-new)
       (flag <- (new-var Unset))
       (thread <-
         (do-fork-thread_
-          (put-mvar gate Unit)
+          (s-signal gate)
           (sleep 2)
           (write flag Set)))
-      (take-mvar gate)
+      (s-await gate)
       (stop-thread thread)
+      ;; Unfortunately we have to sleep here, because the stopped thread will
+      ;; have no way to signal to us.
       (sleep 4)
       (read flag))))
   (is (== Unset result)))
@@ -108,101 +100,108 @@
   (let (Tuple outer-handle inner-handle) =
     (run-io!
      (do
-      (pass-inner-handle <- new-empty-mvar)
+      (gate <- s-new)
+      (pass-inner-handle <- (new-var None))
       (outer-handle <-
         (do-fork-thread_
           (inner-handle <- current-thread)
-          (put-mvar pass-inner-handle inner-handle)))
-      (inner-handle <- (take-mvar pass-inner-handle))
+          (write pass-inner-handle (Some inner-handle))
+          (s-signal gate)))
+      (s-await gate)
+      (inner-handle <- (read pass-inner-handle))
       (pure (Tuple outer-handle inner-handle)))))
-  (is (== outer-handle inner-handle)))
+  (is (== (Some outer-handle) inner-handle)))
 
 (define-test test-mask-current-thread-thread ()
   (let result =
     (run-io!
      (do
-      (masked-gate <- new-empty-mvar)
-      (stopped-gate <- new-empty-mvar)
-      (value <- new-empty-mvar)
+      (masked-gate <- s-new)
+      (stopped-gate <- s-new)
+      (value <- (new-var None))
       (thread <-
         (do-fork-thread_
           mask-current-thread
-          (put-mvar masked-gate Unit)
-          (take-mvar stopped-gate)
-          (put-mvar value 10)
+          (s-signal masked-gate)
+          (s-await stopped-gate)
+          (write value (Some 10))
           ))
       ;; Wait for the thread to mask itself before stopping it
-      (take-mvar masked-gate)
+      (s-await masked-gate)
       (stop-thread thread)
-      (put-mvar stopped-gate Unit)
-      (take-mvar value))))
-  (is (== result 10)))
+      (s-signal stopped-gate)
+      (sleep 5)
+      (read value))))
+  (is (== result (Some 10))))
 
 (define-test test-unmask-current-thread-thread ()
   (let result =
     (run-io!
      (do
-      (masked-gate <- new-empty-mvar)
-      (stopped-gate <- new-empty-mvar)
-      (value <- new-empty-mvar)
+      (masked-gate <- s-new)
+      (stopped-gate <- s-new)
+      (value <- (new-var None))
       (thread <-
         (do-fork-thread_
           mask-current-thread
           unmask-current-thread
-          (put-mvar masked-gate Unit)
-          (take-mvar stopped-gate)
-          (put-mvar value 10)))
+          (s-signal masked-gate)
+          (s-await stopped-gate)
+          (write value (Some 10))))
       ;; Wait for the thread to mask and unmask itself before stopping it
-      (take-mvar masked-gate)
+      (s-await masked-gate)
       (stop-thread thread)
-      (put-mvar stopped-gate Unit)
+      (s-signal stopped-gate)
       ;; Unfortunately the thread can't signal back, so sleep a few MS to make sure
       (sleep 5)
-      (try-take-mvar value))))
+      (read value))))
   (is (== result None)))
 
 (define-test test-stop-on-unmask ()
   (let result =
     (run-io!
      (do
-      (masked-gate <- new-empty-mvar)
-      (stopped-gate <- new-empty-mvar)
-      (value <- new-empty-mvar)
+      (masked-gate <- s-new)
+      (stopped-gate <- s-new)
+      (value <- (new-var None))
       (thread <-
         (do-fork-thread_
           mask-current-thread
-          (put-mvar masked-gate Unit)
-          (take-mvar stopped-gate)
-          (put-mvar value 5)
+          (s-signal masked-gate)
+          (s-await stopped-gate)
+          (write value (Some 5))
           unmask-current-thread
-          (swap-mvar value 10)))
+          (write value (Some 10))))
       ;; Wait for the thread to mask itself before stopping it
-      (take-mvar masked-gate)
+      (s-await masked-gate)
       (stop-thread thread)
-      (put-mvar stopped-gate Unit)
+      (s-signal stopped-gate)
       ;; Unfortunately the thread can't signal back, so sleep a few MS to make sure
       (sleep 5)
-      (take-mvar value))))
-  (is (== result 5)))
+      (read value))))
+  (is (== result (Some 5))))
 
 (define-test test-nested-mask ()
   (let result =
     (run-io!
      (do
-      (masked-gate <- new-empty-mvar)
-      (stopped-gate <- new-empty-mvar)
-      (value <- new-empty-mvar)
+      (masked-gate <- s-new)
+      (stopped-gate <- s-new)
+      (finished-gate <- s-new)
+      (value <- (new-var None))
       (thread <-
         (do-fork-thread_
           mask-current-thread
           mask-current-thread
           unmask-current-thread
-          (put-mvar masked-gate Unit)
-          (take-mvar stopped-gate)
-          (put-mvar value 10)))
+          (s-signal masked-gate)
+          (s-await stopped-gate)
+          (write value (Some 10))
+          (s-signal finished-gate)))
       ;; Wait for the thread to mask itself before stopping it
-      (take-mvar masked-gate)
+      (s-await masked-gate)
       (stop-thread thread)
-      (put-mvar stopped-gate Unit)
-      (take-mvar value))))
-  (is (== result 10)))
+      (s-signal stopped-gate)
+      (s-await finished-gate)
+      (read value))))
+  (is (== result (Some 10))))

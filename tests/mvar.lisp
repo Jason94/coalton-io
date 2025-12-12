@@ -6,9 +6,10 @@
    #:io/exception
    #:io/mut
    #:io/mvar
-   #:io/thread)
+   #:io/thread
+   #:io/tests/utils
+   )
   (:local-nicknames
-   (:s #:coalton-threads/semaphore)
    (:l #:coalton-library/list))
   )
 (in-package :coalton-io/tests/mvar)
@@ -212,18 +213,6 @@
 ;;;
 ;;; Multi-Threaded Tests
 ;;;
-
-(coalton-toplevel
-  (declare s-new (MonadIo :m => :m s:Semaphore))
-  (define s-new
-    (wrap-io (s:new)))
-
-  (define (s-signal s)
-    (wrap-io (s:signal s 1)))
-
-  (define (s-await s)
-    (wrap-io (s:await s)))
-  )
 
 (define-test test-put-wakes-take ()
   (let result =
