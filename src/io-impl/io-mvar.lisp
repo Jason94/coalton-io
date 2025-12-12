@@ -5,8 +5,9 @@
    #:coalton-prelude
    #:coalton-library/monad/classes
    #:io/thread-impl/runtime
-   #:io/classes/monad-io-mvar
+   #:io/classes/monad-io-thread
    #:io/gen-impl/mvar
+   #:io/io-impl/runtime
    #:io/io-impl/simple-io
    )
   (:export
@@ -19,8 +20,11 @@
 
 (coalton-toplevel
 
-  (declare with-mvar_ ((LiftTo IO :m) (MonadIoMVar :m) => MVar :a -> (:a -> IO :b) -> :m :b))
-  (define with-mvar_ with-mvar)
+  ;; (declare with-mvar_ ((LiftTo IO :m) (MonadIoThread IoRuntime IoThread IO) => MVar :a -> (:a -> IO :b) -> :m :b))
+  ;; (declare with-mvar_ ((MonadIoThread IoRuntime IoThread :m) (LiftTo IO :m) => MVar :a -> (:a -> IO :b) -> :m :b))
+  (define (with-mvar_ mvar op)
+    (the (IO :b)
+         (with-mvar mvar op)))
 
   )
 

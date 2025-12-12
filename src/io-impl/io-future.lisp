@@ -4,10 +4,8 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/monad/classes
-   #:io/classes/monad-io-thread
-   #:io/classes/monad-io-mvar
-   #:io/gen-impl/future
    #:io/thread-impl/runtime
+   #:io/gen-impl/future
    #:io/io-impl/runtime
    #:io/io-impl/simple-io
    )
@@ -21,8 +19,8 @@
 
 (coalton-toplevel
 
-  (declare fork-future_ ((MonadIoThread IoRuntime IoThread :m) (MonadIoMVar :m) (LiftTo IO :m)
-                         => IO :a -> :m (Future :a)))
+  ;; (declare fork-future_ ((MonadIoThread IoRuntime IoThread :m) (MonadIoMVar :m) (LiftTo IO :m)
+  ;;                        => IO :a -> :m (Future :a)))
   (define fork-future_
     "Spawn a new future, which will run and eventually return the result
 from TASK. The future is guaranteed to only ever run at most once, when
