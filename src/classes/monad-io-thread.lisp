@@ -186,9 +186,6 @@ Example:
   (derive-monad-io-thread :m (LoopT :m))
   )
 
-;;; TODO: Once the inference bug gets fixed, move these back into the typeclass and
-;;; put the implementations into gen-impl/io-thread
-
 (cl:defmacro inject-runtime (f cl:&rest args)
   "Weave proxies to inject the runtime proxy as the first argument of f.
 Assumes the output has type :m :a for some MonadIoThread :m."
@@ -218,6 +215,8 @@ for debugging."
 
   )
 
+;;; TODO: Once the inference bug gets fixed, move these back into the typeclass and
+;;; put the implementations into gen-impl/io-thread
 (coalton-toplevel
   (inline)
   (declare fork-thread ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :r)
@@ -236,13 +235,13 @@ issues in some cases."
                       (run! (run op)))))))))
 
   (inline)
-  ;; (:t -> :m Unit)))
+  (declare stop-thread (MonadIoThread :rt :t :m => :t -> :m Unit))
   (define (stop-thread thread)
     "Stop a thread. If the thread has already stopped, does nothing."
     (inject-runtime stop! thread))
 
   (inline)
-  ;; (declare sleep_ ((Runtime :rt :t) (MonadIoThread :rt :t :m) => UFix -> :m Unit))
+  (declare sleep_ (MonadIoThread :rt :t :m => UFix -> :m Unit))
   (define (sleep_ msec)
     "Sleep the current thread for MSECS milliseconds."
     (inject-runtime sleep! msec))
@@ -254,15 +253,14 @@ issues in some cases."
     (inject-runtime current-thread!))
 
   (inline)
-  ;; (:t -> :m Unit))
+  (declare mask-thread (MonadIoThread :rt :t :m => :t -> :m Unit))
   (define (mask-thread thread)
      "Mask the given thread so it can't be stopped."
     (inject-runtime mask! thread))
 
   (inline)
-  ;; TODO: This can probably not have to be a (Unit -> X) when the bug is fixed
-  ;; (declare mask-current-thread (MonadIoThread :rt :t :m => :m Unit))
-  (define (mask-current-thread)
+  (declare mask-current-thread (MonadIoThread :rt :t :m => :m Unit))
+  (define mask-current-thread
     "Mask the current thread so it can't be stopped."
     (let m-prx = Proxy)
     (let runtime-prx = (runtime-for m-prx))
@@ -273,7 +271,7 @@ issues in some cases."
      m-prx))
 
   (inline)
-  ;; (:t -> :m Unit))
+  (declare unmask-thread (MonadIoThread :rt :t :m => :t -> :m Unit))
   (define (unmask-thread thread)
     "Unmask the given thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
@@ -281,8 +279,8 @@ stopped after being unmasked N times."
     (inject-runtime unmask! thread))
 
   (inline)
-  ;; (declare unmask-current-thread (MonadIoThread :rt :t :m => :m Unit))
-  (define (unmask-current-thread)
+  (declare unmask-current-thread (MonadIoThread :rt :t :m => :m Unit))
+  (define unmask-current-thread
     "Unmask the current thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
 stopped after being unmasked N times."
@@ -294,21 +292,21 @@ stopped after being unmasked N times."
      m-prx))
 
   (inline)
-  ;; (declare unmask-finally ((UnliftIo :r :io) (LiftTo :r :m) (Runtime :rt :t) (MonadIoThread :rt :t :m)
-  ;;                          => :t -> (UnmaskFinallyMode -> :r Unit) -> :m Unit))
+  (declare unmask-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r)
+                                  => :t -> (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-thread-finally thread op-finally)
     "Unmask the given thread, run the provided action, and then honor any
  pending stop for that thread after the action finishes."
     (lift-to
      (with-run-in-io
          (fn (run)
-           (wrap-io (unmask-finally! (get-runtime-for (proxy-result-of op-finally))
+           (wrap-io (unmask-finally! (runtime-for (proxy-result-of op-finally))
                                      thread
                                      (fn (m) (run! (run (op-finally m))))))))))
 
   (inline)
-  ;; (declare unmask-current-finally ((UnliftIo :r :io) (LiftTo :r :m)
-  ;;                                  => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
+  (declare unmask-current-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r)
+                                          => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-current-thread-finally op-finally)
     "Unmask the current thread, run the provided action, and then honor any
  pending stop for that thread after the action finishes."
@@ -316,9 +314,10 @@ stopped after being unmasked N times."
      (with-run-in-io
        (fn (run)
          (wrap-io
-           (unmask-finally! (get-runtime-for (proxy-result-of op-finally))
-                            (current-thread! (proxy-result-of op-finally))
-                            (fn (m) (run! (run op-finally m)))))))))
+           (let runtime-prx = (runtime-for (proxy-result-of op-finally)))
+           (unmask-finally! runtime-prx
+                            (current-thread! runtime-prx)
+                            (fn (m) (run! (run (op-finally m))))))))))
 
   )
 
