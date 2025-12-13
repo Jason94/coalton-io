@@ -5,9 +5,9 @@
    #:coalton-prelude
    #:coalton-library/monad/classes
    #:io/utils
+   #:io/thread-exceptions
    #:io/classes/monad-io
    #:io/classes/monad-exception
-   #:io/thread-exceptions
    )
   (:local-nicknames
    (:opt #:coalton-library/optional)
@@ -236,30 +236,40 @@ thread is alive before interrupting."
       (t:spawn (fn ()
                  (c:write! (.handle thread-container)
                            (Some (current-native-thread%)))
-                 ;; Unit -> Result Dynamic Unit
-                 (let f =
+                 (let _f =
                    (fn ()
-                     (catch-thunk
-                      (fn ()
-                        (catch (thunk)
-                          ;; If we hit this point, then we've ended the thread's meaningful work.
-                          ;; It will stop after this, so we don't need to raise again.
-                          ((InterruptCurrentThread msg)
-                           ;; Satisfy type inference; don't force (:r :a) => (:r Unit)
-                           (lisp :a () cl:nil)))
-                        Unit))))
-                 ;; Set the thread-specific dynamic variables the runtime depends on. *current-thread*
+                     (lisp (Result Dynamic Unit) (thunk)
+                       (cl:handler-case (Ok (call-coalton-function thunk))
+                         ;; If we hit this point, then we've ended the thread's meaningful work.
+                         ;; It will stop after this, so we don't need to raise again.
+                         (ThreadingException/InterruptCurrentThread ()
+                           (cl:format cl:t "Interrupt~%")
+                           cl:nil)
+                         (UnhandledError/UnhandledError (e)
+                           (cl:format cl:t "Unhandled~%")
+                           (Err e))
+                         (cl:error (e)
+                           (cl:format cl:t "Unknown~%")
+                           (cl:error (cl:format cl:nil "IO leaked an unmanaged error: ~a" e)))))))
+                 (let f = thunk)
+                 ;; set the thread-specific dynamic variables the runtime depends on. *current-thread*
                  ;; is defined here, the others are defined in the core simple-io implementation.
-                 (lisp Void (f thread-container exc-strat)
+                 (lisp :a (f thread-container exc-strat)
                    (cl:let ((*current-thread* thread-container))
                      (cl:handler-case (call-coalton-function f)
+                       ;; Tread a thread interrupt as a "success", because it shouldn't
+                       ;; trigger an exception when joined against
+                       (ThreadingException/InterruptCurrentThread ()
+                         (Ok Unit))
                        (cl:error (e)
                          (cl:if (cl:eql exc-strat 'UnhandledExceptionStrategy/LogAndSwallow)
-                                (cl:format cl:*error-output*
-                                           "Unhandled exception occurred: ~a"
-                                           e)
+                                (cl:progn
+                                  (cl:format cl:*error-output*
+                                             "Unhandled exception occurred: ~a"
+                                             e)
+                                  ()
                                 (cl:error e))))))
-                 Unit)))
+                 Unit))))
     (c:write! (.handle thread-container) (Some native-thread))
     thread-container)
 
@@ -290,10 +300,15 @@ runtime."
   (inline)
   (declare join!% (IoThread -> Result Dynamic Unit))
   (define (join!% thread)
+    (traceobject "Joining thread" thread)
     (let native-thread = (opt:from-some "Error: IoThread leaked without setting native thread handle"
                                         (c:read (.handle thread))))
-    (lisp (Result Dynamic Unit) (native-thread)
-      (bt:join-thread native-thread)))
+    (traceobject "Native thread" native-thread)
+    (let join-result =
+      (lisp (Result Dynamic Unit) (native-thread)
+        (bt:join-thread native-thread)))
+    (traceobject "join result" join-result)
+    join-result)
 
   (inline)
   (declare sleep!% (UFix -> Unit))

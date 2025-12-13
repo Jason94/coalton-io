@@ -8,9 +8,11 @@
   (:export
    #:ThreadingException
    #:InterruptCurrentThread
+   #:ThreadingException/InterruptCurrentThread
 
    #:SynchronousThreadException
    #:JoinedFailedThread
+   #:SynchronousThreadException/JoinedFailedThread
 
    #:UnmaskFinallyMode
    #:Stopped

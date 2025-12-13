@@ -4,7 +4,9 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/types
-   #:coalton-library/monad/classes)
+   #:coalton-library/monad/classes
+   #:io/utils
+   )
   (:import-from #:coalton-library/experimental/loops
    #:dolist)
   (:import-from #:coalton-library/experimental/do-control-loops-adv
@@ -22,6 +24,7 @@
 
    #:BaseIo
    #:run!
+   #:run-handled!
    #:run-as!
 
    #:LiftIo
@@ -56,8 +59,13 @@
     "A 'base' IO implementation, which can be run to execute some
 (potentially side-effectful) operation."
     (run!
-     "run a (potentially) side-effectful operation."
-     (:m :a -> :a)))
+     "Run a (potentially) side-effectful operation. Throws any unhandled
+exceptions."
+     (:m :a -> :a))
+    (run-handled!
+     "Run a (potentially) side-effectful operation. Returns any unhandled
+exceptions as an (Err e)."
+     (:m :a -> Result Dynamic :a)))
 
   (define-class ((Monad :m) (BaseIo :i) => LiftIo :i :m)
     (lift-io (BaseIo :i => :i :a -> :m :a)))

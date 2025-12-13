@@ -28,6 +28,7 @@
   (:export
    #:IO
    #:run-io!
+   #:run-io-handled!
 
    #:raise-io
    #:raise-io_
@@ -81,8 +82,8 @@ See >>="
         (Ok (f))))))
 
   (inline)
-  (declare run-io-handled!% (IO :a -> Result Dynamic :a))
-  (define (run-io-handled!% (IO% f->a?))
+  (declare run-io-handled! (IO :a -> Result Dynamic :a))
+  (define (run-io-handled! (IO% f->a?))
     "Run an IO, but instead of raising, pass on any exceptions. Used internally to
 implement MonadException and handle asynchronous exception signals."
     (match (catch-thunk f->a?)
@@ -101,7 +102,7 @@ implement MonadException and handle asynchronous exception signals."
   (declare run-io! (IO :a -> :a))
   (define (run-io! io-op)
     "Top-level run-io! that raises any unhandled exceptions."
-    (match (run-io-handled!% io-op)
+    (match (run-io-handled! io-op)
       ((Ok a)
        a)
       ((Err dyn-e)
@@ -154,7 +155,7 @@ implement MonadException and handle asynchronous exception signals."
            (Err e))
           ((Ok a)
            (compile-debug-sleep 5)
-           (run-io-handled!% (fa->io-b a))))))))
+           (run-io-handled! (fa->io-b a))))))))
 
   (inline)
   (declare raise-io ((RuntimeRepr :e) (Signalable :e) => :e -> IO :a))
@@ -175,12 +176,12 @@ implement MonadException and handle asynchronous exception signals."
   (define (reraise-io op catch-op)
     (IO%
      (fn ()
-       (let result = (run-io-handled!% op))
+       (let result = (run-io-handled! op))
        (do-match result
          ((Ok _)
           result)
          ((Err _)
-          (let result2 = (run-io-handled!% (catch-op)))
+          (let result2 = (run-io-handled! (catch-op)))
           (match result2
             ((Ok _)
              result)
@@ -192,14 +193,14 @@ implement MonadException and handle asynchronous exception signals."
   (define (handle-io io-op handle-op)
     (IO%
      (fn ()
-      (let ((result (run-io-handled!% io-op)))
+      (let ((result (run-io-handled! io-op)))
         (match result
           ((Ok a)
            (Ok a))
           ((Err e?)
            (match (cast e?)
              ((Some e)
-              (run-io-handled!% (handle-op e)))
+              (run-io-handled! (handle-op e)))
              ((None)
               result))))))))
 
@@ -210,12 +211,12 @@ implement MonadException and handle asynchronous exception signals."
     "Run IO-OP, and run HANDLE-OP to handle exceptions of any type thrown by IO-OP."
     (IO%
      (fn ()
-      (let ((result (run-io-handled!% io-op)))
+      (let ((result (run-io-handled! io-op)))
         (match result
           ((Ok a)
            (Ok a))
           ((Err _)
-           (run-io-handled!% (handle-op))))))))
+           (run-io-handled! (handle-op))))))))
 
   (inline)
   (declare try-dynamic-io (IO :a -> IO (Result Dynamic :a)))
@@ -223,7 +224,7 @@ implement MonadException and handle asynchronous exception signals."
     (IO%
      (fn ()
        (Ok
-        (run-io-handled!% io-op)))))
+        (run-io-handled! io-op)))))
 
   ;;
   ;; MonadException Instance
@@ -238,7 +239,10 @@ implement MonadException and handle asynchronous exception signals."
     (define try-dynamic try-dynamic-io))
 
   (define-instance (BaseIo IO)
-    (define run! run-io!))
+    (inline)
+    (define run! run-io!)
+    (inline)
+    (define run-handled! run-io-handled!))
 
   (define-instance (UnliftIo IO IO)
     (inline)
