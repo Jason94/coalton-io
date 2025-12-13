@@ -132,8 +132,8 @@ there are any pending stops, it will immediately be stopped."
   (inline)
   (declare unmask-current! (Runtime :rt :t => Proxy :rt -> Unit))
   (define (unmask-current! rt-prx)
-    "Mask the current thread."
-    (mask! rt-prx (current-thread! rt-prx)))
+    "Unmask the current thread."
+    (unmask! rt-prx (current-thread! rt-prx)))
 
   (define-class (Concurrent :c :a (:c -> :a))
     "A Concurrent is a type that has thread-like semantics. It can be

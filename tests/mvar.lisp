@@ -377,7 +377,7 @@
     (put-mvar mv 10)
     (s-await s-finish))))
 
-(define-test test-stop-while-blocking-take ()
+(define-test test-stop-take-while-blocking ()
   (let result =
     (run-io!
      (do
@@ -393,7 +393,7 @@
       (try-all (join-thread thread)))))
   (is (== (Some Unit) result)))
 
-(define-test test-put-while-blocking-take ()
+(define-test test-stop-put-while-blocking ()
   (let result =
     (run-io!
      (do
@@ -409,7 +409,7 @@
       (try-all (join-thread thread)))))
   (is (== (Some Unit) result)))
 
-(define-test test-read-while-blocking-take ()
+(define-test test-stop-read-while-blocking ()
   (let result =
     (run-io!
      (do
@@ -421,6 +421,129 @@
           (read-mvar mv)))
       (s-await s-start)
       (sleep 2)
+      (stop-thread thread)
+      (try-all (join-thread thread)))))
+  (is (== (Some Unit) result)))
+
+(define-test test-stop-after-take-happy-path ()
+  (let result =
+    (run-io!
+     (do
+      (s-start <- s-new)
+      (s-forever <- s-new)
+      (mv <- (new-mvar Unit))
+      (thread <-
+        (do-fork-thread_
+          (take-mvar mv)
+          (s-signal s-start)
+          (s-await s-forever)
+          (pure Unit)))
+      (s-await s-start)
+      (stop-thread thread)
+      (try-all (join-thread thread)))))
+  (is (== (Some Unit) result)))
+
+(define-test test-stop-after-take-block ()
+  (let result =
+    (run-io!
+     (do
+      (s-start <- s-new)
+      (s-after <- s-new)
+      (s-forever <- s-new)
+      (mv <- new-empty-mvar)
+      (thread <-
+        (do-fork-thread_
+          (s-signal s-start)
+          (take-mvar mv)
+          (s-signal s-after)
+          (s-await s-forever)
+          (pure Unit)))
+      (s-await s-start)
+      (sleep 2)
+      (put-mvar mv Unit)
+      (s-await s-after)
+      (stop-thread thread)
+      (try-all (join-thread thread)))))
+  (is (== (Some Unit) result)))
+
+(define-test test-stop-after-put-happy-path ()
+  (let result =
+    (run-io!
+     (do
+      (s-start <- s-new)
+      (s-forever <- s-new)
+      (mv <- new-empty-mvar)
+      (thread <-
+        (do-fork-thread_
+          (put-mvar mv Unit)
+          (s-signal s-start)
+          (s-await s-forever)
+          (pure Unit)))
+      (s-await s-start)
+      (stop-thread thread)
+      (try-all (join-thread thread)))))
+  (is (== (Some Unit) result)))
+
+(define-test test-stop-after-put-block ()
+  (let result =
+    (run-io!
+     (do
+      (s-start <- s-new)
+      (s-after <- s-new)
+      (s-forever <- s-new)
+      (mv <- (new-mvar Unit))
+      (thread <-
+        (do-fork-thread_
+          (s-signal s-start)
+          (put-mvar mv Unit)
+          (s-signal s-after)
+          (s-await s-forever)
+          (pure Unit)))
+      (s-await s-start)
+      (sleep 2)
+      (take-mvar mv)
+      (s-await s-after)
+      (stop-thread thread)
+      (try-all (join-thread thread)))))
+  (is (== (Some Unit) result)))
+
+(define-test test-stop-after-read-happy-path ()
+  (let result =
+    (run-io!
+     (do
+      (s-start <- s-new)
+      (s-forever <- s-new)
+      (mv <- (new-mvar Unit))
+      (thread <-
+        (do-fork-thread_
+          (read-mvar mv)
+          (s-signal s-start)
+          (s-await s-forever)
+          (pure Unit)))
+      (s-await s-start)
+      (stop-thread thread)
+      (try-all (join-thread thread)))))
+  (is (== (Some Unit) result)))
+
+(define-test test-stop-after-read-block ()
+  (let result =
+    (run-io!
+     (do
+      (s-start <- s-new)
+      (s-after <- s-new)
+      (s-forever <- s-new)
+      (mv <- new-empty-mvar)
+      (thread <-
+        (do-fork-thread_
+          (s-signal s-start)
+          (read-mvar mv)
+          (s-signal s-after)
+          (s-await s-forever)
+          (pure Unit)))
+      (s-await s-start)
+      (sleep 2)
+      (put-mvar mv Unit)
+      (s-await s-after)
       (stop-thread thread)
       (try-all (join-thread thread)))))
   (is (== (Some Unit) result)))
