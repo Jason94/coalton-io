@@ -376,3 +376,51 @@
     (s-await s-finish)
     (put-mvar mv 10)
     (s-await s-finish))))
+
+(define-test test-stop-while-blocking-take ()
+  (let result =
+    (run-io!
+     (do
+      (s-start <- s-new)
+      (mv <- new-empty-mvar)
+      (thread <-
+        (do-fork-thread_
+          (s-signal s-start)
+          (take-mvar mv)))
+      (s-await s-start)
+      (sleep 2)
+      (stop-thread thread)
+      (try-all (join-thread thread)))))
+  (is (== (Some Unit) result)))
+
+(define-test test-put-while-blocking-take ()
+  (let result =
+    (run-io!
+     (do
+      (s-start <- s-new)
+      (mv <- (new-mvar Unit))
+      (thread <-
+        (do-fork-thread_
+          (s-signal s-start)
+          (put-mvar mv Unit)))
+      (s-await s-start)
+      (sleep 2)
+      (stop-thread thread)
+      (try-all (join-thread thread)))))
+  (is (== (Some Unit) result)))
+
+(define-test test-read-while-blocking-take ()
+  (let result =
+    (run-io!
+     (do
+      (s-start <- s-new)
+      (mv <- new-empty-mvar)
+      (thread <-
+        (do-fork-thread_
+          (s-signal s-start)
+          (read-mvar mv)))
+      (s-await s-start)
+      (sleep 2)
+      (stop-thread thread)
+      (try-all (join-thread thread)))))
+  (is (== (Some Unit) result)))

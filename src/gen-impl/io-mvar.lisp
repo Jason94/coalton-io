@@ -4,14 +4,15 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/functions
+   #:coalton-library/types
    #:coalton-library/monad/classes
    #:io/utils
    #:io/thread-exceptions
    #:io/classes/monad-io
    #:io/classes/monad-exception
    #:io/classes/monad-io-thread
+   #:io/classes/runtime-utils
    #:io/resource
-   ;; #:io/thread-impl/runtime
    #:io/thread-impl/data-broadcast-pool
    )
   (:local-nicknames
@@ -83,21 +84,6 @@ depending on the stopped thread operating on an MVar to continue."
             (cv:new)
             (at:new None))))
 
-  (inline)
-  (define (unmask-and-await-safely% rt-prx cv lock)
-    "Unmask the thread. Finally, either await (still running) the CV
-or just release the LOCK."
-    ;; BUG: This awaits before returning the thunk. Probably just need to go with
-    ;; the catch-macro option. There's just no other good way. Or, probably even
-    ;; better, try to switch away from CV's to a better, less/no contention mechanism.
-    (unmask-finally! rt-prx (current-thread! rt-prx)
-     (fn (mode)
-       (if (== Running mode)
-           (cv:await cv lock)
-           (progn
-             (lk:release lock)
-             Unit)))))
-
   (declare take-mvar (MonadIoThread :rt :t :m => MVar :a -> :m :a))
   (define (take-mvar mvar)
     "Take a value from an MVar, blocking until one is available."
@@ -116,7 +102,6 @@ or just release the LOCK."
                      val)
                     ((None)
                      (unmask-and-await-safely% rt-prx (.notify-full mvar) (.lock mvar))
-                     (mask-current! rt-prx)
                      (lp))))))
         (lp))))
 
@@ -140,7 +125,6 @@ or just release the LOCK."
                      Unit)
                     ((Some _)
                      (unmask-and-await-safely% rt-prx (.notify-empty mvar) lock)
-                     (mask-current! rt-prx)
                      (lp))))))
         (lp))))
 
@@ -188,12 +172,12 @@ True if the put succeeds."
   (define (read-mvar mvar)
     "Read (without removing) the value from an MVar, blocking until one is available."
     (let _ = (the (MVar :a) mvar))
-    (wrap-io
+    (wrap-io-with-runtime (rt-prx)
       (match (at:read (.data mvar))
         ((Some x)
          x)
         ((None)
-         (subscribe (.read-broadcast-pool mvar))))))
+         (subscribe rt-prx (.read-broadcast-pool mvar))))))
 
   (declare try-read-mvar (MonadIoThread :rt :t :m => MVar :a -> :m (Optional :a)))
   (define (try-read-mvar mvar)
@@ -219,7 +203,6 @@ True if the put succeeds."
                      old-val)
                     ((None)
                      (unmask-and-await-safely% rt-prx (.notify-full mvar) (.lock mvar))
-                     (mask-current! rt-prx)
                      (lp))))))
         (lp))))
 

@@ -3,9 +3,12 @@
   (:use
    #:coalton
    #:coalton-prelude
+   #:coalton-library/types
    #:io/utils
    #:io/thread-exceptions
    #:io/thread-impl/runtime
+   #:io/classes/runtime-utils
+   #:io/classes/monad-io-thread
    )
   (:local-nicknames
    (:lk  #:coalton-threads/lock)
@@ -22,6 +25,8 @@
 (in-package :io/thread-impl/data-broadcast-pool)
 
 (named-readtables:in-readtable coalton:coalton)
+
+;; TODO: Modify DataBroadcastPool to use generic runtime
 
 (coalton-toplevel
 
@@ -123,26 +128,28 @@ THE THREAD IS MASKED."
       (unmask-current-thread!%)
       ))
 
-  (declare subscribe (DataBroadcastPool :a -> :a))
-  (define (subscribe pool)
+  (declare subscribe (Runtime :rt :t => Proxy :rt -> DataBroadcastPool :a -> :a))
+  (define (subscribe rt-prx pool)
     "Subscribe to the pool, and block until a publish is made."
     (mask-current-thread!%)
     (lk:acquire (.notify-lock pool))
     (at:atomic-inc1 (.n-subscribers pool))
     (let version = (at:read-at-int (.version pool)))
     (rec % ()
-      (unmask-current-thread-finally!%
-       (fn (mode)
-         (if (== Running mode)
-             (cv:await (.notify-cv pool) (.notify-lock pool))
-             (progn
-               (lk:release (.notify-lock pool))
-               Unit))))
+      (unmask-and-await-safely-finally%
+       rt-prx
+       (.notify-cv pool)
+       (.notify-lock pool)
+       (fn ()
+         (when (< version (at:read-at-int (.version pool)))
+           (checkout!% version (.version-entries pool))
+           Unit)))
       ;; Protect against spurious wake-ups
       (when (== version (at:read-at-int (.version pool)))
-        (mask-current-thread!%)
         (%)))
     (lk:release (.notify-lock pool))
-    (checkout!% version (.version-entries pool)))
+    (let result = (checkout!% version (.version-entries pool)))
+    (unmask-current-thread!%)
+    result)
 
   )
