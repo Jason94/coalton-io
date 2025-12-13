@@ -26,6 +26,7 @@
    #:to-dynamic
    #:force-dynamic
    #:cast
+   #:can-cast-to?
    #:MockException
    #:throw-dynamic
    #:proxy-swap-inner
@@ -172,6 +173,11 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
          (Some (lisp :b (dyn-val) dyn-val))
          None)
      (proxy-outer prx-b)))
+
+  (declare can-cast-to? (RuntimeRepr :b => Dynamic -> Proxy :b -> Boolean))
+  (define (can-cast-to? (Dynamic% _ dyn-repr) repr-prx)
+    "Check whether dyn-val can cast to a type."
+    (== dyn-repr (runtime-repr repr-prx)))
 
   (define-exception MockException
     MockException)

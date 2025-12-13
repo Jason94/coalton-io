@@ -88,13 +88,13 @@ over the underlying thread type."
     (fork!
      "Spawn a new thread, which starts running immediately.
 Returns the handle to the thread."
-     (Proxy :r -> (Unit -> :a) -> :t))
+     (Proxy :r -> (Unit -> Result Dynamic :a) -> :t))
     (fork-throw!
      "Spawn a new thread, which starts running immediately. Returns
 the handle to the thread. If the thread raises an unhandled exception,
 throws immediately. The underlying system determines the result of the
 throw, but it could include terminating the whole program."
-     (Proxy :r -> (Unit -> :a) -> :t))
+     (Proxy :r -> (Unit -> Result Dynamic :a) -> :t))
     (join!
      "Block the current thread until the target thread is completed.
 Does not a retrieve value. Raises an exception if the target thread
@@ -256,7 +256,7 @@ issues in some cases."
            (wrap-io
              (fork! (get-runtime-for op)
                     (fn (_)
-                      (run! (run op)))))))))
+                      (run-handled! (run op)))))))))
 
   (inline)
   (declare fork-thread-throw ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :r)
@@ -272,7 +272,7 @@ throw, but it could include terminating the whole program."
          (wrap-io
           (fork-throw! (get-runtime-for op)
                        (fn (_)
-                         (run! (run op)))))))))
+                         (run-handled! (run op)))))))))
 
   (inline)
   (declare join-thread ((MonadIoThread :rt :t :m) (MonadException :m) => :t -> :m Unit))

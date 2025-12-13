@@ -4,6 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/monad/classes
+   #:coalton-library/types
    #:io/utils
    #:io/thread-exceptions
    #:io/classes/monad-io
@@ -92,9 +93,9 @@
       (cl:logtest a b)))
 
   (inline)
-  (declare current-native-thread% (Unit -> t:Thread Unit))
+  (declare current-native-thread% (Unit -> t:Thread (Result Dynamic :a)))
   (define (current-native-thread%)
-    (lisp (t:Thread Unit) ()
+    (lisp (t:Thread (Result Dynamic :a)) ()
       (bt:current-thread)))
 
   ;;;
@@ -116,7 +117,7 @@
   ;; Pending Kill - (shift 0 1) - 0000 0001
   ;;
   (define-struct IoThread
-    (handle (c:Cell (Optional (t:Thread Unit))))
+    (handle (c:Cell (Optional (t:Thread (Result Dynamic Unit)))))
     (flags  at:AtomicInteger))
 
   (define-instance (Eq IoThread)
@@ -219,7 +220,7 @@ thread is alive before interrupting."
     LogAndSwallow)
 
   (inline)
-  (declare fork-inner!% (UnhandledExceptionStrategy -> (Unit -> :a) -> IoThread))
+  (declare fork-inner!% (UnhandledExceptionStrategy -> (Unit -> Result Dynamic :a) -> IoThread))
   (define (fork-inner!% exc-strat thunk)
     ;; Both the returning thread handle and the one made available to the child
     ;; thread have to have the IoThread packaged together before they do anything
@@ -236,66 +237,53 @@ thread is alive before interrupting."
       (t:spawn (fn ()
                  (c:write! (.handle thread-container)
                            (Some (current-native-thread%)))
-                 (let _f =
-                   (fn ()
-                     (lisp (Result Dynamic Unit) (thunk)
-                       (cl:handler-case (Ok (call-coalton-function thunk))
-                         ;; If we hit this point, then we've ended the thread's meaningful work.
-                         ;; It will stop after this, so we don't need to raise again.
-                         (ThreadingException/InterruptCurrentThread ()
-                           (cl:format cl:t "Interrupt~%")
-                           cl:nil)
-                         (UnhandledError/UnhandledError (e)
-                           (cl:format cl:t "Unhandled~%")
-                           (Err e))
-                         (cl:error (e)
-                           (cl:format cl:t "Unknown~%")
-                           (cl:error (cl:format cl:nil "IO leaked an unmanaged error: ~a" e)))))))
-                 (let f = thunk)
-                 ;; set the thread-specific dynamic variables the runtime depends on. *current-thread*
+                 ;; Set the thread-specific dynamic variables the runtime depends on. *current-thread*
                  ;; is defined here, the others are defined in the core simple-io implementation.
-                 (lisp :a (f thread-container exc-strat)
-                   (cl:let ((*current-thread* thread-container))
-                     (cl:handler-case (call-coalton-function f)
-                       ;; Tread a thread interrupt as a "success", because it shouldn't
-                       ;; trigger an exception when joined against
-                       (ThreadingException/InterruptCurrentThread ()
-                         (Ok Unit))
-                       (cl:error (e)
-                         (cl:if (cl:eql exc-strat 'UnhandledExceptionStrategy/LogAndSwallow)
-                                (cl:progn
-                                  (cl:format cl:*error-output*
-                                             "Unhandled exception occurred: ~a"
-                                             e)
-                                  ()
-                                (cl:error e))))))
-                 Unit))))
+                 (let res =
+                   (lisp (Result Dynamic :a) (thunk thread-container)
+                     (cl:let ((*current-thread* thread-container))
+                       (call-coalton-function thunk))))
+                 (match res
+                   ((Ok _)
+                    (Ok Unit))
+                   ((Err e)
+                    (if (can-cast-to? e (the (Proxy ThreadingException) Proxy))
+                       (Ok Unit)
+                       (match exc-strat
+                         ((LogAndSwallow)
+                          (lisp :a (e)
+                            (cl:format cl:*error-output*
+                                       "Unhandled exception occurred: ~a~%"
+                                       e))
+                          (Err e))
+                         ((ThrowException)
+                          (throw-dynamic e)))))))))
     (c:write! (.handle thread-container) (Some native-thread))
     thread-container)
 
   (inline)
-  (declare fork!% ((Unit -> :a) -> IoThread))
+  (declare fork!% ((Unit -> Result Dynamic :a) -> IoThread))
   (define (fork!% thunk)
     (fork-inner!% LogAndSwallow thunk))
 
   (inline)
-  (declare fork-throw!% ((Unit -> :a) -> IoThread))
+  (declare fork-throw!% ((Unit -> Result Dynamic :a) -> IoThread))
   (define (fork-throw!% thunk)
     (fork-inner!% ThrowException thunk))
 
-  (inline)
-  (declare fork% ((MonadIo :m) (UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m IoThread))
-  (define (fork% op)
-    "Fork a new thread that runs OP. This function constructs the top-level thread runner,
-which sets up the dynamic context and top-level error handling for asynchronous exceptions
-for the new thread. In some ways, this function is the most important point in the thread
-runtime."
-    (lift-to
-     (with-run-in-io
-         (fn (run)
-            (wrap-io
-              (fork!% (fn (_)
-                        (run! (run op)))))))))
+;;   (inline)
+;;   (declare fork% ((MonadIo :m) (UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m IoThread))
+;;   (define (fork% op)
+;;     "Fork a new thread that runs OP. This function constructs the top-level thread runner,
+;; which sets up the dynamic context and top-level error handling for asynchronous exceptions
+;; for the new thread. In some ways, this function is the most important point in the thread
+;; runtime."
+;;     (lift-to
+;;      (with-run-in-io
+;;          (fn (run)
+;;             (wrap-io
+;;               (fork!% (fn (_)
+;;                         (run! (run op)))))))))
 
   (inline)
   (declare join!% (IoThread -> Result Dynamic Unit))
