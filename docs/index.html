@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang=en>
+ <head>
+  <meta charset=UTF-8>
+  <title>API Documentation</title>
+  <style>:root{
+  --gap:28px;
+  --content-gap:20px;
+  --main-width:1100px;
+  --bg:#ffffff;
+  --fg:#1f1f1f;
+  --muted:#6c6c6c;
+  --border:#eeeeee;
+  --code-bg:#f5f5f5;
+  --code-block-bg:#1c1d21;
+  --radius:8px
+}
+*,:before,:after{box-sizing:border-box}
+html{overflow-y:scroll}
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,Cantarell,"Helvetica Neue",Arial,sans-serif;
+  font-size:18px;
+  line-height:1.65;
+  background:var(--bg);
+  color:var(--fg)
+}
+a{color:inherit;text-decoration:none}
+a:hover{text-decoration:underline}
+.main{
+  position:relative;
+  min-height:100vh;
+  max-width:calc(var(--main-width) + var(--gap) * 2);
+  margin:auto;
+  padding:var(--gap)
+}
+.post-two-pane{width:100%}
+.post-two-pane .post-content{
+  display:flex;
+  gap:var(--gap);
+  align-items:flex-start
+}
+.sidebar{
+  width:320px;
+  position:sticky;
+  top:10px;
+  max-height:calc(100vh - 20px);
+  overflow:auto;
+  display:flex;
+  flex-direction:column;
+  padding-right:12px
+}
+.sidebar-header{
+  flex-shrink:0;
+  border-bottom:1px solid var(--border);
+  padding:0 0 12px 0
+}
+.sidebar-content{padding:12px 0 0 0}
+.sidebar ul{list-style:none;margin:0;padding:0}
+.sidebar li{margin:0 0 6px 0}
+.main-content{flex:1;min-width:0}
+.main-content > h1{margin-top:0}
+h1{margin:40px 0 32px;font-size:40px;line-height:1.15}
+h3{margin:32px 0 16px;font-size:24px;line-height:1.2}
+h4{margin:24px 0 10px;font-size:18pt;line-height:1.2}
+p{margin:0 0 16px 0}
+hr{margin: 30px 0;height: 2px;background: rgb(214, 214, 214);border: 0;}
+code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+  margin:0 4px;
+  padding:4px 6px;
+  font-size:.78em;
+  line-height:1.5;
+  background:var(--code-bg);
+  border-radius:2px
+}
+.package-docstring,.docstring{white-space:pre-wrap}
+pre{margin:16px 0}
+pre code{
+  display:block;
+  margin:0;
+  padding:10px;
+  background:var(--code-block-bg);
+  color:#d5d5d6;
+  border-radius:var(--radius);
+  overflow:auto;
+  font-size:.85em
+}
+details{margin:12px 0 16px;border:0;padding:0}
+summary{cursor:pointer;font-weight:600;padding:6px 0}
+.instances-list{margin:8px 0 12px 20px}
+.instances-item{margin:4px 0}
+.symbol-search{margin-top:10px;position:relative}
+.symbol-search input{
+  width:100%;
+  padding:8px;
+  border:1px solid #ddd;
+  border-radius:4px;
+  font-size:.9rem
+}
+.search-results{
+  display:none;
+  position:absolute;
+  left:0;
+  right:0;
+  top:calc(100% + 6px);
+  background:var(--bg);
+  border:1px solid #ddd;
+  border-radius:4px;
+  max-height:320px;
+  overflow:auto;
+  z-index:1000
+}
+.search-results.active{display:block}
+.search-result-item{padding:10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:.85rem}
+.search-result-item:last-child{border-bottom:0}
+.search-result-item:hover,.search-result-item.active{background:#f8f9fa}
+.search-result-symbol{font-weight:700}
+.search-result-type{color:#666;font-size:.8rem;margin-left:8px}
+.search-result-package{color:#888;font-size:.8rem;margin-top:4px}
+@media (max-width:1050px){
+  .sidebar{display:none}
+  .post-two-pane .post-content{display:block}
+  .main{max-width:calc(820px + var(--gap) * 2)}
+}</style>
+ </head>
+ <body>
+  <main class=main>
+   <article class=post-two-pane>
+    <div class=post-content><aside class=sidebar>
+      <div class=sidebar-header>
+       <h3 id=reference>Reference</h3>
+       <div class=symbol-search>
+        <input type=text id=symbol-search-input
+               placeholder="Search symbols."
+               autocomplete=off>
+        <div class=search-results id=search-results></div></div></div>
+      <div class=sidebar-content>
+       <ul>
+        <li><a href="#io/thread-exceptions-package"><code>IO/THREAD-EXCEPTIONS</code></a>
+        <li><a href="#io/exception-package"><code>IO/EXCEPTION</code></a>
+        <li><a href="#io/monad-io-package"><code>IO/MONAD-IO</code></a>
+        <li><a href="#io/resource-package"><code>IO/RESOURCE</code></a>
+        <li><a href="#io/mut-package"><code>IO/MUT</code></a>
+        <li><a href="#io/term-package"><code>IO/TERM</code></a>
+        <li><a href="#io/random-package"><code>IO/RANDOM</code></a>
+        <li><a href="#io/thread-package"><code>IO/THREAD</code></a>
+        <li><a href="#io/atomic-package"><code>IO/ATOMIC</code></a>
+        <li><a href="#io/mvar-package"><code>IO/MVAR</code></a>
+        <li><a href="#io/future-package"><code>IO/FUTURE</code></a>
+        <li><a href="#io/file-package"><code>IO/FILE</code></a>
+        <li><a href="#io/unique-package"><code>IO/UNIQUE</code></a>
+        <li><a href="#io/stm-package"><code>IO/STM</code></a>
+        <li><a href="#io/io-all-package"><code>IO/IO-ALL</code></a>
+        <li><a href="#io/simple-io-package"><code>IO/SIMPLE-IO</code></a>
+        <li><a href="#io/stubs/term-package"><code>IO/STUBS/TERM</code></a></ul></div></aside>
+     <div class=main-content><h1 id="io/thread-exceptions-package">Package <code>IO/THREAD-EXCEPTIONS</code></h1><div class=types-content>
+       <h3 class=types-header>Types</h3><h4 id=synchronousthreadexception-type><a href="#synchronousthreadexception-type"><code>SYNCHRONOUSTHREADEXCEPTION</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/&lt;macroexpansion&gt;#L9-L12">src</a></sub></sup></sub></sup></h4><p class=docstring>Exceptions that a thread raises whenever it encounters a threading
+related problem. Unlike ThreadingException, these are actual exceptions.<details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> <a href="#synchronousthreadexception-type">SYNCHRONOUSTHREADEXCEPTION</a></code>
+         <li class=instances-item><code><a href="#signalable-class">Signalable</a> <a href="#synchronousthreadexception-type">SYNCHRONOUSTHREADEXCEPTION</a></code></ul></details><h4 id=threadingexception-type><a href="#threadingexception-type"><code>THREADINGEXCEPTION</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/&lt;macroexpansion&gt;#L2-L5">src</a></sub></sup></sub></sup></h4><p class=docstring>Thread exception sent asynchronously between threads.
+This type isn&#39;t really an exception, it&#39;s more of a message.<details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> <a href="#threadingexception-type">THREADINGEXCEPTION</a></code>
+         <li class=instances-item><code><a href="#signalable-class">Signalable</a> <a href="#threadingexception-type">THREADINGEXCEPTION</a></code></ul></details><h4 id=unmaskfinallymode-type><a href="#unmaskfinallymode-type"><code>UNMASKFINALLYMODE</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/&lt;macroexpansion&gt;#L23-L31">src</a></sub></sup></sub></sup></h4><p class=docstring>When a thread unmasks and calls a cleanup operation, the
+thread is either:
+
+* Still running, and will cleanup and continue
+* Received a stop while it was masked, and will cleanup and then
+  terminate itself.<details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#eq-class">Eq</a> <a href="#unmaskfinallymode-type">UNMASKFINALLYMODE</a></code>
+         <li class=instances-item><code><a href="#into-class">Into</a> <a href="#unmaskfinallymode-type">UNMASKFINALLYMODE</a> <a href="#string-type">String</a></code>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> <a href="#unmaskfinallymode-type">UNMASKFINALLYMODE</a></code></ul></details></div>
+      <hr><h1 id="io/exception-package">Package <code>IO/EXCEPTION</code></h1><div class=classes-content>
+       <h3 class=classes-header>Classes</h3><h4 id=monadexception-class><a href="#monadexception-class"><code>MonadException</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-exception.lisp#L52-L77">src</a></sub></sup></sub></sup></h4><code><a href="#monad-class">Monad</a> :A &rArr; <a href="#monadexception-class">MonadException</a> :A</code><p class=docstring>A Monad that can raise and handle exceptions. IMPORTANT: Any MonadException
+must catch and wrap all unhandled errors inside a wrap-io call as an UnhandledError.
+See utils/catch-thunk.<details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#monadexception-class">MonadException</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code>(<a href="#monadexception-class">MonadException</a> :A) (<a href="#monadio-class">MonadIo</a> :A) &rArr; <a href="#monadexception-class">MonadException</a> (<a href="#stm-type">STM</a> :A)</code>
+         <li class=instances-item><code><a href="#monadexception-class">MonadException</a> :A &rArr; <a href="#monadexception-class">MonadException</a> ((<a href="#envt-type">EnvT</a> :B) :A)</code>
+         <li class=instances-item><code><a href="#monadexception-class">MonadException</a> :A &rArr; <a href="#monadexception-class">MonadException</a> ((<a href="#statet-type">StateT</a> :B) :A)</code></ul></details></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=raise-result-dynamic-value><a href="#raise-result-dynamic-value"><code>(RAISE-RESULT-DYNAMIC OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-exception.lisp#L112-L117">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadexception-class">MonadException</a> :A &rArr; ((:A (<a href="#result-type">Result</a> <a href="#dynamic-type">Dynamic</a> :B)) &rarr; (:A :B))</code><h4 id=raise-result-value><a href="#raise-result-value"><code>(RAISE-RESULT IO-RES)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-exception.lisp#L101-L108">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. (<a href="#monadexception-class">MonadException</a> :A) (<a href="#runtimerepr-class">RuntimeRepr</a> :B) (<a href="#signalable-class">Signalable</a> :B) &rArr; ((:A (<a href="#result-type">Result</a> :B :C)) &rarr; (:A :C))</code><p class=docstring>Raise any (Err :e) into :m. Useful if (Err :e) represents any unhandleable, fatal
+exception to the program.<h4 id=wrap-error_-value><a href="#wrap-error_-value"><code>(WRAP-ERROR_ THUNK)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-exception.lisp#L121-L126">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadexception-class">MonadException</a> :B &rArr; ((<a href="#unit-type">Unit</a> &rarr; :A) &rarr; (:B :A))</code><p class=docstring>Run thunk, catching any unhandled Lisp/Coalton errors and raising
+them as exceptions.<h4 id=try-all-value><a href="#try-all-value"><code>(TRY-ALL OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-exception.lisp#L91-L96">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadexception-class">MonadException</a> :A &rArr; ((:A :B) &rarr; (:A (<a href="#optional-type">Optional</a> :B)))</code><p class=docstring>Bring the result of OP up into an Optional. Returns None if OP
+raised any exceptions.<h4 id=try-value><a href="#try-value"><code>(TRY OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-exception.lisp#L81-L86">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. (<a href="#monadexception-class">MonadException</a> :A) (<a href="#runtimerepr-class">RuntimeRepr</a> :C) &rArr; ((:A :B) &rarr; (:A (<a href="#result-type">Result</a> :C :B)))</code><p class=docstring>Bring any unhandled exceptions of type :e up into a Result.
+Continues to carry any unhandeld exceptions not of type :e.</div>
+      <hr><h1 id="io/monad-io-package">Package <code>IO/MONAD-IO</code></h1><div class=classes-content>
+       <h3 class=classes-header>Classes</h3><h4 id=unliftio-class><a href="#unliftio-class"><code>UnliftIo</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io.lisp#L73-L74">src</a></sub></sup></sub></sup></h4><code>(<a href="#monadio-class">MonadIo</a> :A) (<a href="#liftio-class">LiftIo</a> :B :A) &rArr; <a href="#unliftio-class">UnliftIo</a> :A :B</code><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#unliftio-class">UnliftIo</a> <a href="#io-type">IO</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code>(<a href="#baseio-class">BaseIo</a> :A) (<a href="#unliftio-class">UnliftIo</a> :B :A) &rArr; <a href="#unliftio-class">UnliftIo</a> ((<a href="#envt-type">EnvT</a> :C) :B) :A</code></ul></details><h4 id=monadio-class><a href="#monadio-class"><code>MonadIo</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io.lisp#L53-L56">src</a></sub></sup></sub></sup></h4><code><a href="#monad-class">Monad</a> :A &rArr; <a href="#monadio-class">MonadIo</a> :A</code><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#monadio-class">MonadIo</a> :A &rArr; <a href="#monadio-class">MonadIo</a> ((<a href="#freet-type">FreeT</a> <a href="#termstubf-type">TermStubF</a>) :A)</code>
+         <li class=instances-item><code><a href="#monadio-class">MonadIo</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadio-class">MonadIo</a> :A &rArr; <a href="#monadio-class">MonadIo</a> (<a href="#loopt-type">LoopT</a> :A)</code>
+         <li class=instances-item><code><a href="#monadio-class">MonadIo</a> :A &rArr; <a href="#monadio-class">MonadIo</a> ((<a href="#envt-type">EnvT</a> :B) :A)</code>
+         <li class=instances-item><code><a href="#monadio-class">MonadIo</a> :A &rArr; <a href="#monadio-class">MonadIo</a> ((<a href="#statet-type">StateT</a> :B) :A)</code></ul></details><h4 id=baseio-class><a href="#baseio-class"><code>BaseIo</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io.lisp#L58-L68">src</a></sub></sup></sub></sup></h4><code><a href="#monadio-class">MonadIo</a> :A &rArr; <a href="#baseio-class">BaseIo</a> :A</code><p class=docstring>A &#39;base&#39; IO implementation, which can be run to execute some
+(potentially side-effectful) operation.<details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#baseio-class">BaseIo</a> <a href="#io-type">IO</a></code></ul></details><h4 id=liftio-class><a href="#liftio-class"><code>LiftIo</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io.lisp#L70-L71">src</a></sub></sup></sub></sup></h4><code>(<a href="#monad-class">Monad</a> :A) (<a href="#baseio-class">BaseIo</a> :B) &rArr; <a href="#liftio-class">LiftIo</a> :B :A</code><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#liftio-class">LiftIo</a> :A :B &rArr; <a href="#liftio-class">LiftIo</a> :A (<a href="#loopt-type">LoopT</a> :B)</code>
+         <li class=instances-item><code><a href="#liftio-class">LiftIo</a> :A :B &rArr; <a href="#liftio-class">LiftIo</a> :A ((<a href="#envt-type">EnvT</a> :C) :B)</code>
+         <li class=instances-item><code><a href="#liftio-class">LiftIo</a> :A :B &rArr; <a href="#liftio-class">LiftIo</a> :A ((<a href="#statet-type">StateT</a> :C) :B)</code>
+         <li class=instances-item><code><a href="#baseio-class">BaseIo</a> :A &rArr; <a href="#liftio-class">LiftIo</a> :A :A</code></ul></details></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=map-into-io-value><a href="#map-into-io-value"><code>(MAP-INTO-IO ITR A-&gt;RB)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io.lisp#L183-L193">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D :E :F. (<a href="#unliftio-class">UnliftIo</a> :D :A) (<a href="#liftto-class">LiftTo</a> :D :F) (<a href="#intoiterator-class">IntoIterator</a> :B :C) &rArr; (:B &rarr; (:C &rarr; (:D :E)) &rarr; (:F (<a href="#list-type">List</a> :E)))</code><p class=docstring>Efficiently perform a monadic operation for each element of an iterator
+and return the results. If you&#39;re having inference issues, try map-into-io_<h4 id=foreach-io-value><a href="#foreach-io-value"><code>(FOREACH-IO ITR A-&gt;MB)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io.lisp#L197-L206">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D :E :F. (<a href="#unliftio-class">UnliftIo</a> :D :A) (<a href="#liftto-class">LiftTo</a> :D :F) (<a href="#intoiterator-class">IntoIterator</a> :B :C) &rArr; (:B &rarr; (:C &rarr; (:D :E)) &rarr; (:F <a href="#unit-type">Unit</a>))</code><p class=docstring>Efficiently perform a monadic operation for each element of an iterator.
+If you&#39;re having inference issues, try foreach-io_.</div>
+      <hr><h1 id="io/resource-package">Package <code>IO/RESOURCE</code></h1><div class=types-content>
+       <h3 class=types-header>Types</h3><h4 id=exitcase-type><a href="#exitcase-type"><code>ExitCase</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L46-L49">src</a></sub></sup></sub></sup></h4><p class=docstring>Signals the exit condition for an effectful computation using some resource.<details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#eq-class">Eq</a> :A &rArr; <a href="#eq-class">Eq</a> (<a href="#exitcase-type">ExitCase</a> :A)</code>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> (<a href="#exitcase-type">ExitCase</a> :A)</code></ul></details></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=bracket-io_-value><a href="#bracket-io_-value"><code>(BRACKET-IO_ ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L107-L123">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D :E :F. (<a href="#monadexception-class">MonadException</a> :C) (<a href="#monadiothread-class">MonadIoThread</a> :A :B :C) &rArr; ((:C :D) &rarr; (:D &rarr; (:C :E)) &rarr; (:D &rarr; (:C :F)) &rarr; (:C :F))</code><p class=docstring>Acquire a resource, run a computation with it, and release it. Guarantees that
+RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,
+it will be re-raised after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise
+an exception, then release is not guaranteed.
+
+Masks the thread during resource acquisition and release. The computation is not
+masked, but if another thread stops this one during the computation then the resource
+will release before the thread is stopped.<h4 id=bracket-io-value><a href="#bracket-io-value"><code>(BRACKET-IO ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L64-L100">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D :E :F :G. (<a href="#monadexception-class">MonadException</a> :C) (<a href="#monadiothread-class">MonadIoThread</a> :A :B :C) (<a href="#runtimerepr-class">RuntimeRepr</a> :E) (<a href="#signalable-class">Signalable</a> :E) &rArr; ((:C :D) &rarr; (:D &rarr; (<a href="#exitcase-type">ExitCase</a> :E) &rarr; (:C :F)) &rarr; (:D &rarr; (:C :G)) &rarr; (:C :G))</code><p class=docstring>WARNING: BRACKET-IO will *only* cleanup if the raised exception matches :e,
+or if the computation succeedes. To guarantee cleanup after any exception,
+use BRACKET-IO_
+
+Acquire a resource, run a computation with it, and release it. Guarantees that
+RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,
+it will be re-raised after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise
+an exception, then release is not guaranteed.
+
+Masks the thread during resource acquisition and release. The computation is not
+masked, but if another thread stops this one during the computation then the resource
+will release before the thread is stopped (if :e = ThreadingException). Example of
+using BRACKET-IO to clean after stops:
+
+(bracket-io
+  (pure Unit)
+  (fn (_resource exit-case)
+    (do-match exit-case
+      ((Errored (InterruptCurrentThread _))
+       (write stopped True)
+       (s-signal cleanup-done-gate))
+      (_
+       (s-signal cleanup-done-gate))))
+  (fn (_) (do (s-signal start-gate)
+              (s-await wait-forever))))))<h4 id=with-mask-value><a href="#with-mask-value"><code>(WITH-MASK OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L31-L42">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. (<a href="#monadiothread-class">MonadIoThread</a> :A :B :C) (<a href="#monadexception-class">MonadException</a> :C) &rArr; ((:C :D) &rarr; (:C :D))</code><p class=docstring>Mask the current thread while running OP, automatically unmasking
+afterward.</div>
+      <hr><h1 id="io/mut-package">Package <code>IO/MUT</code></h1><div class=types-content>
+       <h3 class=types-header>Types</h3><h4 id=var-type><a href="#var-type"><code>Var</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-var.lisp#L33-L34">src</a></sub></sup></sub></sup></h4><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#eq-class">Eq</a> (<a href="#cell-type">Cell</a> :A) &rArr; <a href="#eq-class">Eq</a> (<a href="#var-type">Var</a> :A)</code>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> (<a href="#var-type">Var</a> :A)</code></ul></details></div>
+      <hr><div class=classes-content>
+       <h3 class=classes-header>Classes</h3><h4 id=monadiovar-class><a href="#monadiovar-class"><code>MonadIoVar</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-var.lisp#L36-L48">src</a></sub></sup></sub></sup></h4><code><a href="#monad-class">Monad</a> :A &rArr; <a href="#monadiovar-class">MonadIoVar</a> :A</code><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#monadiovar-class">MonadIoVar</a> :A &rArr; <a href="#monadiovar-class">MonadIoVar</a> ((<a href="#freet-type">FreeT</a> <a href="#termstubf-type">TermStubF</a>) :A)</code>
+         <li class=instances-item><code><a href="#monadiovar-class">MonadIoVar</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadiovar-class">MonadIoVar</a> :A &rArr; <a href="#monadiovar-class">MonadIoVar</a> (<a href="#loopt-type">LoopT</a> :A)</code>
+         <li class=instances-item><code><a href="#monadiovar-class">MonadIoVar</a> :A &rArr; <a href="#monadiovar-class">MonadIoVar</a> ((<a href="#envt-type">EnvT</a> :B) :A)</code>
+         <li class=instances-item><code><a href="#monadiovar-class">MonadIoVar</a> :A &rArr; <a href="#monadiovar-class">MonadIoVar</a> ((<a href="#statet-type">StateT</a> :B) :A)</code></ul></details></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=modify-value><a href="#modify-value"><code>(MODIFY FS-&gt;S)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/monad/state.lisp#L56-L59">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((:A &rarr; :A) &rarr; (<a href="#st-type">ST</a> :A <a href="#unit-type">Unit</a>))</code><p class=docstring>Modify the state in a StatefulComputation, discarding the old state.<h4 id=modify-value><a href="#modify-value"><code>(MODIFY HM KEY F)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/hashmap.lisp#L626-L628">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#hash-class">Hash</a> :A &rArr; ((<a href="#hashmap-type">HashMap</a> :A :B) &rarr; :A &rarr; (:B &rarr; :B) &rarr; (<a href="#hashmap-type">HashMap</a> :A :B))</code><p class=docstring>Modify the value at KEY with F. Returns the modified `HashMap`.<h4 id=read-value><a href="#read-value"><code>(READ ATM)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/thread-impl/atomics.lisp#L86-L89">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#atomic-type">Atomic</a> :A) &rarr; :A)</code><p class=docstring>Read the value of an atomic cell `atm`.<h4 id=read-value><a href="#read-value"><code>(READ ATOMIC)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/programming/workspace/coalton-threads/src/atomic.lisp#L47-L50">src</a></sub></sup></sub></sup></h4><code>(<a href="#atomicinteger-type">AtomicInteger</a> &rarr; <a href="#u64-type">U64</a>)</code><p class=docstring>Returns the current value of `atomic&#39;.<h4 id=read-value><a href="#read-value"><code>(READ MUTEX)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/programming/workspace/coalton-threads/src/mutex.lisp#L27-L31">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#mutex-type">Mutex</a> :A) &rarr; :A)</code><p class=docstring>Access the value held in a Mutex.<h4 id=read-value><a href="#read-value"><code>(READ CEL)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/cell.lisp#L53-L56">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#cell-type">Cell</a> :A) &rarr; :A)</code><p class=docstring>Read the value of a mutable cell `cel`.<h4 id=modify-value><a href="#modify-value"><code>(MODIFY ATM F)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-atomic.lisp#L61-L67">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadio-class">MonadIo</a> :B &rArr; ((<a href="#atvar-type">AtVar</a> :A) &rarr; (:A &rarr; :A) &rarr; (:B :A))</code><p class=docstring>Atomically modify by applying F, then return the new
+value of the atomic variable. F may be called multiple times,
+and must be a pure function. If F errors, it will be raised
+in (:m :a) as an UnhandledError exception, and the atomic
+variable will not be modified.<h4 id=write-value><a href="#write-value"><code>(WRITE ATM VAL)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-atomic.lisp#L55-L57">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadio-class">MonadIo</a> :B &rArr; ((<a href="#atvar-type">AtVar</a> :A) &rarr; :A &rarr; (:B <a href="#unit-type">Unit</a>))</code><p class=docstring>Write a new value to an atomic variable.<h4 id=read-value><a href="#read-value"><code>(READ ATM)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-atomic.lisp#L49-L51">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadio-class">MonadIo</a> :B &rArr; ((<a href="#atvar-type">AtVar</a> :A) &rarr; (:B :A))</code><p class=docstring>Read the value from an atomic variable.</div>
+      <hr><h1 id="io/term-package">Package <code>IO/TERM</code></h1><div class=classes-content>
+       <h3 class=classes-header>Classes</h3><h4 id=monadioterm-class><a href="#monadioterm-class"><code>MonadIoTerm</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-term.lisp#L24-L33">src</a></sub></sup></sub></sup></h4><code><a href="#monadio-class">MonadIo</a> :A &rArr; <a href="#monadioterm-class">MonadIoTerm</a> :A</code><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#monadio-class">MonadIo</a> :A &rArr; <a href="#monadioterm-class">MonadIoTerm</a> ((<a href="#freet-type">FreeT</a> <a href="#termstubf-type">TermStubF</a>) :A)</code>
+         <li class=instances-item><code><a href="#monadioterm-class">MonadIoTerm</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadioterm-class">MonadIoTerm</a> :A &rArr; <a href="#monadioterm-class">MonadIoTerm</a> (<a href="#loopt-type">LoopT</a> :A)</code>
+         <li class=instances-item><code><a href="#monadioterm-class">MonadIoTerm</a> :A &rArr; <a href="#monadioterm-class">MonadIoTerm</a> ((<a href="#envt-type">EnvT</a> :B) :A)</code>
+         <li class=instances-item><code><a href="#monadioterm-class">MonadIoTerm</a> :A &rArr; <a href="#monadioterm-class">MonadIoTerm</a> ((<a href="#statet-type">StateT</a> :B) :A)</code></ul></details></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=write-line-value><a href="#write-line-value"><code>(WRITE-LINE STREAM S)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L622-L625">src</a></sub></sup></sub></sup></h4><code>((<a href="#filestream-type">FileStream</a> <a href="#char-type">Char</a>) &rarr; <a href="#string-type">String</a> &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#unit-type">Unit</a>))</code><p class=docstring>Writes a string with an appended newline to a filestream of type Char.<h4 id=read-line-value><a href="#read-line-value"><code>(READ-LINE STREAM)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L454-L459">src</a></sub></sup></sub></sup></h4><code>((<a href="#filestream-type">FileStream</a> <a href="#char-type">Char</a>) &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#string-type">String</a>))</code><p class=docstring>Reads a line of characters from a FileStream.<h4 id=write-value><a href="#write-value"><code>(WRITE ATM VAL)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-atomic.lisp#L55-L57">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadio-class">MonadIo</a> :B &rArr; ((<a href="#atvar-type">AtVar</a> :A) &rarr; :A &rarr; (:B <a href="#unit-type">Unit</a>))</code><p class=docstring>Write a new value to an atomic variable.</div>
+      <hr><h1 id="io/random-package">Package <code>IO/RANDOM</code></h1><div class=types-content>
+       <h3 class=types-header>Types</h3><h4 id=randomstate-type><a href="#randomstate-type"><code>RandomState</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-random.lisp#L45-L45">src</a></sub></sup></sub></sup></h4><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> <a href="#randomstate-type">RandomState</a></code></ul></details></div>
+      <hr><div class=classes-content>
+       <h3 class=classes-header>Classes</h3><h4 id=monadiorandom-class><a href="#monadiorandom-class"><code>MonadIoRandom</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-random.lisp#L47-L65">src</a></sub></sup></sub></sup></h4><code><a href="#monad-class">Monad</a> :A &rArr; <a href="#monadiorandom-class">MonadIoRandom</a> :A</code><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#monadiorandom-class">MonadIoRandom</a> :A &rArr; <a href="#monadiorandom-class">MonadIoRandom</a> ((<a href="#freet-type">FreeT</a> <a href="#termstubf-type">TermStubF</a>) :A)</code>
+         <li class=instances-item><code><a href="#monadiorandom-class">MonadIoRandom</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadiorandom-class">MonadIoRandom</a> :A &rArr; <a href="#monadiorandom-class">MonadIoRandom</a> (<a href="#loopt-type">LoopT</a> :A)</code>
+         <li class=instances-item><code><a href="#monadiorandom-class">MonadIoRandom</a> :A &rArr; <a href="#monadiorandom-class">MonadIoRandom</a> ((<a href="#envt-type">EnvT</a> :B) :A)</code>
+         <li class=instances-item><code><a href="#monadiorandom-class">MonadIoRandom</a> :A &rArr; <a href="#monadiorandom-class">MonadIoRandom</a> ((<a href="#statet-type">StateT</a> :B) :A)</code></ul></details><h4 id=randomlimit-class><a href="#randomlimit-class"><code>RandomLimit</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-random.lisp#L36-L37">src</a></sub></sup></sub></sup></h4><code><a href="#num-class">Num</a> :A &rArr; <a href="#randomlimit-class">RandomLimit</a> :A</code><p class=docstring>A number that can be used to bound a random number value.<details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#randomlimit-class">RandomLimit</a> <a href="#f64-type">F64</a></code>
+         <li class=instances-item><code><a href="#randomlimit-class">RandomLimit</a> <a href="#f32-type">F32</a></code>
+         <li class=instances-item><code><a href="#randomlimit-class">RandomLimit</a> <a href="#integer-type">Integer</a></code>
+         <li class=instances-item><code><a href="#randomlimit-class">RandomLimit</a> <a href="#ufix-type">UFix</a></code></ul></details></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=random-elt#_-value><a href="#random-elt#_-value"><code>(RANDOM-ELT#_ LST)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-random.lisp#L96-L99">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadiorandom-class">MonadIoRandom</a> :B &rArr; ((<a href="#list-type">List</a> :A) &rarr; (:B :A))</code><p class=docstring>Get a random element from LST. Errors if LST is empty.<h4 id=random-elt_-value><a href="#random-elt_-value"><code>(RANDOM-ELT_ LST)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-random.lisp#L81-L87">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadiorandom-class">MonadIoRandom</a> :B &rArr; ((<a href="#list-type">List</a> :A) &rarr; (:B (<a href="#optional-type">Optional</a> :A)))</code><p class=docstring>Get a random element from LST. Returns NONE if LST is empty.<h4 id=random-elt#-value><a href="#random-elt#-value"><code>(RANDOM-ELT# RS LST)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-random.lisp#L90-L93">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadiorandom-class">MonadIoRandom</a> :B &rArr; (<a href="#randomstate-type">RandomState</a> &rarr; (<a href="#list-type">List</a> :A) &rarr; (:B :A))</code><p class=docstring>Get a random element from LST. Errors if LST is empty.<h4 id=random-elt-value><a href="#random-elt-value"><code>(RANDOM-ELT RS LST)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-random.lisp#L72-L78">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadiorandom-class">MonadIoRandom</a> :B &rArr; (<a href="#randomstate-type">RandomState</a> &rarr; (<a href="#list-type">List</a> :A) &rarr; (:B (<a href="#optional-type">Optional</a> :A)))</code><p class=docstring>Get a random element from LST. Returns NONE if LST is empty.</div>
+      <hr><h1 id="io/thread-package">Package <code>IO/THREAD</code></h1><div class=types-content>
+       <h3 class=types-header>Types</h3><h4 id=threadingexception-type><a href="#threadingexception-type"><code>THREADINGEXCEPTION</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/&lt;macroexpansion&gt;#L2-L5">src</a></sub></sup></sub></sup></h4><p class=docstring>Thread exception sent asynchronously between threads.
+This type isn&#39;t really an exception, it&#39;s more of a message.<details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> <a href="#threadingexception-type">THREADINGEXCEPTION</a></code>
+         <li class=instances-item><code><a href="#signalable-class">Signalable</a> <a href="#threadingexception-type">THREADINGEXCEPTION</a></code></ul></details><h4 id=unmaskfinallymode-type><a href="#unmaskfinallymode-type"><code>UNMASKFINALLYMODE</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/&lt;macroexpansion&gt;#L23-L31">src</a></sub></sup></sub></sup></h4><p class=docstring>When a thread unmasks and calls a cleanup operation, the
+thread is either:
+
+* Still running, and will cleanup and continue
+* Received a stop while it was masked, and will cleanup and then
+  terminate itself.<details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#eq-class">Eq</a> <a href="#unmaskfinallymode-type">UNMASKFINALLYMODE</a></code>
+         <li class=instances-item><code><a href="#into-class">Into</a> <a href="#unmaskfinallymode-type">UNMASKFINALLYMODE</a> <a href="#string-type">String</a></code>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> <a href="#unmaskfinallymode-type">UNMASKFINALLYMODE</a></code></ul></details></div>
+      <hr><div class=classes-content>
+       <h3 class=classes-header>Classes</h3><h4 id=monadiothread-class><a href="#monadiothread-class"><code>MonadIoThread</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L164-L170">src</a></sub></sup></sub></sup></h4><code>(<a href="#monadio-class">MonadIo</a> :A) (<a href="#runtime-class">Runtime</a> :B :C) &rArr; <a href="#monadiothread-class">MonadIoThread</a> :B :C :A</code><p class=docstring>A MonadIo which can spawn :t&#39;s. Other :t&#39;s error
+separately. A spawned :t erroring will not cause the parent
+:t to fail. :t can be any &#39;thread-like&#39; object, depending on the
+underlying implementation - system threads, software-managed green
+threads, etc.<details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; <a href="#monadiothread-class">MonadIoThread</a> :A :B ((<a href="#freet-type">FreeT</a> <a href="#termstubf-type">TermStubF</a>) :C)</code>
+         <li class=instances-item><code><a href="#monadiothread-class">MonadIoThread</a> <a href="#ioruntime-type">IoRuntime</a> <a href="#iothread-type">IoThread</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; <a href="#monadiothread-class">MonadIoThread</a> :A :B (<a href="#loopt-type">LoopT</a> :C)</code>
+         <li class=instances-item><code><a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; <a href="#monadiothread-class">MonadIoThread</a> :A :B ((<a href="#envt-type">EnvT</a> :D) :C)</code>
+         <li class=instances-item><code><a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; <a href="#monadiothread-class">MonadIoThread</a> :A :B ((<a href="#statet-type">StateT</a> :D) :C)</code></ul></details></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=unmask-current-thread-finally-value><a href="#unmask-current-thread-finally-value"><code>(UNMASK-CURRENT-THREAD-FINALLY OP-FINALLY)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L368-L378">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D :E. (<a href="#unliftio-class">UnliftIo</a> :D :A) (<a href="#liftto-class">LiftTo</a> :D :E) (<a href="#monadiothread-class">MonadIoThread</a> :B :C :D) &rArr; ((<a href="#unmaskfinallymode-type">UNMASKFINALLYMODE</a> &rarr; (:D <a href="#unit-type">Unit</a>)) &rarr; (:E <a href="#unit-type">Unit</a>))</code><p class=docstring>Unmask the current thread, run the provided action, and then honor any
+ pending stop for that thread after the action finishes.<h4 id=unmask-thread-finally-value><a href="#unmask-thread-finally-value"><code>(UNMASK-THREAD-FINALLY THREAD OP-FINALLY)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L355-L363">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D :E. (<a href="#unliftio-class">UnliftIo</a> :D :A) (<a href="#liftto-class">LiftTo</a> :D :E) (<a href="#monadiothread-class">MonadIoThread</a> :B :C :D) &rArr; (:C &rarr; (<a href="#unmaskfinallymode-type">UNMASKFINALLYMODE</a> &rarr; (:D <a href="#unit-type">Unit</a>)) &rarr; (:E <a href="#unit-type">Unit</a>))</code><p class=docstring>Unmask the given thread, run the provided action, and then honor any
+ pending stop for that thread after the action finishes.<h4 id=unmask-current-thread-value><a href="#unmask-current-thread-value"><code>UNMASK-CURRENT-THREAD</code></a> <sup><sub>VALUE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L341-L350">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. <a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; (:C <a href="#unit-type">Unit</a>)</code><p class=docstring>Unmask the current thread so it can be stopped. Unmask respects
+nested masks - if the thread has been masked N times, it can only be
+stopped after being unmasked N times.<h4 id=mask-current-thread-value><a href="#mask-current-thread-value"><code>MASK-CURRENT-THREAD</code></a> <sup><sub>VALUE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L321-L329">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. <a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; (:C <a href="#unit-type">Unit</a>)</code><p class=docstring>Mask the current thread so it can&#39;t be stopped.<h4 id=fork-thread-throw-value><a href="#fork-thread-throw-value"><code>(FORK-THREAD-THROW OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L264-L275">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D :E :F. (<a href="#unliftio-class">UnliftIo</a> :C :A) (<a href="#liftto-class">LiftTo</a> :C :E) (<a href="#monadiothread-class">MonadIoThread</a> :B :F :C) &rArr; ((:C :D) &rarr; (:E :F))</code><p class=docstring>Spawn a new thread, which starts running immediately. Returns
+the handle to the thread. If the thread raises an unhandled exception,
+throws immediately. The underlying system determines the result of the
+throw, but it could include terminating the whole program.<h4 id=write-line-sync-value><a href="#write-line-sync-value"><code>(WRITE-LINE-SYNC MSG)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L231-L234">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. (<a href="#into-class">Into</a> :A <a href="#string-type">String</a>) (<a href="#monadioterm-class">MonadIoTerm</a> :B) &rArr; (:A &rarr; (:B <a href="#unit-type">Unit</a>))</code><p class=docstring>Perform a synchrozied write-line to the terminal. Not performant - mainly useful
+for debugging.<h4 id=current-thread-value><a href="#current-thread-value"><code>CURRENT-THREAD</code></a> <sup><sub>VALUE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L309-L311">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. <a href="#monadiothread-class">MonadIoThread</a> :A :C :B &rArr; (:B :C)</code><p class=docstring>Get the current thread.<h4 id=unmask-thread-value><a href="#unmask-thread-value"><code>(UNMASK-THREAD THREAD)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L333-L337">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. <a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; (:B &rarr; (:C <a href="#unit-type">Unit</a>))</code><p class=docstring>Unmask the given thread so it can be stopped. Unmask respects
+nested masks - if the thread has been masked N times, it can only be
+stopped after being unmasked N times.<h4 id=stop-thread-value><a href="#stop-thread-value"><code>(STOP-THREAD THREAD)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L297-L299">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. <a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; (:B &rarr; (:C <a href="#unit-type">Unit</a>))</code><p class=docstring>Stop a thread. If the thread has already stopped, does nothing.<h4 id=mask-thread-value><a href="#mask-thread-value"><code>(MASK-THREAD THREAD)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L315-L317">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. <a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; (:B &rarr; (:C <a href="#unit-type">Unit</a>))</code><p class=docstring>Mask the given thread so it can&#39;t be stopped.<h4 id=join-thread-value><a href="#join-thread-value"><code>(JOIN-THREAD THREAD)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L279-L293">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. (<a href="#monadiothread-class">MonadIoThread</a> :A :B :C) (<a href="#monadexception-class">MonadException</a> :C) &rArr; (:B &rarr; (:C <a href="#unit-type">Unit</a>))</code><p class=docstring>Block the current thread until the target thread is completed.
+Does not a retrieve value. Raises an exception if the target thread
+raised an unhandled exception, wrapping the target thread&#39;s raised
+exception. JOIN-THREAD is the lowest level operation to block on another
+thread&#39;s termination.<h4 id=fork-thread-value><a href="#fork-thread-value"><code>(FORK-THREAD OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L244-L259">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D :E :F. (<a href="#unliftio-class">UnliftIo</a> :C :A) (<a href="#liftto-class">LiftTo</a> :C :E) (<a href="#monadiothread-class">MonadIoThread</a> :B :F :C) &rArr; ((:C :D) &rarr; (:E :F))</code><p class=docstring>Spawn a new thread, which starts running immediately. Returns
+the handle to the thread. If the thread raises an unhandled exception,
+it will be logged to *ERROR-OUTPUT* and swallowed, until/if the thread
+is joined.
+
+This version can accept
+any underlying BaseIo, which can be useful, but causes inference
+issues in some cases.<h4 id=sleep-value><a href="#sleep-value"><code>(SLEEP MSEC)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-thread.lisp#L303-L305">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. <a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; (<a href="#ufix-type">UFix</a> &rarr; (:C <a href="#unit-type">Unit</a>))</code><p class=docstring>Sleep the current thread for MSECS milliseconds.<h4 id=current-thread-value><a href="#current-thread-value"><code>(CURRENT-THREAD _)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/programming/workspace/coalton-threads/src/thread.lisp#L48-L51">src</a></sub></sup></sub></sup></h4><code>(<a href="#unit-type">Unit</a> &rarr; <a href="#lispthread-type">LispThread</a>)</code><p class=docstring>Returns the thread object representing the calling thread.<h4 id=sleep-value><a href="#sleep-value"><code>(SLEEP N)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/system.lisp#L57-L66">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#rational-class">Rational</a> :A &rArr; (:A &rarr; <a href="#unit-type">Unit</a>)</code><p class=docstring>Sleep for `n` seconds, where `n` can be of any type with an instance of `Rational`.
+
+Sleep uses type class `Rational`&#39;s `best-approx` instead of `Real`&#39;s `real-approx` because it handles the approximation without arbitrary precision. The only `Real` type excluded by this decision is `CReal`.<h4 id=fork-thread-throw_-value><a href="#fork-thread-throw_-value"><code>(FORK-THREAD-THROW_)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/io-thread.lisp#L30-L30">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. (<a href="#monadiothread-class">MonadIoThread</a> <a href="#ioruntime-type">IoRuntime</a> <a href="#iothread-type">IoThread</a> :B) (<a href="#liftto-class">LiftTo</a> <a href="#io-type">IO</a> :B) &rArr; ((<a href="#io-type">IO</a> :A) &rarr; (:B <a href="#iothread-type">IoThread</a>))</code><h4 id=fork-thread_-value><a href="#fork-thread_-value"><code>(FORK-THREAD_)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/io-thread.lisp#L26-L26">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. (<a href="#monadiothread-class">MonadIoThread</a> <a href="#ioruntime-type">IoRuntime</a> <a href="#iothread-type">IoThread</a> :B) (<a href="#liftto-class">LiftTo</a> <a href="#io-type">IO</a> :B) &rArr; ((<a href="#io-type">IO</a> :A) &rarr; (:B <a href="#iothread-type">IoThread</a>))</code></div>
+      <hr><h1 id="io/atomic-package">Package <code>IO/ATOMIC</code></h1><div class=types-content>
+       <h3 class=types-header>Types</h3><h4 id=atvar-type><a href="#atvar-type"><code>AtVar</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-atomic.lisp#L33-L34">src</a></sub></sup></sub></sup></h4><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> (<a href="#atvar-type">AtVar</a> :A)</code></ul></details></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=modify-swap-value><a href="#modify-swap-value"><code>(MODIFY-SWAP FS-&gt;S)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/monad/state.lisp#L77-L80">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((:A &rarr; :A) &rarr; (<a href="#st-type">ST</a> :A :A))</code><p class=docstring>Modify the state in a StatefulComputation, returning the old state.<h4 id=modify-value><a href="#modify-value"><code>(MODIFY FS-&gt;S)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/monad/state.lisp#L56-L59">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((:A &rarr; :A) &rarr; (<a href="#st-type">ST</a> :A <a href="#unit-type">Unit</a>))</code><p class=docstring>Modify the state in a StatefulComputation, discarding the old state.<h4 id=modify-value><a href="#modify-value"><code>(MODIFY HM KEY F)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/hashmap.lisp#L626-L628">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#hash-class">Hash</a> :A &rArr; ((<a href="#hashmap-type">HashMap</a> :A :B) &rarr; :A &rarr; (:B &rarr; :B) &rarr; (<a href="#hashmap-type">HashMap</a> :A :B))</code><p class=docstring>Modify the value at KEY with F. Returns the modified `HashMap`.<h4 id=read-value><a href="#read-value"><code>(READ ATM)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/thread-impl/atomics.lisp#L86-L89">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#atomic-type">Atomic</a> :A) &rarr; :A)</code><p class=docstring>Read the value of an atomic cell `atm`.<h4 id=read-value><a href="#read-value"><code>(READ ATOMIC)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/programming/workspace/coalton-threads/src/atomic.lisp#L47-L50">src</a></sub></sup></sub></sup></h4><code>(<a href="#atomicinteger-type">AtomicInteger</a> &rarr; <a href="#u64-type">U64</a>)</code><p class=docstring>Returns the current value of `atomic&#39;.<h4 id=read-value><a href="#read-value"><code>(READ MUTEX)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/programming/workspace/coalton-threads/src/mutex.lisp#L27-L31">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#mutex-type">Mutex</a> :A) &rarr; :A)</code><p class=docstring>Access the value held in a Mutex.<h4 id=read-value><a href="#read-value"><code>(READ CEL)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/cell.lisp#L53-L56">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#cell-type">Cell</a> :A) &rarr; :A)</code><p class=docstring>Read the value of a mutable cell `cel`.<h4 id=push-value><a href="#push-value"><code>(PUSH SEQ A)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/seq.lisp#L118-L126">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#seq-type">Seq</a> :A) &rarr; :A &rarr; (<a href="#seq-type">Seq</a> :A))</code><p class=docstring>Push `a` onto the end of `seq`, returning a new `Seq` instance.<h4 id=pop-value><a href="#pop-value"><code>(POP SEQ)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/seq.lisp#L128-L165">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#seq-type">Seq</a> :A) &rarr; (<a href="#optional-type">Optional</a> (<a href="#tuple-type">Tuple</a> :A (<a href="#seq-type">Seq</a> :A))))</code><p class=docstring>If `seq` is empty, return `None`. Otherwise, the last member of `seq` and
+a new `Seq` instance.<h4 id=modify-swap-value><a href="#modify-swap-value"><code>(MODIFY-SWAP ATM F)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-atomic.lisp#L71-L77">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadio-class">MonadIo</a> :B &rArr; ((<a href="#atvar-type">AtVar</a> :A) &rarr; (:A &rarr; :A) &rarr; (:B :A))</code><p class=docstring>Atomically modify by applying F, then return the old
+value of the variable. F may be called multiple times, and
+must be a pure function. If F errors, it will be raised
+in (:m :a) as an UnhandledError exception, and the atomic
+variable will not be modified.<h4 id=new-at-var-value><a href="#new-at-var-value"><code>(NEW-AT-VAR VAL)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-atomic.lisp#L43-L45">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadio-class">MonadIo</a> :B &rArr; (:A &rarr; (:B (<a href="#atvar-type">AtVar</a> :A)))</code><p class=docstring>Create a new atomic variable with an initial value.<h4 id=modify-value><a href="#modify-value"><code>(MODIFY ATM F)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-atomic.lisp#L61-L67">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadio-class">MonadIo</a> :B &rArr; ((<a href="#atvar-type">AtVar</a> :A) &rarr; (:A &rarr; :A) &rarr; (:B :A))</code><p class=docstring>Atomically modify by applying F, then return the new
+value of the atomic variable. F may be called multiple times,
+and must be a pure function. If F errors, it will be raised
+in (:m :a) as an UnhandledError exception, and the atomic
+variable will not be modified.<h4 id=write-value><a href="#write-value"><code>(WRITE ATM VAL)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-atomic.lisp#L55-L57">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadio-class">MonadIo</a> :B &rArr; ((<a href="#atvar-type">AtVar</a> :A) &rarr; :A &rarr; (:B <a href="#unit-type">Unit</a>))</code><p class=docstring>Write a new value to an atomic variable.<h4 id=read-value><a href="#read-value"><code>(READ ATM)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-atomic.lisp#L49-L51">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadio-class">MonadIo</a> :B &rArr; ((<a href="#atvar-type">AtVar</a> :A) &rarr; (:B :A))</code><p class=docstring>Read the value from an atomic variable.<h4 id=push-value><a href="#push-value"><code>(PUSH ATM ELT)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-atomic.lisp#L81-L83">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadio-class">MonadIo</a> :B &rArr; ((<a href="#atvar-type">AtVar</a> (<a href="#list-type">List</a> :A)) &rarr; :A &rarr; (:B (<a href="#list-type">List</a> :A)))</code><p class=docstring>Atomically push a value onto an atomic list.<h4 id=pop-value><a href="#pop-value"><code>(POP ATM)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-atomic.lisp#L87-L89">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monadio-class">MonadIo</a> :B &rArr; ((<a href="#atvar-type">AtVar</a> (<a href="#list-type">List</a> :A)) &rarr; (:B (<a href="#optional-type">Optional</a> :A)))</code><p class=docstring>Atomically pop and retrieve the head of an atomic list.</div>
+      <hr><h1 id="io/mvar-package">Package <code>IO/MVAR</code></h1><div class=structs-content>
+       <h3 class=structs-header>Structs</h3><h4 id=mvar-type><a href="#mvar-type"><code>MVar :A</code></a> <sup><sub>STRUCT · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L50-L63">src</a></sub></sup></sub></sup></h4><p class=docstring>A synchronized container that can be empty or hold one :a.
+Can put data into the container, blocking until it is empty.
+Can take data out of the container, blocking until it is full.
+
+All critical MVar operations are masked, so stopping a thread that&#39;s operating on
+MVar&#39;s won&#39;t leave MVar&#39;s in an inoperable state. However, irresponsible stopping
+could still cause deadlocks, race conditions, etc. if other threads were
+depending on the stopped thread operating on an MVar to continue.<details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> (<a href="#mvar-type">MVar</a> :A)</code></ul></details><h4 id=chan-type><a href="#chan-type"><code>Chan :A</code></a> <sup><sub>STRUCT · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L252-L255">src</a></sub></sup></sub></sup></h4><p class=docstring>A synchronized FIFO queue to pass data directionally between threads.<details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> (<a href="#chan-type">Chan</a> :A)</code></ul></details></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=new-empty-mvar-value><a href="#new-empty-mvar-value"><code>NEW-EMPTY-MVAR</code></a> <sup><sub>VALUE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L78-L85">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. <a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; (:C (<a href="#mvar-type">MVar</a> :D))</code><p class=docstring>Create a new empty MVar.<h4 id=new-empty-chan-value><a href="#new-empty-chan-value"><code>NEW-EMPTY-CHAN</code></a> <sup><sub>VALUE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L258-L264">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. <a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; (:C (<a href="#chan-type">Chan</a> :D))</code><p class=docstring>Create a new empty channel.<h4 id=try-take-mvar-value><a href="#try-take-mvar-value"><code>(TRY-TAKE-MVAR MVAR)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L132-L148">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. <a href="#monadiothread-class">MonadIoThread</a> :A :B :D &rArr; ((<a href="#mvar-type">MVar</a> :C) &rarr; (:D (<a href="#optional-type">Optional</a> :C)))</code><p class=docstring>Attempt to take a value from an MVar; returns None if empty.<h4 id=try-read-mvar-value><a href="#try-read-mvar-value"><code>(TRY-READ-MVAR MVAR)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L183-L187">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. <a href="#monadiothread-class">MonadIoThread</a> :A :B :D &rArr; ((<a href="#mvar-type">MVar</a> :C) &rarr; (:D (<a href="#optional-type">Optional</a> :C)))</code><p class=docstring>Attempt to read (without removing) the value from an MVar; returns None if empty.<h4 id=is-empty-mvar-value><a href="#is-empty-mvar-value"><code>(IS-EMPTY-MVAR MVAR)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L210-L213">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. <a href="#monadiothread-class">MonadIoThread</a> :A :B :D &rArr; ((<a href="#mvar-type">MVar</a> :C) &rarr; (:D <a href="#boolean-type">Boolean</a>))</code><p class=docstring>Return True if the MVar is currently empty.<h4 id=try-put-mvar-value><a href="#try-put-mvar-value"><code>(TRY-PUT-MVAR MVAR VAL)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L151-L169">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. <a href="#monadiothread-class">MonadIoThread</a> :A :B :D &rArr; ((<a href="#mvar-type">MVar</a> :C) &rarr; :C &rarr; (:D <a href="#boolean-type">Boolean</a>))</code><p class=docstring>Attempt to put a value into an MVar; returns False if full and the put fails,
+True if the put succeeds.<h4 id=with-mvar-value><a href="#with-mvar-value"><code>(WITH-MVAR MVAR OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L218-L234">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D :E :F :G. (<a href="#liftto-class">LiftTo</a> :E :G) (<a href="#unliftio-class">UnliftIo</a> :E :A) (<a href="#monadexception-class">MonadException</a> :A) (<a href="#monadiothread-class">MonadIoThread</a> :B :C :A) &rArr; ((<a href="#mvar-type">MVar</a> :D) &rarr; (:D &rarr; (:E :F)) &rarr; (:G :F))</code><p class=docstring>Modify with the result of an operation. Blocks until MVar is full.
+If the operation raises an exception, will restore the MVar value and re-raise.
+If other threads are calling PUT-MVAR while the operation is running,
+they can block this thread until another thread takes the MVar.<h4 id=take-mvar-value><a href="#take-mvar-value"><code>(TAKE-MVAR MVAR)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L88-L106">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. <a href="#monadiothread-class">MonadIoThread</a> :A :B :D &rArr; ((<a href="#mvar-type">MVar</a> :C) &rarr; (:D :C))</code><p class=docstring>Take a value from an MVar, blocking until one is available.<h4 id=swap-mvar-value><a href="#swap-mvar-value"><code>(SWAP-MVAR MVAR NEW-VAL)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L190-L207">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. <a href="#monadiothread-class">MonadIoThread</a> :A :B :D &rArr; ((<a href="#mvar-type">MVar</a> :C) &rarr; :C &rarr; (:D :C))</code><p class=docstring>Atomically replace the value in an MVar and return the old value.<h4 id=read-mvar-value><a href="#read-mvar-value"><code>(READ-MVAR MVAR)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L172-L180">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. <a href="#monadiothread-class">MonadIoThread</a> :A :B :D &rArr; ((<a href="#mvar-type">MVar</a> :C) &rarr; (:D :C))</code><p class=docstring>Read (without removing) the value from an MVar, blocking until one is available.<h4 id=push-chan-value><a href="#push-chan-value"><code>(PUSH-CHAN CHAN VAL)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L267-L274">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. <a href="#monadiothread-class">MonadIoThread</a> :A :B :D &rArr; ((<a href="#chan-type">Chan</a> :C) &rarr; :C &rarr; (:D <a href="#unit-type">Unit</a>))</code><p class=docstring>Push VAL onto CHAN.<h4 id=put-mvar-value><a href="#put-mvar-value"><code>(PUT-MVAR MVAR VAL)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L109-L129">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. <a href="#monadiothread-class">MonadIoThread</a> :A :B :D &rArr; ((<a href="#mvar-type">MVar</a> :C) &rarr; :C &rarr; (:D <a href="#unit-type">Unit</a>))</code><p class=docstring>Put a value into an MVar, blocking until it becomes empty.<h4 id=pop-chan-value><a href="#pop-chan-value"><code>(POP-CHAN CHAN)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L277-L284">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. <a href="#monadiothread-class">MonadIoThread</a> :A :B :D &rArr; ((<a href="#chan-type">Chan</a> :C) &rarr; (:D :C))</code><p class=docstring>Pop the front value in CHAN. Blocks while CHAN is empty.<h4 id=new-mvar-value><a href="#new-mvar-value"><code>(NEW-MVAR VAL)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-mvar.lisp#L67-L74">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. <a href="#monadiothread-class">MonadIoThread</a> :A :B :D &rArr; (:C &rarr; (:D (<a href="#mvar-type">MVar</a> :C)))</code><p class=docstring>Create a new MVar containing VAL.<h4 id=with-mvar_-value><a href="#with-mvar_-value"><code>(WITH-MVAR_ MVAR OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/io-mvar.lisp#L24-L25">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. (<a href="#monadiothread-class">MonadIoThread</a> <a href="#ioruntime-type">IoRuntime</a> <a href="#iothread-type">IoThread</a> :C) (<a href="#liftto-class">LiftTo</a> <a href="#io-type">IO</a> :C) &rArr; ((<a href="#mvar-type">MVar</a> :A) &rarr; (:A &rarr; (<a href="#io-type">IO</a> :B)) &rarr; (:C :B))</code></div>
+      <hr><h1 id="io/future-package">Package <code>IO/FUTURE</code></h1><div class=types-content>
+       <h3 class=types-header>Types</h3><h4 id=future-type><a href="#future-type"><code>Future</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-future.lisp#L35-L36">src</a></sub></sup></sub></sup></h4><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> (<a href="#future-type">Future</a> :A)</code></ul></details></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=await-value><a href="#await-value"><code>(AWAIT CV LOCK)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/programming/workspace/coalton-threads/src/condition-variable.lisp#L26-L34">src</a></sub></sup></sub></sup></h4><code>(<a href="#conditionvariable-type">ConditionVariable</a> &rarr; <a href="#lock-type">Lock</a> &rarr; <a href="#unit-type">Unit</a>)</code><p class=docstring>Atomically release `lock&#39; and enqueue the calling thread waiting for `cv&#39;.
+The thread will resume when another thread has notified it using `notify-cv&#39;;
+it may also resume if interrupted by some external event or in other
+implementation-dependent circumstances: the caller must always test on waking
+that there is threading to be done, instead of assuming that it can go ahead.<h4 id=await-value><a href="#await-value"><code>(AWAIT SEM)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/programming/workspace/coalton-threads/src/semaphore.lisp#L31-L36">src</a></sub></sup></sub></sup></h4><code>(<a href="#semaphore-type">Semaphore</a> &rarr; <a href="#unit-type">Unit</a>)</code><p class=docstring>Decrement the count of `sem&#39; by 1 if the count is larger than zero.
+If the count is zero, blocks until `sem&#39; can be decremented.<h4 id=await-value><a href="#await-value"><code>(AWAIT BARRIER)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/programming/workspace/coalton-threads/src/barrier.lisp#L42-L47">src</a></sub></sup></sub></sup></h4><code>(<a href="#barrier-type">Barrier</a> &rarr; <a href="#unit-type">Unit</a>)</code><h4 id=try-read-future-value><a href="#try-read-future-value"><code>(TRY-READ-FUTURE FUTURE)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-future.lisp#L74-L86">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. (<a href="#monadiothread-class">MonadIoThread</a> :A :B :D) (<a href="#monadexception-class">MonadException</a> :D) &rArr; ((<a href="#future-type">Future</a> :C) &rarr; (:D (<a href="#optional-type">Optional</a> :C)))</code><p class=docstring>Try to read the current value from FUTURE, returning NONE
+if it is not available. Raises any exceptions in the awaiting thread
+that were raised in the future thread.<h4 id=fork-future-value><a href="#fork-future-value"><code>(FORK-FUTURE TASK)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-future.lisp#L47-L57">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D :E :F. (<a href="#monadexception-class">MonadException</a> :D) (<a href="#liftto-class">LiftTo</a> :D :F) (<a href="#unliftio-class">UnliftIo</a> :D :A) (<a href="#monadiothread-class">MonadIoThread</a> :B :C :D) (<a href="#monadiothread-class">MonadIoThread</a> :B :C :F) &rArr; ((:D :E) &rarr; (:F (<a href="#future-type">Future</a> :E)))</code><p class=docstring>Spawn a new future, which will run and eventually return the result
+from TASK. The future is guaranteed to only ever run at most once, when
+the produced :m is run.<h4 id=await-value><a href="#await-value"><code>(AWAIT FUTURE)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-future.lisp#L61-L69">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. (<a href="#monadiothread-class">MonadIoThread</a> :A :B :D) (<a href="#monadexception-class">MonadException</a> :D) &rArr; ((<a href="#future-type">Future</a> :C) &rarr; (:D :C))</code><p class=docstring>Read the value from FUTURE, blocking until it is available.
+Raises any exceptions in the awaiting thread that were raised in
+the future thread.<h4 id=fork-future_-value><a href="#fork-future_-value"><code>(FORK-FUTURE_)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/io-future.lisp#L25-L29">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. (<a href="#monadiothread-class">MonadIoThread</a> <a href="#ioruntime-type">IoRuntime</a> <a href="#iothread-type">IoThread</a> :B) (<a href="#liftto-class">LiftTo</a> <a href="#io-type">IO</a> :B) &rArr; ((<a href="#io-type">IO</a> :A) &rarr; (:B (<a href="#future-type">Future</a> :A)))</code><p class=docstring>Spawn a new future, which will run and eventually return the result
+from TASK. The future is guaranteed to only ever run at most once, when
+the produced :m is run.</div>
+      <hr><h1 id="io/file-package">Package <code>IO/FILE</code></h1><div class=classes-content>
+       <h3 class=classes-header>Classes</h3><h4 id=monadiofile-class><a href="#monadiofile-class"><code>MonadIoFile</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-file.lisp#L57-L137">src</a></sub></sup></sub></sup></h4><code><a href="#monadio-class">MonadIo</a> :A &rArr; <a href="#monadiofile-class">MonadIoFile</a> :A</code><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#monadiofile-class">MonadIoFile</a> :A &rArr; <a href="#monadiofile-class">MonadIoFile</a> ((<a href="#freet-type">FreeT</a> <a href="#termstubf-type">TermStubF</a>) :A)</code>
+         <li class=instances-item><code><a href="#monadiofile-class">MonadIoFile</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadiofile-class">MonadIoFile</a> :A &rArr; <a href="#monadiofile-class">MonadIoFile</a> (<a href="#loopt-type">LoopT</a> :A)</code>
+         <li class=instances-item><code><a href="#monadiofile-class">MonadIoFile</a> :A &rArr; <a href="#monadiofile-class">MonadIoFile</a> ((<a href="#envt-type">EnvT</a> :B) :A)</code>
+         <li class=instances-item><code><a href="#monadiofile-class">MonadIoFile</a> :A &rArr; <a href="#monadiofile-class">MonadIoFile</a> ((<a href="#statet-type">StateT</a> :B) :A)</code></ul></details></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=copy-value><a href="#copy-value"><code>(COPY V)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/lisparray.lisp#L93-L96">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#lisparray-type">LispArray</a> :A) &rarr; (<a href="#lisparray-type">LispArray</a> :A))</code><p class=docstring>Make a deep copy of the `LispArray` `v`.<h4 id=copy-value><a href="#copy-value"><code>(COPY V)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/vector.lisp#L132-L137">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#vector-type">Vector</a> :A) &rarr; (<a href="#vector-type">Vector</a> :A))</code><p class=docstring>Return a new vector containing the same elements as `v`.<h4 id=copy-value><a href="#copy-value"><code>(COPY Q)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/queue.lisp#L76-L92">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#queue-type">Queue</a> :A) &rarr; (<a href="#queue-type">Queue</a> :A))</code><p class=docstring>Return a new queue containing the same elements as `q`.<h4 id=system-relative-pathname-value><a href="#system-relative-pathname-value"><code>(SYSTEM-RELATIVE-PATHNAME SYSTEM-NAME NAME)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L320-L324">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#into-class">Into</a> :A <a href="#string-type">String</a> &rArr; (:A &rarr; <a href="#string-type">String</a> &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#pathname-type">Pathname</a>))</code><p class=docstring>Generates a system-relative-pathname for a given filename or path. This is a wrapper for `asdf:system-relative-pathname`. `Name` will likely be an empty string unless a subdirectory or filename is specified.<h4 id=with-temp-directory-value><a href="#with-temp-directory-value"><code>(WITH-TEMP-DIRECTORY THUNK)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L696-L701">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#pathname-type">Pathname</a> &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> :A)) &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> :A))</code><p class=docstring>Performs an operation `thunk` inside a temporary directory.<h4 id=read-file-to-vector-value><a href="#read-file-to-vector-value"><code>(READ-FILE-TO-VECTOR STREAM)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L595-L604">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#file-class">File</a> :A &rArr; ((<a href="#filestream-type">FileStream</a> :A) &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> (<a href="#vector-type">Vector</a> :A)))</code><p class=docstring>Reads a file into a vector of type `:a`.<h4 id=read-file-to-string-value><a href="#read-file-to-string-value"><code>(READ-FILE-TO-STRING PATH)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L734-L738">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#into-class">Into</a> :A <a href="#pathname-type">Pathname</a> &rArr; (:A &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#string-type">String</a>))</code><p class=docstring>Reads a file into a string, given a pathname string.<h4 id=set-file-position-value><a href="#set-file-position-value"><code>(SET-FILE-POSITION STREAM I)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L497-L500">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#filestream-type">FileStream</a> :A) &rarr; <a href="#ufix-type">UFix</a> &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#unit-type">Unit</a>))</code><p class=docstring>Sets the file position of a file stream.<h4 id=directory-exists?-value><a href="#directory-exists?-value"><code>(DIRECTORY-EXISTS? PATH)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L220-L226">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#into-class">Into</a> :A <a href="#pathname-type">Pathname</a> &rArr; (:A &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#boolean-type">Boolean</a>))</code><p class=docstring>Returns True if a pathname names a directory that exists.<h4 id=read-file-lines-value><a href="#read-file-lines-value"><code>(READ-FILE-LINES PATH)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L741-L745">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#into-class">Into</a> :A <a href="#pathname-type">Pathname</a> &rArr; (:A &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> (<a href="#list-type">List</a> <a href="#string-type">String</a>)))</code><p class=docstring>Reads a file into lines, given a pathname or string.<h4 id=with-temp-file-value><a href="#with-temp-file-value"><code>(WITH-TEMP-FILE FILE-TYPE THUNK)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L686-L693">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#file-class">File</a> :A &rArr; (<a href="#string-type">String</a> &rarr; ((<a href="#filestream-type">FileStream</a> :A) &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> :B)) &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> :B))</code><p class=docstring>Performs an operation `thunk` on a temporary file. File type extensions need to include `.`, like &quot;.txt&quot;.<h4 id=with-open-file-value><a href="#with-open-file-value"><code>(WITH-OPEN-FILE STREAM-OPTIONS THUNK)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L570-L574">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#file-class">File</a> :A &rArr; (<a href="#streamoptions-type">StreamOptions</a> &rarr; ((<a href="#filestream-type">FileStream</a> :A) &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> :B)) &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> :B))</code><p class=docstring>Opens a file stream, performs `thunk` on it, then closes the stream.<h4 id=write-vector-value><a href="#write-vector-value"><code>(WRITE-VECTOR STREAM V)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L610-L614">src</a></sub></sup></sub></sup></h4><code>&forall; :A. (<a href="#runtimerepr-class">RuntimeRepr</a> :A) (<a href="#file-class">File</a> :A) &rArr; ((<a href="#filestream-type">FileStream</a> :A) &rarr; (<a href="#vector-type">Vector</a> :A) &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#unit-type">Unit</a>))</code><p class=docstring>Writes elements of an vector of type `:a` to a stream of type `:a`.<h4 id=write-string-value><a href="#write-string-value"><code>(WRITE-STRING FS S)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L617-L619">src</a></sub></sup></sub></sup></h4><code>((<a href="#filestream-type">FileStream</a> <a href="#char-type">Char</a>) &rarr; <a href="#string-type">String</a> &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#unit-type">Unit</a>))</code><p class=docstring>Writes a `string` to a FileStream of type Char.<h4 id=file-exists?-value><a href="#file-exists?-value"><code>(FILE-EXISTS? PATH)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L229-L237">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#into-class">Into</a> :A <a href="#pathname-type">Pathname</a> &rArr; (:A &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#boolean-type">Boolean</a>))</code><p class=docstring>Returns True if a pathname names a file that exists.<h4 id=read-vector-value><a href="#read-vector-value"><code>(READ-VECTOR STREAM CHUNK-SIZE)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L581-L589">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#file-class">File</a> :A &rArr; ((<a href="#filestream-type">FileStream</a> :A) &rarr; <a href="#ufix-type">UFix</a> &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> (<a href="#vector-type">Vector</a> :A)))</code><p class=docstring>Reads a chunk of a file into a vector of type `:a`.<h4 id=write-line-value><a href="#write-line-value"><code>(WRITE-LINE STREAM S)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L622-L625">src</a></sub></sup></sub></sup></h4><code>((<a href="#filestream-type">FileStream</a> <a href="#char-type">Char</a>) &rarr; <a href="#string-type">String</a> &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#unit-type">Unit</a>))</code><p class=docstring>Writes a string with an appended newline to a filestream of type Char.<h4 id=write-char-value><a href="#write-char-value"><code>(WRITE-CHAR STREAM DATA)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L462-L465">src</a></sub></sup></sub></sup></h4><code>((<a href="#filestream-type">FileStream</a> <a href="#char-type">Char</a>) &rarr; <a href="#char-type">Char</a> &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#unit-type">Unit</a>))</code><p class=docstring>Writes a `Char` to the stream.<h4 id=read-line-value><a href="#read-line-value"><code>(READ-LINE STREAM)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L454-L459">src</a></sub></sup></sub></sup></h4><code>((<a href="#filestream-type">FileStream</a> <a href="#char-type">Char</a>) &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#string-type">String</a>))</code><p class=docstring>Reads a line of characters from a FileStream.<h4 id=read-char-value><a href="#read-char-value"><code>(READ-CHAR STREAM)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L446-L451">src</a></sub></sup></sub></sup></h4><code>((<a href="#filestream-type">FileStream</a> <a href="#char-type">Char</a>) &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#char-type">Char</a>))</code><p class=docstring>Reads a character from an FileStream.<h4 id=exists?-value><a href="#exists?-value"><code>(EXISTS? PATH)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L201-L205">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#into-class">Into</a> :A <a href="#pathname-type">Pathname</a> &rArr; (:A &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> <a href="#boolean-type">Boolean</a>))</code><p class=docstring>Returns whether a file or directory exists.<h4 id=close-value><a href="#close-value"><code>(CLOSE STREAM)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L434-L437">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. ((<a href="#filestream-type">FileStream</a> :A) &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> :B))</code><p class=docstring>Closes a FileStream.<h4 id=abort-value><a href="#abort-value"><code>(ABORT STREAM)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/file.lisp#L440-L443">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. ((<a href="#filestream-type">FileStream</a> :A) &rarr; (<a href="#result-type">Result</a> <a href="#fileerror-type">FileError</a> :B))</code><p class=docstring>Closes a FileStream and aborts all operations..<h4 id=copy-value><a href="#copy-value"><code>(COPY SEQ)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master//home/jason/quicklisp/local-projects/coalton/library/seq.lisp#L459-L465">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#seq-type">Seq</a> :A) &rarr; (<a href="#seq-type">Seq</a> :A))</code><p class=docstring>A shallow copy of `seq`<h4 id=with-temp-directory-value><a href="#with-temp-directory-value"><code>(WITH-TEMP-DIRECTORY K)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-file.lisp#L251-L262">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D :E :F. (<a href="#liftto-class">LiftTo</a> :D :F) (<a href="#unliftio-class">UnliftIo</a> :D :A) (<a href="#liftio-class">LiftIo</a> :A :A) (<a href="#monadiothread-class">MonadIoThread</a> :B :C :A) (<a href="#monadexception-class">MonadException</a> :A) (<a href="#monadiofile-class">MonadIoFile</a> :A) &rArr; ((<a href="#pathname-type">Pathname</a> &rarr; (:D :E)) &rarr; (:F :E))</code><p class=docstring>Performs an operation `thunk` inside a temporary directory.
+Can run any underlying BaseIo, which can be useful but can also cause inference issues
+in some cases. Try WITH-TEMP-DIRECTORY_ if you have issues.<h4 id=with-temp-file-value><a href="#with-temp-file-value"><code>(WITH-TEMP-FILE FILE-TYPE K)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-file.lisp#L232-L245">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D :E :F :G. (<a href="#liftto-class">LiftTo</a> :E :G) (<a href="#unliftio-class">UnliftIo</a> :E :A) (<a href="#liftio-class">LiftIo</a> :A :A) (<a href="#monadiothread-class">MonadIoThread</a> :B :C :A) (<a href="#file-class">File</a> :D) (<a href="#monadexception-class">MonadException</a> :A) (<a href="#monadiofile-class">MonadIoFile</a> :A) &rArr; (<a href="#string-type">String</a> &rarr; ((<a href="#filestream-type">FileStream</a> :D) &rarr; (:E :F)) &rarr; (:G :F))</code><p class=docstring>Performs an operation `thunk` on a temporary file. File type extensions need to include `.`
+Can run any underlying BaseIo, which can be useful but can also cause inference issues
+in some cases. Try WITH-TEMP-FILE_ if you have issues.<h4 id=with-open-file-value><a href="#with-open-file-value"><code>(WITH-OPEN-FILE OPTS K)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/io-file.lisp#L212-L224">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D :E :F :G. (<a href="#liftto-class">LiftTo</a> :E :G) (<a href="#unliftio-class">UnliftIo</a> :E :A) (<a href="#liftio-class">LiftIo</a> :A :A) (<a href="#monadiothread-class">MonadIoThread</a> :B :C :A) (<a href="#file-class">File</a> :D) (<a href="#monadexception-class">MonadException</a> :A) (<a href="#monadiofile-class">MonadIoFile</a> :A) &rArr; (<a href="#streamoptions-type">StreamOptions</a> &rarr; ((<a href="#filestream-type">FileStream</a> :D) &rarr; (:E :F)) &rarr; (:G :F))</code><p class=docstring>Opens a file stream, performs K on it, then closes the stream.
+Can run any underlying BaseIo, which can be useful but can also cause inference issues
+in some cases. Try WITH-OPEN-FILE_ if you have issues.<h4 id=with-temp-directory_-value><a href="#with-temp-directory_-value"><code>(WITH-TEMP-DIRECTORY_)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/io-file.lisp#L43-L43">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. (<a href="#unliftio-class">UnliftIo</a> :B <a href="#io-type">IO</a>) (<a href="#liftto-class">LiftTo</a> <a href="#io-type">IO</a> :B) &rArr; ((<a href="#pathname-type">Pathname</a> &rarr; (<a href="#io-type">IO</a> :A)) &rarr; (:B :A))</code><h4 id=with-temp-file_-value><a href="#with-temp-file_-value"><code>(WITH-TEMP-FILE_)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/io-file.lisp#L38-L38">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. (<a href="#file-class">File</a> :A) (<a href="#unliftio-class">UnliftIo</a> :C <a href="#io-type">IO</a>) (<a href="#liftto-class">LiftTo</a> <a href="#io-type">IO</a> :C) &rArr; (<a href="#string-type">String</a> &rarr; ((<a href="#filestream-type">FileStream</a> :A) &rarr; (<a href="#io-type">IO</a> :B)) &rarr; (:C :B))</code><h4 id=with-open-file_-value><a href="#with-open-file_-value"><code>(WITH-OPEN-FILE_)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/io-file.lisp#L32-L32">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. (<a href="#file-class">File</a> :A) (<a href="#unliftio-class">UnliftIo</a> :C <a href="#io-type">IO</a>) (<a href="#liftto-class">LiftTo</a> <a href="#io-type">IO</a> :C) &rArr; (<a href="#streamoptions-type">StreamOptions</a> &rarr; ((<a href="#filestream-type">FileStream</a> :A) &rarr; (<a href="#io-type">IO</a> :B)) &rarr; (:C :B))</code></div>
+      <hr><h1 id="io/unique-package">Package <code>IO/UNIQUE</code></h1><div class=types-content>
+       <h3 class=types-header>Types</h3><h4 id=unique-type><a href="#unique-type"><code>Unique</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-unique.lisp#L31-L32">src</a></sub></sup></sub></sup></h4><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#eq-class">Eq</a> <a href="#integer-type">Integer</a> &rArr; <a href="#eq-class">Eq</a> <a href="#unique-type">Unique</a></code>
+         <li class=instances-item><code><a href="#ord-class">Ord</a> <a href="#unique-type">Unique</a></code>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> <a href="#unique-type">Unique</a></code></ul></details></div>
+      <hr><div class=classes-content>
+       <h3 class=classes-header>Classes</h3><h4 id=monadiounique-class><a href="#monadiounique-class"><code>MonadIoUnique</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-unique.lisp#L47-L52">src</a></sub></sup></sub></sup></h4><code><a href="#monad-class">Monad</a> :A &rArr; <a href="#monadiounique-class">MonadIoUnique</a> :A</code><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#monadiounique-class">MonadIoUnique</a> :A &rArr; <a href="#monadiounique-class">MonadIoUnique</a> ((<a href="#freet-type">FreeT</a> <a href="#termstubf-type">TermStubF</a>) :A)</code>
+         <li class=instances-item><code><a href="#monadiounique-class">MonadIoUnique</a> :A &rArr; <a href="#monadiounique-class">MonadIoUnique</a> (<a href="#loopt-type">LoopT</a> :A)</code>
+         <li class=instances-item><code><a href="#monadiounique-class">MonadIoUnique</a> :A &rArr; <a href="#monadiounique-class">MonadIoUnique</a> ((<a href="#envt-type">EnvT</a> :B) :A)</code>
+         <li class=instances-item><code><a href="#monadiounique-class">MonadIoUnique</a> :A &rArr; <a href="#monadiounique-class">MonadIoUnique</a> ((<a href="#statet-type">StateT</a> :B) :A)</code></ul></details></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=to-int-value><a href="#to-int-value"><code>(TO-INT (UNIQUE% I))</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-unique.lisp#L40-L45">src</a></sub></sup></sub></sup></h4><code>(<a href="#unique-type">Unique</a> &rarr; <a href="#integer-type">Integer</a>)</code><p class=docstring>Convert a unique value to an integer.
+
+It is guaranteed that: (/= (to-int a) (to-int b))
+for any two different Unique instances.</div>
+      <hr><h1 id="io/stm-package">Package <code>IO/STM</code></h1><div class=types-content>
+       <h3 class=types-header>Types</h3><h4 id=tvar-type><a href="#tvar-type"><code>TVar</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/thread-impl/stm-impl.lisp#L54-L55">src</a></sub></sup></sub></sup></h4><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#eq-class">Eq</a> (<a href="#cell-type">Cell</a> :A) &rArr; <a href="#eq-class">Eq</a> (<a href="#tvar-type">TVar</a> :A)</code>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> (<a href="#tvar-type">TVar</a> :A)</code></ul></details><h4 id=stm-type><a href="#stm-type"><code>STM</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/thread-impl/stm-impl.lisp#L102-L103">src</a></sub></sup></sub></sup></h4><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code>(<a href="#monadexception-class">MonadException</a> :A) (<a href="#monadio-class">MonadIo</a> :A) &rArr; <a href="#monadexception-class">MonadException</a> (<a href="#stm-type">STM</a> :A)</code>
+         <li class=instances-item><code><a href="#functor-class">Functor</a> :A &rArr; <a href="#functor-class">Functor</a> (<a href="#stm-type">STM</a> :A)</code>
+         <li class=instances-item><code><a href="#monad-class">Monad</a> :A &rArr; <a href="#applicative-class">Applicative</a> (<a href="#stm-type">STM</a> :A)</code>
+         <li class=instances-item><code><a href="#monad-class">Monad</a> :A &rArr; <a href="#monad-class">Monad</a> (<a href="#stm-type">STM</a> :A)</code>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> ((<a href="#stm-type">STM</a> :A) :B)</code></ul></details></div>
+      <hr><div class=classes-content>
+       <h3 class=classes-header>Classes</h3><h4 id=monadiostm-class><a href="#monadiostm-class"><code>MonadIoSTM</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-stm.lisp#L33-L63">src</a></sub></sup></sub></sup></h4><code><a href="#monadio-class">MonadIo</a> :A &rArr; <a href="#monadiostm-class">MonadIoSTM</a> :A</code><p class=docstring>A MonadIo which can execute atomic transactions.
+
+The critical section of transaction commits is masked, so stopping a thread
+during a transaction won&#39;t leave the STM in an inoperable state. Read-only
+transactions never mask. Transactions are only masked during the brief commit
+period; the thread is still stoppable during the bulk of the transaction
+unless you mask it yourself.<details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#monadiostm-class">MonadIoSTM</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadiostm-class">MonadIoSTM</a> :A &rArr; <a href="#monadiostm-class">MonadIoSTM</a> (<a href="#loopt-type">LoopT</a> :A)</code>
+         <li class=instances-item><code><a href="#monadiostm-class">MonadIoSTM</a> :A &rArr; <a href="#monadiostm-class">MonadIoSTM</a> ((<a href="#envt-type">EnvT</a> :B) :A)</code>
+         <li class=instances-item><code><a href="#monadiostm-class">MonadIoSTM</a> :A &rArr; <a href="#monadiostm-class">MonadIoSTM</a> ((<a href="#statet-type">StateT</a> :B) :A)</code></ul></details></div>
+      <hr><h1 id="io/io-all-package">Package <code>IO/IO-ALL</code></h1><h1 id="io/simple-io-package">Package <code>IO/SIMPLE-IO</code></h1><div class=types-content>
+       <h3 class=types-header>Types</h3><h4 id=io-type><a href="#io-type"><code>IO</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/simple-io.lisp#L73-L74">src</a></sub></sup></sub></sup></h4><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#applicative-class">Applicative</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#baseio-class">BaseIo</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#functor-class">Functor</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monad-class">Monad</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadexception-class">MonadException</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadio-class">MonadIo</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadiofile-class">MonadIoFile</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadiorandom-class">MonadIoRandom</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadiostm-class">MonadIoSTM</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadioterm-class">MonadIoTerm</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadiothread-class">MonadIoThread</a> <a href="#ioruntime-type">IoRuntime</a> <a href="#iothread-type">IoThread</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#monadiovar-class">MonadIoVar</a> <a href="#io-type">IO</a></code>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> (<a href="#io-type">IO</a> :A)</code>
+         <li class=instances-item><code><a href="#unliftio-class">UnliftIo</a> <a href="#io-type">IO</a> <a href="#io-type">IO</a></code></ul></details></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=raise-dynamic-io-value><a href="#raise-dynamic-io-value"><code>(RAISE-DYNAMIC-IO DYN)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/simple-io.lisp#L167-L168">src</a></sub></sup></sub></sup></h4><code>&forall; :A. (<a href="#dynamic-type">Dynamic</a> &rarr; (<a href="#io-type">IO</a> :A))</code><h4 id=with-run-in-io_-value><a href="#with-run-in-io_-value"><code>(WITH-RUN-IN-IO_)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/simple-io.lisp#L253-L256">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. <a href="#unliftio-class">UnliftIo</a> :A <a href="#io-type">IO</a> &rArr; ((((:A :B) &rarr; (<a href="#io-type">IO</a> :B)) &rarr; (<a href="#io-type">IO</a> :C)) &rarr; (:A :C))</code><p class=docstring>`with-run-in-io`, but pegged to the simple-io implementation. Useful when you
+need to unlift, run, then immediately re-run a function. See, e.g., io-file:with-open-file%.<h4 id=try-dynamic-io-value><a href="#try-dynamic-io-value"><code>(TRY-DYNAMIC-IO IO-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/simple-io.lisp#L223-L227">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#io-type">IO</a> :A) &rarr; (<a href="#io-type">IO</a> (<a href="#result-type">Result</a> <a href="#dynamic-type">Dynamic</a> :A)))</code><h4 id=handle-all-io-value><a href="#handle-all-io-value"><code>(HANDLE-ALL-IO IO-OP HANDLE-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/simple-io.lisp#L210-L219">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#io-type">IO</a> :A) &rarr; (<a href="#unit-type">Unit</a> &rarr; (<a href="#io-type">IO</a> :A)) &rarr; (<a href="#io-type">IO</a> :A))</code><p class=docstring>Run IO-OP, and run HANDLE-OP to handle exceptions of any type thrown by IO-OP.<h4 id=map-into-io_-value><a href="#map-into-io_-value"><code>(MAP-INTO-IO_ ITR A-&gt;MB)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/simple-io.lisp#L278-L292">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. (<a href="#liftio-class">LiftIo</a> <a href="#io-type">IO</a> :D) (<a href="#intoiterator-class">IntoIterator</a> :A :B) &rArr; (:A &rarr; (:B &rarr; (<a href="#io-type">IO</a> :C)) &rarr; (:D (<a href="#list-type">List</a> :C)))</code><p class=docstring>Efficiently perform a monadic operation for each element of an iterator
+and return the results. More efficient than map-into-io, if you can run your
+effect in a BaseIo.<h4 id=foreach-io_-value><a href="#foreach-io_-value"><code>(FOREACH-IO_ ITR A-&gt;MB)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/simple-io.lisp#L296-L308">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. (<a href="#liftio-class">LiftIo</a> <a href="#io-type">IO</a> :D) (<a href="#intoiterator-class">IntoIterator</a> :A :B) &rArr; (:A &rarr; (:B &rarr; (<a href="#io-type">IO</a> :C)) &rarr; (:D <a href="#unit-type">Unit</a>))</code><p class=docstring>Efficiently perform a monadic operation for each element of an iterator.
+More efficient than foreach-io, if you can run your effect in a BaseIo.<h4 id=reraise-io-value><a href="#reraise-io-value"><code>(RERAISE-IO OP CATCH-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/simple-io.lisp#L176-L189">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. ((<a href="#io-type">IO</a> :A) &rarr; (<a href="#unit-type">Unit</a> &rarr; (<a href="#io-type">IO</a> :B)) &rarr; (<a href="#io-type">IO</a> :A))</code><h4 id=raise-io_-value><a href="#raise-io_-value"><code>(RAISE-IO_)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/simple-io.lisp#L172-L172">src</a></sub></sup></sub></sup></h4><code>&forall; :A. (<a href="#runtimerepr-class">RuntimeRepr</a> :A) (<a href="#signalable-class">Signalable</a> :A) &rArr; (:A &rarr; (<a href="#io-type">IO</a> <a href="#unit-type">Unit</a>))</code><h4 id=handle-io-value><a href="#handle-io-value"><code>(HANDLE-IO IO-OP HANDLE-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/simple-io.lisp#L193-L205">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#runtimerepr-class">RuntimeRepr</a> :B &rArr; ((<a href="#io-type">IO</a> :A) &rarr; (:B &rarr; (<a href="#io-type">IO</a> :A)) &rarr; (<a href="#io-type">IO</a> :A))</code><h4 id=raise-io-value><a href="#raise-io-value"><code>(RAISE-IO E)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/simple-io.lisp#L162-L163">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. (<a href="#runtimerepr-class">RuntimeRepr</a> :A) (<a href="#signalable-class">Signalable</a> :A) &rArr; (:A &rarr; (<a href="#io-type">IO</a> :B))</code><h4 id=run-io!-value><a href="#run-io!-value"><code>(RUN-IO! IO-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/simple-io.lisp#L103-L114">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((<a href="#io-type">IO</a> :A) &rarr; :A)</code><p class=docstring>Top-level run-io! that raises any unhandled exceptions.</div>
+      <hr><h1 id="io/stubs/term-package">Package <code>IO/STUBS/TERM</code></h1><div class=types-content>
+       <h3 class=types-header>Types</h3><h4 id=termstubm-type><a href="#termstubm-type"><code>TermStubM</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/stubs/term.lisp#L46-L46">src</a></sub></sup></sub></sup></h4><h4 id=termstub-type><a href="#termstub-type"><code>TermStub</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/stubs/term.lisp#L47-L47">src</a></sub></sup></sub></sup></h4></div>
+      <hr><div class=values-content>
+       <h3 class=values-header>Values</h3><h4 id=run-term-stubm-value><a href="#run-term-stubm-value"><code>(RUN-TERM-STUBM OPM READ-LINE-INPUTS)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/stubs/term.lisp#L74-L113">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B. <a href="#monad-class">Monad</a> :A &rArr; ((((<a href="#freet-type">FreeT</a> <a href="#termstubf-type">TermStubF</a>) :A) :B) &rarr; (<a href="#list-type">List</a> <a href="#string-type">String</a>) &rarr; (:A (<a href="#tuple-type">Tuple</a> (<a href="#list-type">List</a> <a href="#string-type">String</a>) :B)))</code><h4 id=run-term-stub-value><a href="#run-term-stub-value"><code>(RUN-TERM-STUB STUB-OP READ-LINE-INPUTS)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/stubs/term.lisp#L116-L117">src</a></sub></sup></sub></sup></h4><code>&forall; :A. ((((<a href="#freet-type">FreeT</a> <a href="#termstubf-type">TermStubF</a>) <a href="#identity-type">Identity</a>) :A) &rarr; (<a href="#list-type">List</a> <a href="#string-type">String</a>) &rarr; (<a href="#tuple-type">Tuple</a> (<a href="#list-type">List</a> <a href="#string-type">String</a>) :A))</code></div>
+      <hr>
+     </div>
+    </div>
+   </article>
+  </main>
+  <script>(function(){
+  function text(el){return (el&&el.textContent||"").trim()}
+  function buildIndex(main){
+    var items=[]
+    var pkg=""
+    var walker=document.createTreeWalker(main,NodeFilter.SHOW_ELEMENT,null,false)
+    var node=walker.currentNode
+    while(node){
+      var tag=node.tagName
+      if(tag==="H1"){
+        var code=node.querySelector("code")
+        pkg=text(code)||text(node)
+      }else if(tag==="H4"){
+        var a=node.querySelector('a[href^="#"]')
+        if(a){
+          var href=a.getAttribute("href")||""
+          var name=text(a)
+          var sub=node.querySelector("sub")
+          var typ=""
+          if(sub){
+            typ=text(sub).split("·")[0].trim()
+          }
+          if(href&&name){
+            items.push({name:name,href:href,typ:typ,pkg:pkg})
+          }
+        }
+      }
+      node=walker.nextNode()
+    }
+    return items
+  }
+  function el(tag,cls,txt){
+    var d=document.createElement(tag)
+    if(cls)d.className=cls
+    if(txt!=null)d.textContent=txt
+    return d
+  }
+  function setup(){
+    var input=document.getElementById("symbol-search-input")
+    var results=document.getElementById("search-results")
+    var main=document.querySelector(".main-content")
+    if(!input||!results||!main)return
+    var items=buildIndex(main)
+    var activeIndex=-1
+    function clear(){
+      results.innerHTML=""
+      results.classList.remove("active")
+      activeIndex=-1
+    }
+    function setActive(i){
+      var children=results.querySelectorAll(".search-result-item")
+      for(var k=0;k<children.length;k++)children[k].classList.remove("active")
+      if(i<0||i>=children.length)return
+      children[i].classList.add("active")
+      children[i].scrollIntoView({block:"nearest"})
+    }
+    function render(q){
+      q=(q||"").trim().toLowerCase()
+      results.innerHTML=""
+      activeIndex=-1
+      if(!q){
+        results.classList.remove("active")
+        return
+      }
+      var out=[]
+      for(var i=0;i<items.length;i++){
+        var it=items[i]
+        if(it.name.toLowerCase().indexOf(q)!==-1){
+          out.push(it)
+          if(out.length>=40)break
+        }
+      }
+      for(var j=0;j<out.length;j++){
+        var it2=out[j]
+        var row=el("div","search-result-item")
+        row.tabIndex=-1
+        row.dataset.href=it2.href
+        row.appendChild(el("span","search-result-symbol",it2.name))
+        if(it2.typ)row.appendChild(el("span","search-result-type",it2.typ))
+        if(it2.pkg)row.appendChild(el("div","search-result-package",it2.pkg))
+        row.addEventListener("mousedown",(function(href){
+          return function(e){
+            e.preventDefault()
+            window.location.hash=href.slice(1)
+            clear()
+            input.blur()
+          }
+        })(it2.href))
+        results.appendChild(row)
+      }
+      if(out.length)results.classList.add("active")
+      else results.classList.remove("active")
+    }
+    input.addEventListener("input",function(){render(input.value)})
+    input.addEventListener("focus",function(){if(input.value.trim())render(input.value)})
+    input.addEventListener("keydown",function(e){
+      var children=results.querySelectorAll(".search-result-item")
+      if(e.key==="Escape"){
+        clear()
+        input.blur()
+        return
+      }
+      if(!children.length)return
+      if(e.key==="ArrowDown"){
+        e.preventDefault()
+        activeIndex=Math.min(children.length-1,activeIndex+1)
+        setActive(activeIndex)
+        results.classList.add("active")
+        return
+      }
+      if(e.key==="ArrowUp"){
+        e.preventDefault()
+        activeIndex=Math.max(0,activeIndex-1)
+        setActive(activeIndex)
+        results.classList.add("active")
+        return
+      }
+      if(e.key==="Enter"){
+        if(activeIndex>=0&&activeIndex<children.length){
+          var href=children[activeIndex].dataset.href
+          if(href)window.location.hash=href.slice(1)
+          clear()
+          input.blur()
+        }
+      }
+    })
+    document.addEventListener("mousedown",function(e){
+      if(e.target===input||results.contains(e.target))return
+      clear()
+    })
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",setup)
+  else setup()
+})();</script>
+ </body>
+</html>

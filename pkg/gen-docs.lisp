@@ -1,17 +1,42 @@
 (cl:in-package :cl-user)
 
+(ql:quickload "coalton/doc")
+(ql:quickload "coalton-io")
 (defpackage :io.doc
   (:use :cl))
 (in-package :io.doc)
 
 (defun write-docs (&key
-                     (pathname "SIMPLE-IO.md")
-                     (packages '(io/simple-io)))
-  ;; (ql:quickload "coalton/doc")
-  ;; (ql:quickload "io")
+                     (pathname "../docs/index.html")
+                     (packages (mapcar
+                                (lambda (p)
+                                  (coalton/doc/model::make-coalton-package (find-package p)
+                                                                           :reexported-symbols t))
+                                (list
+                                 'io/thread-exceptions
+                                 'io/exception
+                                 'io/monad-io
+                                 'io/resource
+                                 'io/mut
+                                 'io/term
+                                 'io/random
+                                 'io/thread
+                                 'io/atomic
+                                 'io/mvar
+                                 'io/future
+                                 'io/file
+                                 'io/unique
+                                 'io/stm
+                                 'io/io-all
+                                 'io/simple-io
+                                 'io/stubs/term
+                                 ))))
 
   (coalton/doc:write-documentation
     pathname
     packages
-    :backend :hugo))
+    :local-path (namestring (asdf:system-source-directory "coalton-io"))
+    :remote-path "https://github.com/Jason94/coalton-io/tree/master"
+    :backend :html))
+
 (write-docs)

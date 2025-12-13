@@ -19,7 +19,7 @@
    #:is-empty-mvar
    #:do-with-mvar
 
-   #:MChan
+   #:Chan
    #:new-empty-chan
    #:push-chan
    #:pop-chan

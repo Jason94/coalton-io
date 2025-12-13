@@ -21,17 +21,6 @@
    #:do-foreach-io_
    #:map-into-io_
    #:do-map-into-io_
+   ))
 
-   ;; Re-exports from io/classes/monad-io
-   #:MonadIo
-   #:wrap-io_
-
-   #:derive-monad-io
-   #:derive-lift-io
-   #:wrap-io
-   #:run-as!
-   #:map-into-io
-   #:do-map-into-io
-   #:foreach-io
-   #:do-foreach-io))
 (in-package :io/simple-io)

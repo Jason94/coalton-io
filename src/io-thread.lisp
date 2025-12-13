@@ -13,10 +13,6 @@
    #:Stopped
    #:Running
 
-   ;; Re-exports from io/thread-exceptions
-   #:ThreadingException
-   #:InterruptCurrentThread
-
    ;; Re-exports from io/classes/monad-io-thread
    #:MonadIoThread
    #:derive-monad-io-thread
