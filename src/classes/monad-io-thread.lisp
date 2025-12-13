@@ -5,8 +5,10 @@
    #:coalton-prelude
    #:coalton-library/types
    #:coalton-library/monad/classes
+   #:coalton-library/experimental/do-control-core
    #:io/utils
    #:io/thread-exceptions
+   #:io/classes/monad-exception
    #:io/classes/monad-io
    #:io/classes/monad-io-term
    #:io/thread-impl/runtime)
@@ -22,6 +24,7 @@
    #:current-thread!
    #:sleep!
    #:fork!
+   #:fork-throw!
    #:join!
    #:stop!
    #:mask!
@@ -34,6 +37,7 @@
    #:derive-monad-io-thread
    #:current-thread
    #:fork-thread
+   #:fork-thread-throw
    #:join-thread
    #:sleep
    #:mask-thread
@@ -44,6 +48,7 @@
    #:unmask-current-thread-finally
    #:stop-thread
    #:do-fork-thread
+   #:do-fork-thread-throw
 
    #:write-line-sync
 
@@ -84,11 +89,19 @@ over the underlying thread type."
      "Spawn a new thread, which starts running immediately.
 Returns the handle to the thread."
      (Proxy :r -> (Unit -> :a) -> :t))
+    (fork-throw!
+     "Spawn a new thread, which starts running immediately. Returns
+the handle to the thread. If the thread raises an unhandled exception,
+throws immediately. The underlying system determines the result of the
+throw, but it could include terminating the whole program."
+     (Proxy :r -> (Unit -> :a) -> :t))
     (join!
      "Block the current thread until the target thread is completed.
-Does not retrieve value or error state from the target thread. JOIN!
-is the lowest level operation to block on another thread's termination."
-     (Proxy :r -> :t -> Unit))
+Does not a retrieve value. Raises an exception if the target thread
+raised an unhandled exception, wrapping the target thread's raised
+exception. JOIN! is the lowest level operation to block on another
+thread's termination."
+     (Proxy :r -> :t -> Result Dynamic Unit))
     (stop!
      "Stop a :t. If the thread has already stopped, does nothing.
 If the :t is masked, this will pend a stop on the :t. When/if
@@ -229,8 +242,12 @@ for debugging."
   (declare fork-thread ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :r)
                         => :r :a -> :m :t))
   (define (fork-thread op)
-    "Spawn a new thread, which starts running immediately.
-Returns the handle to the thread. This version can accept
+    "Spawn a new thread, which starts running immediately. Returns
+the handle to the thread. If the thread raises an unhandled exception,
+it will be logged to *ERROR-OUTPUT* and swallowed, until/if the thread
+is joined.
+
+This version can accept
 any underlying BaseIo, which can be useful, but causes inference
 issues in some cases."
     (lift-to
@@ -242,12 +259,38 @@ issues in some cases."
                       (run! (run op)))))))))
 
   (inline)
-  (declare join-thread (MonadIoThread :rt :t :m => :t -> :m Unit))
+  (declare fork-thread-throw ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :r)
+                              => :r :a -> :m :t))
+  (define (fork-thread-throw op)
+  "Spawn a new thread, which starts running immediately. Returns
+the handle to the thread. If the thread raises an unhandled exception,
+throws immediately. The underlying system determines the result of the
+throw, but it could include terminating the whole program."
+    (lift-to
+     (with-run-in-io
+       (fn (run)
+         (wrap-io
+          (fork-throw! (get-runtime-for op)
+                       (fn (_)
+                         (run! (run op)))))))))
+
+  (inline)
+  (declare join-thread ((MonadIoThread :rt :t :m) (MonadException :m) => :t -> :m Unit))
   (define (join-thread thread)
     "Block the current thread until the target thread is completed.
-Does not retrieve value or error state from the target thread. JOIN-THREAD
-is the lowest level operation to block on another thread's termination."
-    (inject-runtime join! thread))
+Does not a retrieve value. Raises an exception if the target thread
+raised an unhandled exception, wrapping the target thread's raised
+exception. JOIN-THREAD is the lowest level operation to block on another
+thread's termination."
+    (let m-prx = Proxy)
+    (let rt-prx = (runtime-for m-prx))
+    (as-proxy-of
+     (do-matchM (wrap-io (join! rt-prx thread))
+       ((Ok _)
+        (pure Unit))
+       ((Err e)
+        (raise (JoinedFailedThread e))))
+     m-prx))
 
   (inline)
   (declare stop-thread (MonadIoThread :rt :t :m => :t -> :m Unit))
@@ -338,6 +381,11 @@ stopped after being unmasked N times."
 
 (cl:defmacro do-fork-thread (cl:&body body)
   `(fork-thread
+    (do
+     ,@body)))
+
+(cl:defmacro do-fork-thread-throw (cl:&body body)
+  `(fork-thread-throw
     (do
      ,@body)))
 

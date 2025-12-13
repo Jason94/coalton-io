@@ -6,6 +6,7 @@
    #:coalton-library/monad/classes
    #:io/utils
    #:io/classes/monad-io
+   #:io/classes/monad-exception
    #:io/thread-exceptions
    )
   (:local-nicknames
@@ -26,11 +27,13 @@
    #:current-thread!%
    #:sleep!%
    #:fork!%
+   #:fork-throw!%
    #:join!%
    #:stop!%
    #:mask!%
    #:unmask!%
 
+   ;; TODO: Delete all of these!
    #:current-thread%
    #:fork%
    #:join%
@@ -209,9 +212,15 @@ thread is alive before interrupting."
   (define current-thread%
     (wrap-io_ current-thread!%))
 
+  (derive Eq)
+  (repr :enum)
+  (define-type UnhandledExceptionStrategy
+    ThrowException
+    LogAndSwallow)
+
   (inline)
-  (declare fork!% ((Unit -> :a) -> IoThread))
-  (define (fork!% thunk)
+  (declare fork-inner!% (UnhandledExceptionStrategy -> (Unit -> :a) -> IoThread))
+  (define (fork-inner!% exc-strat thunk)
     ;; Both the returning thread handle and the one made available to the child
     ;; thread have to have the IoThread packaged together before they do anything
     ;; meaningful. As such, we'll construct it and then each thread will set
@@ -227,22 +236,42 @@ thread is alive before interrupting."
       (t:spawn (fn ()
                  (c:write! (.handle thread-container)
                            (Some (current-native-thread%)))
+                 ;; Unit -> Result Dynamic Unit
                  (let f =
                    (fn ()
-                     (catch (thunk)
-                       ;; If we hit this point, then we've ended the thread's meaningful work.
-                       ;; It will stop after this, so we don't need to raise again.
-                       ((InterruptCurrentThread msg)
-                        ;; Satisfy type inference; don't force (:r :a) => (:r Unit)
-                        (lisp :a () cl:nil)))))
+                     (catch-thunk
+                      (fn ()
+                        (catch (thunk)
+                          ;; If we hit this point, then we've ended the thread's meaningful work.
+                          ;; It will stop after this, so we don't need to raise again.
+                          ((InterruptCurrentThread msg)
+                           ;; Satisfy type inference; don't force (:r :a) => (:r Unit)
+                           (lisp :a () cl:nil)))
+                        Unit))))
                  ;; Set the thread-specific dynamic variables the runtime depends on. *current-thread*
                  ;; is defined here, the others are defined in the core simple-io implementation.
-                 (lisp Void (f thread-container)
+                 (lisp Void (f thread-container exc-strat)
                    (cl:let ((*current-thread* thread-container))
-                     (call-coalton-function f)))
+                     (cl:handler-case (call-coalton-function f)
+                       (cl:error (e)
+                         (cl:if (cl:eql exc-strat 'UnhandledExceptionStrategy/LogAndSwallow)
+                                (cl:format cl:*error-output*
+                                           "Unhandled exception occurred: ~a"
+                                           e)
+                                (cl:error e))))))
                  Unit)))
     (c:write! (.handle thread-container) (Some native-thread))
     thread-container)
+
+  (inline)
+  (declare fork!% ((Unit -> :a) -> IoThread))
+  (define (fork!% thunk)
+    (fork-inner!% LogAndSwallow thunk))
+
+  (inline)
+  (declare fork-throw!% ((Unit -> :a) -> IoThread))
+  (define (fork-throw!% thunk)
+    (fork-inner!% ThrowException thunk))
 
   (inline)
   (declare fork% ((MonadIo :m) (UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m IoThread))
@@ -259,18 +288,12 @@ runtime."
                         (run! (run op)))))))))
 
   (inline)
-  (declare join!% (IoThread -> Unit))
+  (declare join!% (IoThread -> Result Dynamic Unit))
   (define (join!% thread)
     (let native-thread = (opt:from-some "Error: IoThread leaked without setting native thread handle"
                                         (c:read (.handle thread))))
-    (lisp :a (native-thread)
-      (bt:join-thread native-thread))
-    Unit)
-
-  (inline)
-  (declare join% (MonadIo :m => IoThread -> :m Unit))
-  (define (join% thread)
-    (wrap-io (join!% thread)))
+    (lisp (Result Dynamic Unit) (native-thread)
+      (bt:join-thread native-thread)))
 
   (inline)
   (declare sleep!% (UFix -> Unit))

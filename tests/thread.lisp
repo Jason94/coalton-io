@@ -2,6 +2,7 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:io/utils
         #:io/simple-io
+        #:io/exception
         #:io/thread
         #:io/mut
         #:io/mvar
@@ -89,6 +90,19 @@
       (join-thread thread)
       (read value))))
   (is (== (Some 10) result)))
+
+(define-test test-join-target-thread-raises ()
+  (let result =
+    (run-io!
+     (do
+      (gate <- s-new)
+      (thread <-
+       (do-fork-thread_
+         (s-signal gate)
+         (raise "Error in target thread!")))
+      (s-await gate)
+      (try-all (join-thread thread)))))
+  (is (== None result)))
 
 (define-test test-stop ()
   (let result =

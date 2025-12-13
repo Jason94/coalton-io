@@ -22,6 +22,7 @@
    #:derive-monad-io-thread
    #:current-thread
    #:fork-thread
+   #:fork-thread-throw
    #:join-thread
    #:sleep
    #:mask-thread
@@ -32,10 +33,13 @@
    #:unmask-current-thread-finally
    #:stop-thread
    #:do-fork-thread
+   #:do-fork-thread-throw
 
    ;; Re-exports from io/io-impl/thread
    #:fork-thread_
+   #:fork-thread-throw_
    #:do-fork-thread_
+   #:do-fork-thread-throw_
 
    ;; Re-exports from io/gen-impl/thread
    #:write-line-sync
