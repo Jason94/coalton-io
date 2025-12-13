@@ -288,14 +288,11 @@ thread is alive before interrupting."
   (inline)
   (declare join!% (IoThread -> Result Dynamic Unit))
   (define (join!% thread)
-    (traceobject "Joining thread" thread)
     (let native-thread = (opt:from-some "Error: IoThread leaked without setting native thread handle"
                                         (c:read (.handle thread))))
-    (traceobject "Native thread" native-thread)
     (let join-result =
       (lisp (Result Dynamic Unit) (native-thread)
         (bt:join-thread native-thread)))
-    (traceobject "join result" join-result)
     join-result)
 
   (inline)

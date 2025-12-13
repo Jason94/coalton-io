@@ -104,6 +104,22 @@
       (try-all (join-thread thread)))))
   (is (== None result)))
 
+(define-test test-join-stopped-target-doesnt-raise ()
+  (let result =
+    (run-io!
+     (do
+      (start-gate <- s-new)
+      (wait-gate <- s-new)
+      (thread <-
+       (do-fork-thread_
+         (s-signal start-gate)
+         (s-await wait-gate)
+         (pure Unit)))
+      (s-await start-gate)
+      (stop-thread thread)
+      (try-all (join-thread thread)))))
+  (is (== (Some Unit) result)))
+
 (define-test test-stop ()
   (let result =
     (run-io!
