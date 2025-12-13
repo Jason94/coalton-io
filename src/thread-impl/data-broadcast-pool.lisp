@@ -4,6 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:io/utils
+   #:io/thread-exceptions
    #:io/thread-impl/runtime
    )
   (:local-nicknames

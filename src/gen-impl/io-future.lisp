@@ -3,13 +3,14 @@
   (:use
    #:coalton
    #:coalton-prelude
+   #:coalton-library/types
    #:coalton-library/monad/classes
    #:coalton-library/experimental/do-control-core
    #:io/utils
    #:io/classes/monad-exception
    #:io/classes/monad-io
    #:io/classes/monad-io-thread
-   #:io/classes/monad-io-mvar
+   #:io/gen-impl/mvar
    )
   (:export
    #:Future
@@ -39,8 +40,9 @@
   (define (value-mvar (Future% mvar))
     mvar)
 
-  (declare fork-future ((MonadIoThread :m :t) (MonadIoMVar :m) (MonadIoMVar :r)
-                        (UnliftIo :r :i) (LiftTo :r :m) (MonadException :r)
+  (inline)
+  (declare fork-future ((MonadException :r) (LiftTo :r :m) (UnliftIo :r :i)
+                        (MonadIoThread :rt :t :r) (MonadIoThread :rt :t :m)
                         => :r :a -> :m (Future :a)))
   (define (fork-future task)
     "Spawn a new future, which will run and eventually return the result
@@ -48,14 +50,14 @@ from TASK. The future is guaranteed to only ever run at most once, when
 the produced :m is run."
     (do
      (value-var <- new-empty-mvar)
-     (do-fork
-       (result <- (try-dynamic task))
-       (put-mvar value-var result))
+     (fork-thread
+      (do
+        (result <- (try-dynamic task))
+        (put-mvar value-var result)))
      (pure (Future% value-var))))
 
-
   (inline)
-  (declare await ((MonadIoMVar :m) (MonadException :m) => Future :a -> :m :a))
+  (declare await ((MonadIoThread :rt :t :m) (MonadException :m) => Future :a -> :m :a))
   (define (await future)
     "Read the value from FUTURE, blocking until it is available.
 Raises any exceptions in the awaiting thread that were raised in
@@ -67,7 +69,7 @@ the future thread."
        (raise-dynamic dyn-e))))
 
   (inline)
-  (declare try-read-future ((MonadIoMvar :m) (MonadException :m)
+  (declare try-read-future ((MonadIoThread :rt :t :m) (MonadException :m)
                             => Future :a -> :m (Optional :a)))
   (define (try-read-future future)
     "Try to read the current value from FUTURE, returning NONE

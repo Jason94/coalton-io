@@ -208,7 +208,7 @@
            (b-val <- (read-tvar b))
            (tx-io!% (modify observed-bs (Cons b-val)))
            (pure (Tuple a-val b-val)))))
-      (do-fork_
+      (do-fork-thread_
         (take-mvar read-gate)
         (do-run-tx
           (write-tvar a 1)

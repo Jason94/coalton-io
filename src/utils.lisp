@@ -26,9 +26,13 @@
    #:to-dynamic
    #:force-dynamic
    #:cast
+   #:can-cast-to?
    #:MockException
    #:throw-dynamic
    #:proxy-swap-inner
+   #:proxy-outer
+   #:proxies-eql
+   #:proxy-result-of
    ))
 (in-package :io/utils)
 
@@ -76,17 +80,31 @@ Coalton exceptions via `define-exception`."
         (cl:error (e)
           (Err (UnhandledError e))))))
 
+  (inline)
   (declare force-string (:a -> String))
   (define (force-string x)
     (lisp String (x)
       (cl:format cl:nil "~a" x)))
 
+  (inline)
   (declare compose2 ((:c -> :d) -> (:a -> :b -> :c) -> :a -> :b -> :d))
   (define (compose2 fcd fabc a b)
     (fcd (fabc a b)))
 
+  (inline)
   (declare proxy-outer (Proxy :a -> Proxy (:m :a)))
   (define (proxy-outer _)
+    Proxy)
+
+  (inline)
+  (declare proxies-eql (Proxy :a -> Proxy :a -> Unit))
+  (define (proxies-eql _ _)
+    "Force two proxies to represent the same type."
+    Unit)
+
+  (inline)
+  (declare proxy-result-of ((:a -> :b) -> Proxy :b))
+  (define (proxy-result-of _)
     Proxy)
 
   (inline)
@@ -155,6 +173,11 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
          (Some (lisp :b (dyn-val) dyn-val))
          None)
      (proxy-outer prx-b)))
+
+  (declare can-cast-to? (RuntimeRepr :b => Dynamic -> Proxy :b -> Boolean))
+  (define (can-cast-to? (Dynamic% _ dyn-repr) repr-prx)
+    "Check whether dyn-val can cast to a type."
+    (== dyn-repr (runtime-repr repr-prx)))
 
   (define-exception MockException
     MockException)

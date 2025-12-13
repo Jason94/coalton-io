@@ -26,20 +26,20 @@
 
 (coalton-toplevel
 
-  (declare with-mask ((MonadIoThread :m :t) (MonadException :m)
+  (declare with-mask ((MonadIoThread :rt :t :m) (MonadException :m)
                       => :m :a -> :m :a))
   (define (with-mask op)
     "Mask the current thread while running OP, automatically unmasking
 afterward."
     (do
-     mask-current
+     mask-current-thread
      (reraise
       (do
        (result <- op)
-       unmask-current
+       unmask-current-thread
        (pure result))
       (fn (_)
-        unmask-current))))
+        unmask-current-thread))))
 
   (derive Eq)
   (repr :lisp)
@@ -56,7 +56,7 @@ afterward."
      (map Ok op)
      (compose pure Err)))
 
-  (declare bracket-io ((MonadException :m) (MonadIoThread :m :t) (RuntimeRepr :e) (Signalable :e)
+  (declare bracket-io ((MonadException :m) (MonadIoThread :rt :t :m) (RuntimeRepr :e) (Signalable :e)
                        => :m :r
                        -> (:r -> ExitCase :e -> :m :a)
                        -> (:r -> :m :b)
@@ -99,7 +99,7 @@ using BRACKET-IO to clean after stops:
             (release-op resource (Errored e))
             (raise e))))))
 
-  (declare bracket-io_ ((MonadException :m) (MonadIoThread :m :t)
+  (declare bracket-io_ ((MonadException :m) (MonadIoThread :rt :t :m)
                         => :m :r
                         -> (:r -> :m :a)
                         -> (:r -> :m :b)

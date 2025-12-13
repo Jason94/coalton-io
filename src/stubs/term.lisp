@@ -11,8 +11,6 @@
    (:ft #:coalton-library/monad/freet)
    (:id #:coalton-library/monad/identity)
    (:io-rand #:io/random)
-   (:io-mvar #:io/mvar)
-   (:io-atom #:io/atomic)
    (:io-file #:io/file)
    (:io-mut #:io/mut)
    (:io-thd #:io/thread)
@@ -67,8 +65,6 @@
   ;; like foreach-io.
   (derive-monad-io :m (TermStubM :m))
   (io-rand:derive-monad-io-random :m (TermStubM :m))
-  (io-mvar:derive-monad-io-mvar :m (TermStubM :m))
-  (io-atom:derive-monad-at-var :m (TermStubM :m))
   (io-file:derive-monad-io-file :m (TermStubM :m))
   (io-mut:derive-monad-var :m (termstubm :m))
   (io-thd:derive-monad-io-thread :m (TermStubM :m))

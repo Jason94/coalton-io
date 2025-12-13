@@ -3,7 +3,10 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:coalton-library/monad/classes)
+   #:coalton-library/types
+   #:coalton-library/monad/classes
+   #:io/utils
+   )
   (:import-from #:coalton-library/experimental/loops
    #:dolist)
   (:import-from #:coalton-library/experimental/do-control-loops-adv
@@ -21,6 +24,7 @@
 
    #:BaseIo
    #:run!
+   #:run-handled!
    #:run-as!
 
    #:LiftIo
@@ -29,6 +33,8 @@
 
    #:UnliftIo
    #:with-run-in-io
+   #:base-io-prx-for
+   #:unlift-io-prx-for
 
    #:map-into-io
    #:do-map-into-io
@@ -53,8 +59,13 @@
     "A 'base' IO implementation, which can be run to execute some
 (potentially side-effectful) operation."
     (run!
-     "run a (potentially) side-effectful operation."
-     (:m :a -> :a)))
+     "Run a (potentially) side-effectful operation. Throws any unhandled
+exceptions."
+     (:m :a -> :a))
+    (run-handled!
+     "Run a (potentially) side-effectful operation. Returns any unhandled
+exceptions as an (Err e)."
+     (:m :a -> Result Dynamic :a)))
 
   (define-class ((Monad :m) (BaseIo :i) => LiftIo :i :m)
     (lift-io (BaseIo :i => :i :a -> :m :a)))
@@ -116,6 +127,18 @@ Example:
               (fn (m-env)
                (ma->ioa-->iob
                 (e:run-envT m-env env))))))))))
+
+  (inline)
+  (declare base-io-prx-for (UnliftIo :r :i => Proxy (:r :a) -> Proxy (:i :b)))
+  (define (base-io-prx-for _)
+    "For an UnliftIo, get a proxy for its BaseIo."
+    Proxy)
+
+  (inline)
+  (declare unlift-io-prx-for (UnliftIo :r :i => Proxy (:i :a) -> Proxy (:r :b)))
+  (define (unlift-io-prx-for _)
+    "For an BaseIo, get a proxy for one of its UnliftIo's."
+    Proxy)
   )
 
 ;;;

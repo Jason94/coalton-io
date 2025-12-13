@@ -6,9 +6,10 @@
    #:io/exception
    #:io/mut
    #:io/mvar
-   #:io/thread)
+   #:io/thread
+   #:io/tests/utils
+   )
   (:local-nicknames
-   (:s #:coalton-threads/semaphore)
    (:l #:coalton-library/list))
   )
 (in-package :coalton-io/tests/mvar)
@@ -213,18 +214,6 @@
 ;;; Multi-Threaded Tests
 ;;;
 
-(coalton-toplevel
-  (declare s-new (MonadIo :m => :m s:Semaphore))
-  (define s-new
-    (wrap-io (s:new)))
-
-  (define (s-signal s)
-    (wrap-io (s:signal s 1)))
-
-  (define (s-await s)
-    (wrap-io (s:await s)))
-  )
-
 (define-test test-put-wakes-take ()
   (let result =
     (run-io!
@@ -232,7 +221,7 @@
       (s <- s-new)
       (mv <- new-empty-mvar)
       (result <- (new-var None))
-      (do-fork_
+      (do-fork-thread_
         ;; Let the main thread now we started
         (s-signal s)
         ;; Take the MVar
@@ -256,7 +245,7 @@
       (s <- s-new)
       (mv <- new-empty-mvar)
       (result <- (new-var None))
-      (do-fork_
+      (do-fork-thread_
         ;; Let the main thread now we started
         (s-signal s)
         ;; Read the MVar
@@ -279,7 +268,7 @@
      (do
       (s <- s-new)
       (mv <- (new-mvar 0))
-      (do-fork_
+      (do-fork-thread_
         ;; Let the main thread now we started
         (s-signal s)
         ;; Put the MVar
@@ -305,7 +294,7 @@
       (mv <- new-empty-mvar)
       (result-a <- (new-var None))
       (result-b <- (new-var None))
-      (do-fork_
+      (do-fork-thread_
         ;; Let the main thread now we started
         (s-signal s)
         ;; Read the MVar
@@ -313,7 +302,7 @@
         (write result-a (Some contents))
         ;; Signal done
         (s-signal s))
-      (do-fork_
+      (do-fork-thread_
         ;; Let the main thread now we started
         (s-signal s)
         ;; Read the MVar
@@ -348,11 +337,11 @@
     (s-start <- s-new)
     (s-finish <- s-new)
     (mv <- (new-mvar 0))
-    (do-fork_
+    (do-fork-thread_
       (s-signal s-start)
       (put-mvar mv 10)
       (s-signal s-finish))
-    (do-fork_
+    (do-fork-thread_
       (s-await s-start)
       (sleep 5)
       (read-mvar mv)
@@ -369,12 +358,12 @@
     (s-start <- s-new)
     (s-finish <- s-new)
     (mv <- new-empty-mvar)
-    (do-fork_
+    (do-fork-thread_
       (s-signal s-threads)
       (s-signal s-start)
       (take-mvar mv)
       (s-signal s-finish))
-    (do-fork_
+    (do-fork-thread_
       (s-await s-threads)
       (s-signal s-start)
       (read-mvar mv)

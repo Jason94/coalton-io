@@ -6,11 +6,14 @@
    #:coalton-library/monad/classes
    #:io/thread-impl/runtime
    #:io/classes/monad-io-thread
+   #:io/io-impl/runtime
    #:io/io-impl/simple-io
    )
   (:export
-   #:fork_
-   #:do-fork_
+   #:fork-thread_
+   #:fork-thread-throw_
+   #:do-fork-thread_
+   #:do-fork-thread-throw_
    ))
 (in-package :io/io-impl/thread)
 
@@ -18,12 +21,21 @@
 
 (coalton-toplevel
 
-  (declare fork_ ((MonadIoThread :m IoThread) (LiftTo IO :m)
+  (declare fork-thread_ ((MonadIoThread IoRuntime IoThread :m) (LiftTo IO :m)
                   => IO :a -> :m IoThread))
-  (define fork_ fork)
+  (define fork-thread_ fork-thread)
+
+  (declare fork-thread-throw_ ((MonadIoThread IoRuntime IoThread :m) (LiftTo IO :m)
+                  => IO :a -> :m IoThread))
+  (define fork-thread-throw_ fork-thread-throw)
   )
 
-(cl:defmacro do-fork_ (cl:&body body)
-  `(fork_
+(cl:defmacro do-fork-thread_ (cl:&body body)
+  `(fork-thread_
+    (do
+     ,@body)))
+
+(cl:defmacro do-fork-thread-throw_ (cl:&body body)
+  `(fork-thread-throw_
     (do
      ,@body)))
