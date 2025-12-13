@@ -26,6 +26,8 @@
     (inline)
     (define (fork! _) fork!%)
     (inline)
+    (define (join! _) join!%)
+    (inline)
     (define (stop! _) stop!%)
     (inline)
     (define (mask! _) mask!%)

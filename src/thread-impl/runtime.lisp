@@ -9,6 +9,7 @@
    #:io/thread-exceptions
    )
   (:local-nicknames
+   (:opt #:coalton-library/optional)
    (:c #:coalton-library/cell)
    (:b #:coalton-library/bits)
    (:v #:coalton-library/vector)
@@ -25,12 +26,14 @@
    #:current-thread!%
    #:sleep!%
    #:fork!%
+   #:join!%
    #:stop!%
    #:mask!%
    #:unmask!%
 
    #:current-thread%
    #:fork%
+   #:join%
    #:sleep%
    #:mask%
    #:mask-current-thread%
@@ -217,6 +220,10 @@ thread is alive before interrupting."
     ;; regardless of race conditions.
     (let thread-container = (IoThread (c:new None) (at:new CLEAN)))
     (let native-thread =
+      ;; TODO: Could we use bt:make-threads's initial-bindings param to replace this
+      ;; dynamic binding nonsense?? That would involve wrapping bt directly but honestly
+      ;; we're basically there.
+      ;; See https://sionescu.github.io/bordeaux-threads/threads/make-thread/
       (t:spawn (fn ()
                  (c:write! (.handle thread-container)
                            (Some (current-native-thread%)))
@@ -250,6 +257,20 @@ runtime."
             (wrap-io
               (fork!% (fn (_)
                         (run! (run op)))))))))
+
+  (inline)
+  (declare join!% (IoThread -> Unit))
+  (define (join!% thread)
+    (let native-thread = (opt:from-some "Error: IoThread leaked without setting native thread handle"
+                                        (c:read (.handle thread))))
+    (lisp :a (native-thread)
+      (bt:join-thread native-thread))
+    Unit)
+
+  (inline)
+  (declare join% (MonadIo :m => IoThread -> :m Unit))
+  (define (join% thread)
+    (wrap-io (join!% thread)))
 
   (inline)
   (declare sleep!% (UFix -> Unit))

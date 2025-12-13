@@ -22,6 +22,7 @@
    #:derive-monad-io-thread
    #:current-thread
    #:fork-thread
+   #:join-thread
    #:sleep
    #:mask-thread
    #:mask-current-thread

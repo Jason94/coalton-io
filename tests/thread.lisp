@@ -75,7 +75,20 @@
                 (%)))))))
   (is (== Set result)))
 
-;;; TODO: Replace the rest of these mvar's in tests with semaphores
+(define-test test-join ()
+  (let result =
+    (run-io!
+     (do
+      (gate <- s-new)
+      (value <- (new-var None))
+      (thread <-
+       (do-fork-thread_
+         (s-signal gate)
+         (write value (Some 10))))
+      (s-await gate)
+      (join-thread thread)
+      (read value))))
+  (is (== (Some 10) result)))
 
 (define-test test-stop ()
   (let result =

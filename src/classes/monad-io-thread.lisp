@@ -22,6 +22,7 @@
    #:current-thread!
    #:sleep!
    #:fork!
+   #:join!
    #:stop!
    #:mask!
    #:unmask!
@@ -33,6 +34,7 @@
    #:derive-monad-io-thread
    #:current-thread
    #:fork-thread
+   #:join-thread
    #:sleep
    #:mask-thread
    #:mask-current-thread
@@ -82,6 +84,11 @@ over the underlying thread type."
      "Spawn a new thread, which starts running immediately.
 Returns the handle to the thread."
      (Proxy :r -> (Unit -> :a) -> :t))
+    (join!
+     "Block the current thread until the target thread is completed.
+Does not retrieve value or error state from the target thread. JOIN!
+is the lowest level operation to block on another thread's termination."
+     (Proxy :r -> :t -> Unit))
     (stop!
      "Stop a :t. If the thread has already stopped, does nothing.
 If the :t is masked, this will pend a stop on the :t. When/if
@@ -233,6 +240,14 @@ issues in some cases."
              (fork! (get-runtime-for op)
                     (fn (_)
                       (run! (run op)))))))))
+
+  (inline)
+  (declare join-thread (MonadIoThread :rt :t :m => :t -> :m Unit))
+  (define (join-thread thread)
+    "Block the current thread until the target thread is completed.
+Does not retrieve value or error state from the target thread. JOIN-THREAD
+is the lowest level operation to block on another thread's termination."
+    (inject-runtime join! thread))
 
   (inline)
   (declare stop-thread (MonadIoThread :rt :t :m => :t -> :m Unit))
