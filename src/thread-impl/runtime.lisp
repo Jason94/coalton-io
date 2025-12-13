@@ -34,17 +34,6 @@
    #:mask!%
    #:unmask!%
 
-   ;; TODO: Delete all of these!
-   #:current-thread%
-   #:fork%
-   #:join%
-   #:sleep%
-   #:mask%
-   #:mask-current-thread%
-   #:unmask%
-   #:unmask-current-thread%
-   #:stop%
-
    #:mask-current-thread!%
    #:unmask-finally!%
    #:unmask-finally%
@@ -208,11 +197,6 @@ thread is alive before interrupting."
     (lisp IoThread ()
       *current-thread*))
 
-  (inline)
-  (declare current-thread% (MonadIo :m => :m IoThread))
-  (define current-thread%
-    (wrap-io_ current-thread!%))
-
   (derive Eq)
   (repr :enum)
   (define-type UnhandledExceptionStrategy
@@ -271,20 +255,6 @@ thread is alive before interrupting."
   (define (fork-throw!% thunk)
     (fork-inner!% ThrowException thunk))
 
-;;   (inline)
-;;   (declare fork% ((MonadIo :m) (UnliftIo :r :i) (LiftTo :r :m) => :r :a -> :m IoThread))
-;;   (define (fork% op)
-;;     "Fork a new thread that runs OP. This function constructs the top-level thread runner,
-;; which sets up the dynamic context and top-level error handling for asynchronous exceptions
-;; for the new thread. In some ways, this function is the most important point in the thread
-;; runtime."
-;;     (lift-to
-;;      (with-run-in-io
-;;          (fn (run)
-;;             (wrap-io
-;;               (fork!% (fn (_)
-;;                         (run! (run op)))))))))
-
   (inline)
   (declare join!% (IoThread -> Result Dynamic Unit))
   (define (join!% thread)
@@ -301,11 +271,6 @@ thread is alive before interrupting."
     (lisp :a (msecs)
       (cl:sleep (cl:/ msecs 1000)))
     Unit)
-
-  (inline)
-  (declare sleep% (MonadIo :m => UFix -> :m Unit))
-  (define (sleep% msecs)
-    (wrap-io (sleep!% msecs)))
 
   ;;;
   ;;; Stopping & Masking Threads
@@ -324,21 +289,11 @@ thread is alive before interrupting."
     Unit)
 
   (inline)
-  (declare mask% (MonadIo :m => IoThread -> :m Unit))
-  (define (mask% thread)
-    (wrap-io (mask!% thread)))
-
-  (inline)
   (declare mask-current-thread!% (Unit -> Unit))
   (define (mask-current-thread!%)
     (mask!%
      (lisp IoThread ()
        *current-thread*)))
-
-  (inline)
-  (declare mask-current-thread% (MonadIo :m => :m Unit))
-  (define mask-current-thread%
-    (wrap-io_ mask-current-thread!%))
 
   ;; TODO: Merge this with unmask-current-thread-finally!% when MonadIoThread
   ;; loses the unmask other thread functions
@@ -452,11 +407,6 @@ just be limited to implementing only solutions #2 or #3.
     (unmask-finally!% thread (const Unit)))
 
   (inline)
-  (declare unmask% (MonadIo :m => IoThread -> :m Unit))
-  (define (unmask% thread)
-    (wrap-io (unmask-finally!% thread (const Unit))))
-
-  (inline)
   (declare unmask-current-thread-finally!% ((UnmaskFinallyMode -> Unit) -> Unit))
   (define (unmask-current-thread-finally!% thunk)
     (unmask-finally-current!% thunk))
@@ -486,20 +436,9 @@ just be limited to implementing only solutions #2 or #3.
            (wrap-io (unmask-current-thread-finally!% (fn (m) (run! (run (thunk m))))))))))
 
   (inline)
-  (declare unmask-current-thread% (MonadIo :m => :m Unit))
-  (define unmask-current-thread%
-    (wrap-io_ unmask-current-thread!%))
-
-  (inline)
   (declare stop!% (IoThread -> Unit))
   (define (stop!% thread)
     (let flag-state = (atomic-fetch-or (.flags thread) PENDING-KILL))
     (when (unmasked? flag-state)
       (interrupt-iothread% thread)))
-
-  (inline)
-  (declare stop% (MonadIo :m => IoThread -> :m Unit))
-  (define (stop% thread)
-    (wrap-io (stop!% thread)))
-
   )

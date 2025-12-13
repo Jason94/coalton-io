@@ -21,7 +21,6 @@
                   :serial t
                   :components ((:file "atomics")
                                (:file "runtime")
-                               (:file "data-broadcast-pool")
                                (:file "stm-impl")))
                  (:module "classes"
                   :serial t
@@ -31,8 +30,12 @@
                                (:file "monad-io-unique")
                                (:file "monad-io-random")
                                (:file "monad-io-var")
-                               (:file "monad-io-stm")))
-
+                               (:file "monad-io-stm")
+                               (:file "runtime-utils")
+                               ))
+                 ;; TODO: Finish converting this to use Runtime, then move
+                 ;; to gen-impl/conc
+                 (:file "thread-impl/data-broadcast-pool")
                  ;;;
                  ;;; Library Public Packages
                  ;;;
