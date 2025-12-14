@@ -234,7 +234,3 @@ This (slightly longer) example program manages ticket sales with transactions. T
     (write-line "Customers who bought tickets:")
     (foreach-io_ customers-with-tickets write-line))
 ```
-
-## TODOs
-
-* [ ] Standardize naming convention and type signatures with `_` suffix. (Should probably always mean pegged to IO)
