@@ -1,5 +1,6 @@
 (defpackage :coalton-io/tests/thread-async-boundary
   (:use #:coalton #:coalton-prelude #:coalton-testing
+        #:io/monad-io
         #:io/utils
         #:io/simple-io
         #:io/thread
