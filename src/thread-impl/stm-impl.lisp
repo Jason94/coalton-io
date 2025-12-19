@@ -297,10 +297,11 @@ conditions. DONT USE THIS!"
   (declare commit-logged-writes (WriteHashTable% -> Unit))
   (define (commit-logged-writes write-log)
     "Actually set the TVar's value to its corresponding logged write value."
-    (lisp :a (write-log)
+    (lisp Unit (write-log)
       (cl:loop :for addr :being :the :hash-keys :of write-log
          :using (hash-value value)
-         :do (call-coalton-function set-tvar% addr value))))
+         :do (call-coalton-function set-tvar% addr value)
+         :finally (cl:return Unit))))
 
   (inline)
   (declare new-tx-data% (Word -> TxData%))
