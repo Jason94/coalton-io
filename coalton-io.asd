@@ -52,7 +52,8 @@
                                (:file "io-term")
                                (:file "io-mut")
                                (:file "io-mvar")
-                               (:file "io-future")
+                               (:file "conc/io-future")
+                               (:file "conc/concurrent-group")
                                (:file "io-thread")
                                (:file "io-file")
                                (:file "io-random")
@@ -112,6 +113,9 @@ mutable variables, multithreading, and several data structures to safely share s
                  (:file "mvar")
                  (:file "future")
                  (:file "stm")
+                 (:module "conc"
+                  :serial t
+                  :components ((:file "concurrent-group")))
                  (:file "package"))))
   :description "Test system for coalton-io"
   :perform (test-op (op c) (symbol-call '#:coalton-io/tests '#:run-tests)))

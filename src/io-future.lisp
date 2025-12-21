@@ -1,7 +1,7 @@
 (cl:in-package :cl-user)
 (defpackage :io/future
   (:use
-   #:io/gen-impl/future
+   #:io/gen-impl/conc/future
    #:io/io-impl/future
    )
   (:export

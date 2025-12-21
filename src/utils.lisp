@@ -32,7 +32,9 @@
    #:proxy-swap-inner
    #:proxy-outer
    #:proxies-eql
+   #:proxy-with-arg
    #:proxy-result-of
+   #:proxy-returning
    ))
 (in-package :io/utils)
 
@@ -103,8 +105,18 @@ Coalton exceptions via `define-exception`."
     Unit)
 
   (inline)
+  (declare proxy-with-arg (Proxy :a -> Proxy (:a -> :b)))
+  (define (proxy-with-arg _)
+    Proxy)
+
+  (inline)
   (declare proxy-result-of ((:a -> :b) -> Proxy :b))
   (define (proxy-result-of _)
+    Proxy)
+
+  (inline)
+  (declare proxy-returning (Proxy :b -> Proxy (:a -> :b)))
+  (define (proxy-returning _)
     Proxy)
 
   (inline)

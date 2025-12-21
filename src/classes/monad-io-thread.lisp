@@ -66,6 +66,8 @@
    #:inject-runtime
    #:wrap-io-with-runtime
    #:prxs-same-runtime
+   #:concurrent-value-prx
+   #:value-concurrent-prx
    ))
 (in-package :io/classes/monad-io-thread)
 
@@ -179,6 +181,16 @@ callback should leave any resources in a valid state. An example of a valid call
 file if the thread is stopped, or closing the log file with a final message if the thread is
 continuing."
      (MonadIoThread :rt :t :m => :c -> (UnmaskFinallyMode -> :a) -> :m Unit)))
+
+  (inline)
+  (declare concurrent-value-prx (Concurrent :c :a => :c -> Proxy :a))
+  (define (concurrent-value-prx _)
+    Proxy)
+
+  (inline)
+  (declare value-concurrent-prx (Concurrent :c :a => Proxy :a -> Proxy :c))
+  (define (value-concurrent-prx _)
+    Proxy)
 
   ;; TODO: Hopefully remove :t from this definition when this issue is fixed:
   ;; https://github.com/coalton-lang/coalton/issues/1717

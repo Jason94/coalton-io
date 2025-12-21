@@ -1,4 +1,4 @@
-# `src/gen-impl/`
+## `src/gen-impl/`
 
 Contains two types of packages:
 
@@ -9,7 +9,7 @@ Contains two types of packages:
     * _Example:_ `src/gen-impl/conc/io-future` provides futures for any `:m` implementing
     both `MonadException` and `MonadIoThread`.
 
-## `src/gen-impl/conc/`
+### `src/gen-impl/conc/`
 
 Contains packages providing:
 

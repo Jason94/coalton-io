@@ -6,7 +6,7 @@
    #:coalton-library/monad/classes
    #:io/classes/monad-io-thread
    #:io/thread-impl/runtime
-   #:io/gen-impl/future
+   #:io/gen-impl/conc/future
    #:io/io-impl/runtime
    #:io/io-impl/simple-io
    )

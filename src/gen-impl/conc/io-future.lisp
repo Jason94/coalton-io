@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/gen-impl/future
+(defpackage :io/gen-impl/conc/future
   (:use
    #:coalton
    #:coalton-prelude
@@ -20,7 +20,7 @@
 
    #:do-fork-future
    ))
-(in-package :io/gen-impl/future)
+(in-package :io/gen-impl/conc/future)
 
 (named-readtables:in-readtable coalton:coalton)
 
