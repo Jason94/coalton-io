@@ -2,6 +2,7 @@
 (defpackage :io/file
   (:use
    #:io/classes/monad-io-file
+   #:io/io-impl/file
    #:io/gen-impl/file)
   (:export
    ;; Re-exports from io/classes/monad-io-file

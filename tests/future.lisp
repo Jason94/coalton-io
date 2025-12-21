@@ -2,6 +2,7 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:io/simple-io
         #:io/exception
+        #:io/thread
         #:io/future
         #:io/mut))
 (in-package :coalton-io/tests/future)

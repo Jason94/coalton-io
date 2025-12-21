@@ -13,15 +13,10 @@
                  ;;; Library Private Packages
                  ;;;
                  (:file "utils")
-                 (:file "threading-exceptions")
+                 (:file "thread-exceptions")
                  ;; Load the two main "core classes" files first, before thread-impl/
                  (:file "classes/monad-exception")
                  (:file "classes/monad-io")
-                 (:module "thread-impl"
-                  :serial t
-                  :components ((:file "atomics")
-                               (:file "runtime")
-                               (:file "stm-impl")))
                  (:module "classes"
                   :serial t
                   :components ((:file "monad-io-term")
@@ -30,9 +25,14 @@
                                (:file "monad-io-unique")
                                (:file "monad-io-random")
                                (:file "monad-io-var")
-                               (:file "monad-io-stm")
                                (:file "runtime-utils")
                                ))
+                 (:module "thread-impl"
+                  :serial t
+                  :components ((:file "atomics")
+                               (:file "runtime")
+                               (:file "stm-impl")))
+                 (:file "classes/monad-io-stm")
                  ;; TODO: Finish converting this to use Runtime, then move
                  ;; to gen-impl/conc
                  (:file "thread-impl/data-broadcast-pool")

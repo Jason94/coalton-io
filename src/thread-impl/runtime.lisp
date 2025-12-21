@@ -9,6 +9,7 @@
    #:io/thread-exceptions
    #:io/classes/monad-io
    #:io/classes/monad-exception
+   #:io/classes/monad-io-thread
    )
   (:local-nicknames
    (:opt #:coalton-library/optional)
@@ -393,14 +394,6 @@ just be limited to implementing only solutions #2 or #3.
       (interrupt-iothread% thread))
     Unit)
 
-  ;; TODO: Merge this into and replace with unmask-current-thread-finally!%
-  ;; At this point, they're the same, and that function is the only call-site
-  ;; of this one...
-  (inline)
-  (declare unmask-finally-current!% ((UnmaskFinallyMode -> Unit) -> Unit))
-  (define (unmask-finally-current!% thunk)
-    (unmask-finally!% (current-io-thread%) thunk))
-
   (inline)
   (declare unmask!% (IoThread -> Unit))
   (define (unmask!% thread)
@@ -409,7 +402,7 @@ just be limited to implementing only solutions #2 or #3.
   (inline)
   (declare unmask-current-thread-finally!% ((UnmaskFinallyMode -> Unit) -> Unit))
   (define (unmask-current-thread-finally!% thunk)
-    (unmask-finally-current!% thunk))
+    (unmask-finally!% (current-io-thread%) thunk))
 
   (inline)
   (declare unmask-current-thread!% (Unit -> Unit))
@@ -441,4 +434,29 @@ just be limited to implementing only solutions #2 or #3.
     (let flag-state = (atomic-fetch-or (.flags thread) PENDING-KILL))
     (when (unmasked? flag-state)
       (interrupt-iothread% thread)))
+  )
+
+;;;
+;;; IoThread Concurrent Instance
+;;;
+
+(coalton-toplevel
+
+  (define-instance (Concurrent IoThread Unit)
+    (inline)
+    (define (stop thread)
+      (wrap-io (stop!% thread)))
+    (inline)
+    (define (await thread)
+      (raise-result-dynamic (wrap-io (join!% thread))))
+    (inline)
+    (define (mask thread)
+      (wrap-io (mask!% thread)))
+    (inline)
+    (define (unmask thread)
+      (wrap-io (unmask!% thread)))
+    (inline)
+    (define (unmask-finally thread callback)
+      (wrap-io (unmask-finally!% thread callback))))
+
   )

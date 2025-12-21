@@ -27,7 +27,7 @@
 ;;;
 ;;; It creates one thread to read lines from the file, N-WORKERS
 ;;; number of threads to parse the lines into integers, and one
-;;; thread to sum all of the integers togother. Two MChannels pass
+;;; thread to sum all of the integers togother. Two Channels pass
 ;;; the data through the worker threads, and the main thread uses a
 ;;; Future to await the final sum produced by the summer-thread.
 
@@ -58,7 +58,7 @@
          (pure Unit))
        (write-line "Done writing data file..."))))
 
-  (declare reader-thread (mv:MChan (Optional String) -> IO Unit))
+  (declare reader-thread (mv:Chan (Optional String) -> IO Unit))
   (define (reader-thread mchan-input)
     (do
      (f:do-with-open-file_ (f_:Input (into data-filename)) (fs)
@@ -68,7 +68,7 @@
      (do-loop-times (_ n-workers)
        (mv:push-chan mchan-input None))))
 
-  (declare parser-thread (mv:MChan (Optional String) -> mv:MChan (Optional Integer) -> IO Unit))
+  (declare parser-thread (mv:Chan (Optional String) -> mv:Chan (Optional Integer) -> IO Unit))
   (define (parser-thread mchan-input mchan-int)
     (do-if-not-valM (str (mv:pop-chan mchan-input))
           (mv:push-chan mchan-int None)
@@ -76,7 +76,7 @@
         (mv:push-chan mchan-int (Some x)))
       (parser-thread mchan-input mchan-int)))
 
-  (declare summer-thread (mv:MChan (Optional Integer) -> IO Integer))
+  (declare summer-thread (mv:Chan (Optional Integer) -> IO Integer))
   (define (summer-thread mchan-int)
     (do
      (sum <- (m:new-var 0))
@@ -97,9 +97,9 @@
      (input-chan <- mv:new-empty-chan)
      (ints-chan <- mv:new-empty-chan)
      (write-line "Forking threads...")
-     (fork (reader-thread input-chan))
+     (fork-thread (reader-thread input-chan))
      (do-loop-times (_ n-workers)
-       (fork (parser-thread input-chan ints-chan)))
+       (fork-thread (parser-thread input-chan ints-chan)))
      (sum-fut <- (fork-future (summer-thread ints-chan)))
      (write-line "Waiting for sum...")
      (sum <- (await sum-fut))
@@ -107,5 +107,7 @@
      (pure sum)))
   )
 
-(cl:defun run-example ()
-  (coalton (run-io! sum-file)))
+;; (cl:defun run-example ()
+;;   (coalton (run-io! sum-file)))
+
+;; (run-example)

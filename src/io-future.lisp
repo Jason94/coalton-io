@@ -8,7 +8,6 @@
    ;; Re-exports from io/gen-impl/future
    #:Future
    #:fork-future
-   #:await
    #:try-read-future
 
    #:do-fork-future

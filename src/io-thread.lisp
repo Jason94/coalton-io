@@ -14,6 +14,23 @@
    #:Running
 
    ;; Re-exports from io/classes/monad-io-thread
+   #:Runtime
+   #:current-thread!
+   #:sleep!
+   #:fork!
+   #:fork-throw!
+   #:join!
+   #:stop!
+   #:mask!
+   #:unmask!
+   #:unmask-finally!
+   #:mask-current!
+   #:unmask-current!
+
+   #:Concurrent
+   #:stop
+   #:await
+
    #:MonadIoThread
    #:derive-monad-io-thread
    #:current-thread

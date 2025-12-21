@@ -7,6 +7,7 @@
    #:coalton-library/monad/classes
    #:coalton-library/experimental/do-control-core
    #:io/utils
+   #:io/thread-exceptions
    #:io/classes/monad-exception
    #:io/classes/monad-io
    #:io/classes/monad-io-thread
@@ -15,7 +16,6 @@
   (:export
    #:Future
    #:fork-future
-   #:await
    #:try-read-future
 
    #:do-fork-future
@@ -24,21 +24,17 @@
 
 (named-readtables:in-readtable coalton:coalton)
 
-;;;
-;;; Futures - Note: Unlike most other packages, Futures can be defined
-;;; using MVars and Threads. Therefore, Future doesn't need a separate
-;;; capability class or deriving/implementing macros.
-;;;
-
 (coalton-toplevel
-  (repr :transparent)
-  (define-type (Future :a)
-    (Future% (MVar (Result Dynamic :a))))
-
-  (inline)
-  (declare value-mvar (Future :a -> MVar (Result Dynamic :a)))
-  (define (value-mvar (Future% mvar))
-    mvar)
+  ;; NOTE: Unfortunately we have to store all of the methods of the underlying Concurrent in here as
+  ;; thunks. The only alternative is to store the underlying Concurrent type in Future.
+  ;;
+  ;; TODO: Once Coalton gets GADTs, we can scrap all of this!
+  (define-struct (Future :a)
+    (value-mvar (MVar (Result Dynamic :a)))
+    (stop-callback (Unit -> Unit))
+    (mask-callback (Unit -> Unit))
+    (unmask-callback (Unit -> Unit))
+    (unmask-finally-callback ((UnmaskFinallyMode -> :a) -> Unit)))
 
   (inline)
   (declare fork-future ((MonadException :r) (LiftTo :r :m) (UnliftIo :r :i)
@@ -48,21 +44,30 @@
     "Spawn a new future, which will run and eventually return the result
 from TASK. The future is guaranteed to only ever run at most once, when
 the produced :m is run."
-    (do
-     (value-var <- new-empty-mvar)
-     (fork-thread
-      (do
-        (result <- (try-dynamic task))
-        (put-mvar value-var result)))
-     (pure (Future% value-var))))
+    (let m-prx = Proxy)
+    (let rt-prx = (runtime-for m-prx))
+    (as-proxy-of
+     (do
+      (value-var <- new-empty-mvar)
+      (thread <-
+       (do-fork-thread
+         (result <- (try-dynamic task))
+         (put-mvar value-var result)))
+      (pure (Future value-var
+                    (fn ()
+                      (stop! rt-prx thread))
+                    (fn ()
+                      (mask! rt-prx thread))
+                    (fn ()
+                      (unmask! rt-prx thread))
+                    (fn (callback)
+                      (unmask-finally! rt-prx thread callback)))))
+     m-prx))
 
   (inline)
-  (declare await ((MonadIoThread :rt :t :m) (MonadException :m) => Future :a -> :m :a))
-  (define (await future)
-    "Read the value from FUTURE, blocking until it is available.
-Raises any exceptions in the awaiting thread that were raised in
-the future thread."
-    (matchM (read-mvar (value-mvar future))
+  (declare await% ((MonadIoThread :rt :t :m) (MonadException :m) => Future :a -> :m :a))
+  (define (await% future)
+    (matchM (read-mvar (.value-mvar future))
       ((Ok a)
        (pure a))
       ((Err dyn-e)
@@ -75,7 +80,7 @@ the future thread."
     "Try to read the current value from FUTURE, returning NONE
 if it is not available. Raises any exceptions in the awaiting thread
 that were raised in the future thread."
-    (do-matchM (try-read-mvar (value-mvar future))
+    (do-matchM (try-read-mvar (.value-mvar future))
       ((None)
        (pure None))
       ((Some result?)
@@ -86,8 +91,30 @@ that were raised in the future thread."
           (raise-dynamic dyn-e))))))
   )
 
-
 (cl:defmacro do-fork-future (cl:&body body)
   `(fork-future
     (do
      ,@body)))
+
+;;;
+;;; Future Concurrent Instance
+;;;
+
+(coalton-toplevel
+
+  (define-instance (Concurrent (Future :a) :a)
+    (inline)
+    (define (stop fut)
+      (wrap-io ((.stop-callback fut))))
+    (inline)
+    (define await await%)
+    (inline)
+    (define (mask fut)
+      (wrap-io ((.mask-callback fut))))
+    (inline)
+    (define (unmask fut)
+      (wrap-io ((.unmask-callback fut))))
+    (inline)
+    (define (unmask-finally fut callback)
+      (wrap-io ((.unmask-finally-callback fut) callback))))
+  )

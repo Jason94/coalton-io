@@ -139,7 +139,7 @@ implement MonadException and handle asynchronous exception signals."
               (Ok (fa->b->c a b))))))))))
 
   (define-instance (Monad IO)
-    (inline)
+    ;; (inline)
     (define (>>= (IO% f->a?) fa->io-b)
       (IO%
        (fn ()

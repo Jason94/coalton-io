@@ -6,6 +6,7 @@
    #:io/mut
    #:io/resource
    #:io/thread
+   #:io/thread-exceptions
    #:io/mvar
    #:io/exception)
   (:local-nicknames

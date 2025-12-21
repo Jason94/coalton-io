@@ -11,7 +11,8 @@
    #:io/classes/monad-exception
    #:io/classes/monad-io
    #:io/classes/monad-io-term
-   #:io/thread-impl/runtime)
+   )
+   ;; #:io/thread-impl/runtime)
   (:import-from #:coalton-library/experimental/do-control-loops-adv
    #:LoopT)
   (:local-nicknames
@@ -33,6 +34,13 @@
    #:mask-current!
    #:unmask-current!
 
+   #:Concurrent
+   #:stop
+   #:await
+   #:mask
+   #:unmask
+   #:unmask-finally
+
    #:MonadIoThread
    #:derive-monad-io-thread
    #:current-thread
@@ -49,8 +57,6 @@
    #:stop-thread
    #:do-fork-thread
    #:do-fork-thread-throw
-
-   #:write-line-sync
 
    #:runtime-for
    #:as-runtime-prx
@@ -100,7 +106,7 @@ throw, but it could include terminating the whole program."
 Does not a retrieve value. Raises an exception if the target thread
 raised an unhandled exception, wrapping the target thread's raised
 exception. JOIN! is the lowest level operation to block on another
-thread's termination."
+thread's termination, and most code should use AWAIT instead."
      (Proxy :r -> :t -> Result Dynamic Unit))
     (stop!
      "Stop a :t. If the thread has already stopped, does nothing.
@@ -110,17 +116,23 @@ of whether the target :t is masked, STOP does not block or wait for
 the target thread to complete."
      (Proxy :r -> :t -> Unit))
     (mask!
-     "Mask the given thread so it can't be stopped."
+     "Mask the thread so it can't be stopped."
      (Proxy :r -> :t -> Unit))
     (unmask!
-     "Unmask the given thread so it can be stopped. Unmask respects
+     "Unmask the thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
 stopped after being unmasked N times. When the thread unmasks, if
 there are any pending stops, it will immediately be stopped."
      (Proxy :r -> :t -> Unit))
     (unmask-finally!
-     "Unmask the given thread, run the provided action, and then honor any
- pending stop for that thread after the action finishes."
+     "Unmask the thread, run the provided action, and then honor any pending stop for that
+thread after the action finishes.
+
+Warning: There is a very small chance that the UnmaskFinallyMode passed to the callback could be
+inconsistent with whether the Concurrent is ultimately stopped. Regardless of the input, the
+callback should leave any resources in a valid state. An example of a valid callback: closing a log
+file if the thread is stopped, or closing the log file with a final message if the thread is
+continuing."
       (Proxy :r -> :t -> (UnmaskFinallyMode -> :a) -> Unit)))
 
   (inline)
@@ -136,29 +148,38 @@ there are any pending stops, it will immediately be stopped."
     (unmask! rt-prx (current-thread! rt-prx)))
 
   (define-class (Concurrent :c :a (:c -> :a))
-    "A Concurrent is a type that has thread-like semantics. It can be
-stopped, masked, unmasked, and await-ed. Concurrents don't have a uniform
-fork function, becasue they might require different initialization input.
-The most important property of Concurrents is that they can be composed."
-    )
-;;     (stop__
-;;      "Stop a Concurrent. If the thread has already stopped, does nothing.
-;; If the Concurrent is masked, this will pend a stop on the Concurrent. When/if
-;; the Concurrent becomes completely unmaksed, it will stop iself. Regardless
-;; of whether the target Concurrent is masked, STOP does not block or wait for
-;; the target thread to complete."
-     ;; ((MonadIoThread :rt :t :m) => :c -> :m Unit)))
+    "A Concurrent has thread-like semantics. It can be stopped, masked, unmasked, and await-ed.
+Concurrents don't have a uniform fork function, becasue they require different initialization
+input."
+    (stop
+     "Stop a Concurrent. If the Concurrent has already stopped, does nothing.If the Concurrent is
+masked, this will pend a stop on the Concurrent. When/if the Concurrent becomes completely unmaksed,
+it will stop iself. Regardless of whether the target Concurrent is masked, STOP does not block or
+wait for the target to complete."
+     (MonadIoThread :rt :t :m => :c -> :m Unit))
+    (await
+     "Block the current thread until the target Concurrent is completed, and retrieve its value.
+Re-raises if the target Concurrent raised an unhandled exception"
+     ((MonadException :m) (MonadIoThread :rt :t :m) => :c -> :m :a))
+    (mask
+     "Mask the Concurrent so it can't be stopped."
+     (MonadIoThread :rt :t :m => :c -> :m Unit))
+    (unmask
+     "Unmask the Concurrent so it can be stopped. Unmask respects nested masks - if the
+Concurrent has been masked N times, it can only be stopped after being unmasked N times. When the
+Concurrent unmasks, if there are any pending stops, it will immediately stop itself."
+     (MonadIoThread :rt :t :m => :c -> :m Unit))
+    (unmask-finally
+     "Unmask the thread, run the provided action, and then honor any pending stop for that
+thread after the action finishes.
 
-  ;; TODO: To solve all the problems where you can never guarantee re-masking
-  ;; in time after handling a thread interrupt, we should actually *re-mask*
-  ;; after getting interrupted! Then, any code-path that wants to handle
-  ;; an interrupt will need to be aware of that and is responsible for
-  ;; un-masking the re-mask, if it wants the thread to keep going.
-  ;; ACTUALLY, wait. That might be required for some Concurrent's to work
-  ;; properly. Like a thread group, for example. What we could do is pack some
-  ;; more data into the IoThread word. We could set aside some bits for pending
-  ;; unmasks from other threads, and then treat those unmasks sort of like we
-  ;; treat pending kills. That could help solve some of the race conditions.
+Warning: There is a very small chance that the UnmaskFinallyMode passed to the callback could be
+inconsistent with whether the Concurrent is ultimately stopped. Regardless of the input, the
+callback should leave any resources in a valid state. An example of a valid callback: closing a log
+file if the thread is stopped, or closing the log file with a final message if the thread is
+continuing."
+     (MonadIoThread :rt :t :m => :c -> (UnmaskFinallyMode -> :a) -> :m Unit)))
+
   ;; TODO: Hopefully remove :t from this definition when this issue is fixed:
   ;; https://github.com/coalton-lang/coalton/issues/1717
   (define-class ((MonadIo :m) (Runtime :rt :t) => MonadIoThread :rt :t :m (:m -> :rt) (:m -> :t))
@@ -225,15 +246,6 @@ Assumes the output has type :m :a for some MonadIoThread :m."
         (wrap-io
           ,@body)
         ,m-prx))))
-
-(coalton-toplevel
-  (declare write-line-sync ((Into :s String) (MonadIoTerm :m) => :s -> :m Unit))
-  (define (write-line-sync msg)
-    "Perform a synchrozied write-line to the terminal. Not performant - mainly useful
-for debugging."
-    (wrap-io (write-line-sync% msg) Unit))
-
-  )
 
 ;;; TODO: Once the inference bug gets fixed, move these back into the typeclass and
 ;;; put the implementations into gen-impl/io-thread
@@ -313,7 +325,7 @@ thread's termination."
   (inline)
   (declare mask-thread (MonadIoThread :rt :t :m => :t -> :m Unit))
   (define (mask-thread thread)
-     "Mask the given thread so it can't be stopped."
+     "Mask the thread so it can't be stopped."
     (inject-runtime mask! thread))
 
   (inline)
@@ -331,7 +343,7 @@ thread's termination."
   (inline)
   (declare unmask-thread (MonadIoThread :rt :t :m => :t -> :m Unit))
   (define (unmask-thread thread)
-    "Unmask the given thread so it can be stopped. Unmask respects
+    "Unmask the thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
 stopped after being unmasked N times."
     (inject-runtime unmask! thread))
@@ -353,8 +365,14 @@ stopped after being unmasked N times."
   (declare unmask-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r)
                                   => :t -> (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-thread-finally thread op-finally)
-    "Unmask the given thread, run the provided action, and then honor any
- pending stop for that thread after the action finishes."
+    "Unmask the thread, run the provided action, and then honor any
+ pending stop for that thread after the action finishes.
+
+Warning: There is a very small chance that the UnmaskFinallyMode passed to the callback could be
+inconsistent with whether the Concurrent is ultimately stopped. Regardless of the input, the
+callback should leave any resources in a valid state. An example of a valid callback: closing a log
+file if the thread is stopped, or closing the log file with a final message if the thread is
+continuing."
     (lift-to
      (with-run-in-io
          (fn (run)
@@ -367,7 +385,13 @@ stopped after being unmasked N times."
                                           => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-current-thread-finally op-finally)
     "Unmask the current thread, run the provided action, and then honor any
- pending stop for that thread after the action finishes."
+ pending stop for that thread after the action finishes.
+
+Warning: There is a very small chance that the UnmaskFinallyMode passed to the callback could be
+inconsistent with whether the Concurrent is ultimately stopped. Regardless of the input, the
+callback should leave any resources in a valid state. An example of a valid callback: closing a log
+file if the thread is stopped, or closing the log file with a final message if the thread is
+continuing."
     (lift-to
      (with-run-in-io
        (fn (run)

@@ -1,6 +1,7 @@
 (defpackage :coalton-io/tests/thread
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:io/utils
+        #:io/monad-io
         #:io/simple-io
         #:io/exception
         #:io/thread
