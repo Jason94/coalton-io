@@ -112,7 +112,6 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
   (declare unmask% ((MonadIoThread :rt :t :m) (Concurrent :c :a) (MonadException :m)
                   => ConcurrentGroup :c :a -> :m Unit))
   (define (unmask% group)
-    (let _ = (the (ConcurrentGroup :c :a) group))
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
     (bracket-io-masked_
      (wrap-io (lk:acquire (.lock group)))
@@ -122,28 +121,21 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
        (foreach (.pool group) (as-proxy-of unmask
                                            (proxy-with-arg cnc-prx))))))
 
-  ;; (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r) (MonadException :m)
-  ;;                           (Concurrent :c :a) (MonadIoThread :rt :t :m)
-  ;;                           => ConcurrentGroup :c :a -> (UnmaskFinallyMode -> :r :b) -> :m Unit))
-  ;; (define (unmask-finally% group callback)
-  ;;   (let _ = (the (ConcurrentGroup :c :a) group))
-  ;;   (let outer-m-prx = Proxy)
-  ;;   (let outer-rt-prx = (runtime-for outer-m-prx))
-  ;;   (bracket-io-masked_
-  ;;    (wrap-io (lk:acquire (.lock group)))
-  ;;    (fn (_)
-  ;;      (wrap-io (lk:release (.lock group))))
-  ;;    (fn (_)
-  ;;      (as-proxy-of
-  ;;       (foreach (.pool group)
-  ;;                (fn (t)
-  ;;                  (let inner-m-prx = Proxy)
-  ;;                  (let inner-rt-prx = (runtime-for inner-m-prx))
-  ;;                  (equate-proxies inner-rt-prx outer-rt-prx)
-  ;;                  (as-proxy-of
-  ;;                   (unmask-finally t callback)
-  ;;                   inner-m-prx)))
-  ;;       outer-m-prx))))
+  (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r) (MonadException :m)
+                            (Concurrent :c :a) (MonadIoThread :rt :t :m)
+                            => ConcurrentGroup :c :a -> (UnmaskFinallyMode -> :r :b) -> :m Unit))
+  (define (unmask-finally% group callback)
+    (let cnc-prx = (value-concurrent-prx (value-prx group)))
+    (bracket-io-masked_
+     (wrap-io (lk:acquire (.lock group)))
+     (fn (_)
+       (wrap-io (lk:release (.lock group))))
+     (fn (_)
+       (foreach (.pool group)
+                (as-proxy-of
+                 (fn (t)
+                   (unmask-finally t callback))
+                 (proxy-with-arg cnc-prx))))))
 
   (define-instance (Concurrent :c :a => Concurrent (ConcurrentGroup :c :a) (List :a))
     (inline)
@@ -151,6 +143,5 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     (define await await%)
     (define mask mask%)
     (define unmask unmask%)
-    (define (unmask-finally _) (error "")))
-    ;; (define unmask-finally unmask-finally%))
+    (define unmask-finally unmask-finally%))
   )

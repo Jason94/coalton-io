@@ -1,5 +1,6 @@
 (defpackage :coalton-io/tests/conc/group
   (:use #:coalton #:coalton-prelude #:coalton-testing
+   #:io/utils
    #:io/tests/utils
    #:io/monad-io
    #:io/simple-io
@@ -9,6 +10,7 @@
    #:io/gen-impl/conc/group
    #:io/mut)
   (:local-nicknames
+   (:tm #:io/term)
    (:at #:io/atomic)))
 (in-package :coalton-io/tests/conc/group)
 
@@ -106,8 +108,8 @@
                                (write store-2 2)))))
       (mask group)
       (stop group)
-      (unmask-finally group (fn (_)
-                              (at:modify finally-counts 1+)))
+      (unmask-finally_ group (fn (_)
+                               (at:modify finally-counts 1+)))
       (sleep 2)
       (res-1 <- (read store-1))
       (res-2 <- (read store-2))

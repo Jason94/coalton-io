@@ -154,7 +154,7 @@ continuing."
 Concurrents don't have a uniform fork function, becasue they require different initialization
 input."
     (stop
-     "Stop a Concurrent. If the Concurrent has already stopped, does nothing.If the Concurrent is
+     "Stop a Concurrent. If the Concurrent has already stopped, does nothing. If the Concurrent is
 masked, this will pend a stop on the Concurrent. When/if the Concurrent becomes completely unmaksed,
 it will stop iself. Regardless of whether the target Concurrent is masked, STOP does not block or
 wait for the target to complete."

@@ -431,6 +431,10 @@ just be limited to implementing only solutions #2 or #3.
 ;;; IoThread Concurrent Instance
 ;;;
 
+;; TODO: Try to move this to a later file, where it can re-open the package
+;; and base the instance on the machinery already provided by MonadIoThread.
+;; I tried this and got some type inference errors that I *think* were a
+;; Coalton bug on the fundeps, but need more investigation.
 (coalton-toplevel
 
   (define-instance (Concurrent IoThread Unit)
@@ -448,6 +452,10 @@ just be limited to implementing only solutions #2 or #3.
       (wrap-io (unmask!% thread)))
     (inline)
     (define (unmask-finally thread callback)
-      (wrap-io (unmask-finally!% thread callback))))
+      (lift-to
+       (with-run-in-io
+         (fn (run)
+           (wrap-io (unmask-finally!% thread (fn (mode)
+                                               (run! (run (callback mode)))))))))))
 
   )

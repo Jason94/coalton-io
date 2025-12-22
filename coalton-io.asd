@@ -113,6 +113,9 @@ mutable variables, multithreading, and several data structures to safely share s
                  (:file "mvar")
                  (:file "future")
                  (:file "stm")
+                 (:module "io-impl"
+                  :serial t
+                  :components ((:file "thread")))
                  (:module "conc"
                   :serial t
                   :components ((:file "concurrent-group")))
