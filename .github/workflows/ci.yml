@@ -42,8 +42,7 @@ jobs:
       - name: Setup Common Lisp (Roswell + Qlot)
         uses: 40ants/setup-lisp@v4
         with:
-          # Disable internal caching so it can't overwrite the preloaded local-projects checkout above.
-          cache: false
+          cache: true
           qlfile-template: |
             dist ultralisp http://dist.ultralisp.org/
             dist quicklisp https://beta.quicklisp.org/dist/quicklisp.txt
