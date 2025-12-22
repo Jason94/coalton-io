@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      COALTON_DEV: "1"
+      CL_SOURCE_REGISTRY: "${{ github.workspace }}//"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install SBCL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sbcl curl git
+
+      - name: Install Quicklisp
+        run: |
+          curl -O https://beta.quicklisp.org/quicklisp.lisp
+          sbcl --non-interactive \
+            --load quicklisp.lisp \
+            --eval '(quicklisp-quickstart:install :path "~/quicklisp")' \
+            --eval '(ql:add-to-init-file)' \
+            --eval '(quit)'
+
+      - name: Install Coalton (development mode)
+        run: |
+          mkdir -p ~/quicklisp/local-projects
+          git clone --depth 1 https://github.com/coalton-lang/coalton.git ~/quicklisp/local-projects/coalton
+
+      - name: Run tests
+        working-directory: ${{ github.workspace }}
+        run: |
+          sbcl --non-interactive \
+            --eval '(load "~/quicklisp/setup.lisp")' \
+            --eval '(asdf:test-system "coalton-io")' \
+            --eval '(quit)'
+
+      - name: Load examples subsystem
+        working-directory: ${{ github.workspace }}
+        run: |
+          sbcl --non-interactive \
+            --eval '(load "~/quicklisp/setup.lisp")' \
+            --eval '(asdf:load-system "coalton-io/examples")' \
+            --eval '(quit)'
