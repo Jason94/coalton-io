@@ -35,6 +35,7 @@
    #:proxy-with-arg
    #:proxy-result-of
    #:proxy-returning
+   #:equate-proxies
    ))
 (in-package :io/utils)
 
@@ -186,6 +187,7 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
          None)
      (proxy-outer prx-b)))
 
+  (inline)
   (declare can-cast-to? (RuntimeRepr :b => Dynamic -> Proxy :b -> Boolean))
   (define (can-cast-to? (Dynamic% _ dyn-repr) repr-prx)
     "Check whether dyn-val can cast to a type."
@@ -194,13 +196,20 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
   (define-exception MockException
     MockException)
 
+  (inline)
   (declare throw-dynamic (Dynamic -> :a))
   (define (throw-dynamic dyn-e)
     "Throw the dynamic value. Will fail if it isn't a Signalable/LispCondition."
     (let (Dynamic% val _) = dyn-e)
     (throw (the MockException (from-anything val))))
 
+  (inline)
   (declare proxy-swap-inner (Proxy (:m :a) -> Proxy (:m :b)))
   (define (proxy-swap-inner _)
     Proxy)
+
+  (inline)
+  (declare equate-proxies (Proxy :a -> Proxy :a -> Unit))
+  (define (equate-proxies _ _)
+    Unit)
   )

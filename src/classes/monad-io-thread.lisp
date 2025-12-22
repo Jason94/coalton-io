@@ -158,19 +158,19 @@ input."
 masked, this will pend a stop on the Concurrent. When/if the Concurrent becomes completely unmaksed,
 it will stop iself. Regardless of whether the target Concurrent is masked, STOP does not block or
 wait for the target to complete."
-     (MonadIoThread :rt :t :m => :c -> :m Unit))
+     ((MonadException :m) (MonadIoThread :rt :t :m) => :c -> :m Unit))
     (await
      "Block the current thread until the target Concurrent is completed, and retrieve its value.
 Re-raises if the target Concurrent raised an unhandled exception"
      ((MonadException :m) (MonadIoThread :rt :t :m) => :c -> :m :a))
     (mask
      "Mask the Concurrent so it can't be stopped."
-     (MonadIoThread :rt :t :m => :c -> :m Unit))
+     ((MonadException :m) (MonadIoThread :rt :t :m) => :c -> :m Unit))
     (unmask
      "Unmask the Concurrent so it can be stopped. Unmask respects nested masks - if the
 Concurrent has been masked N times, it can only be stopped after being unmasked N times. When the
 Concurrent unmasks, if there are any pending stops, it will immediately stop itself."
-     (MonadIoThread :rt :t :m => :c -> :m Unit))
+     ((MonadException :m) (MonadIoThread :rt :t :m) => :c -> :m Unit))
     (unmask-finally
      "Unmask the thread, run the provided action, and then honor any pending stop for that
 thread after the action finishes.
@@ -180,7 +180,8 @@ inconsistent with whether the Concurrent is ultimately stopped. Regardless of th
 callback should leave any resources in a valid state. An example of a valid callback: closing a log
 file if the thread is stopped, or closing the log file with a final message if the thread is
 continuing."
-     (MonadIoThread :rt :t :m => :c -> (UnmaskFinallyMode -> :a) -> :m Unit)))
+     ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r) (MonadException :m) (MonadIo :m)
+      => :c -> (UnmaskFinallyMode -> :r :b) -> :m Unit)))
 
   (inline)
   (declare concurrent-value-prx (Concurrent :c :a => :c -> Proxy :a))

@@ -14,6 +14,8 @@
 
    #:bracket-io
    #:bracket-io_
+   #:bracket-io-masked
+   #:bracket-io-masked_
    #:with-mask
    #:do-with-mask
    ))
@@ -40,6 +42,16 @@ afterward."
        (pure result))
       (fn (_)
         unmask-current-thread))))
+  )
+
+(cl:defmacro do-with-mask (cl:&body body)
+  "Evaluate BODY with the current thread masked, automatically unmasking
+afterward."
+  `(with-mask
+     (do
+      ,@body)))
+
+(coalton-toplevel
 
   (derive Eq)
   (repr :lisp)
@@ -99,6 +111,30 @@ using BRACKET-IO to clean after stops:
             (release-op resource (Errored e))
             (raise e))))))
 
+  (declare bracket-io-masked ((MonadException :m) (MonadIoThread :rt :t :m) (RuntimeRepr :e) (Signalable :e)
+                              => :m :r
+                              -> (:r -> ExitCase :e -> :m :a)
+                              -> (:r -> :m :b)
+                              -> :m :b))
+  (define (bracket-io-masked acquire-op release-op computation-op)
+    "WARNING: BRACKET-IO-MASKED will *only* cleanup if the raised exception matches :e, or if the
+computation succeedes. To guarantee cleanup after any exception, use BRACKET-IO-MASKED_
+
+Acquire a resource, run a computation with it, and release it. Guarantees that RELEASE-OP will run
+if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception, it will be re-raised after the
+resource cleans up. If ACQUIRE-OP or RELEASE-OP raise an exception, then release is not guaranteed.
+Masks the thread during the entire operation, including the computation."
+    (do-with-mask
+     (resource <- acquire-op)
+     (result? <- (try-result (computation-op resource)))
+     (do-match result?
+       ((Ok result)
+        (release-op resource Completed)
+        (pure result))
+       ((Err e)
+        (release-op resource (Errored e))
+        (raise e)))))
+
   (declare bracket-io_ ((MonadException :m) (MonadIoThread :rt :t :m)
                         => :m :r
                         -> (:r -> :m :a)
@@ -122,11 +158,23 @@ will release before the thread is stopped."
               (fn (_)
                 (with-mask (release-op resource))))))
 
-  )
+  (declare bracket-io-masked_ ((MonadException :m) (MonadIoThread :rt :t :m)
+                               => :m :r
+                               -> (:r -> :m :a)
+                               -> (:r -> :m :b)
+                               -> :m :b))
+  (define (bracket-io-masked_ acquire-op release-op computation-op)
+    "Acquire a resource, run a computation with it, and release it. Guarantees that RELEASE-OP will
+run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception, it will be re-raised after the
+resource cleans up. If ACQUIRE-OP or RELEASE-OP raise an exception, then release is not guaranteed.
+Masks the thread during the entire operation, including the computation."
+    (do-with-mask
+     (resource <- acquire-op)
+     (reraise (do
+               (result <- (computation-op resource))
+               (release-op resource)
+               (pure result))
+              (fn (_)
+                (release-op resource)))))
 
-(cl:defmacro do-with-mask (cl:&body body)
-  "Evaluate BODY with the current thread masked, automatically unmasking
-afterward."
-  `(with-mask
-     (do
-      ,@body)))
+  )

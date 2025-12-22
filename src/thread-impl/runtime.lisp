@@ -148,13 +148,6 @@
 
 (coalton-toplevel
 
-  ;; TODO: Remove this and just use interrupt-iothread% everywhere
-  (inline)
-  (declare interrupt-current-thread% (Unit -> Unit))
-  (define (interrupt-current-thread%)
-    "BT can't interrupt the current thread, so raise an exception instead."
-    (throw (InterruptCurrentThread "")))
-
   (inline)
   (declare interrupt-iothread% (IoThread -> Unit))
   (define (interrupt-iothread% thd)
@@ -222,8 +215,6 @@ thread is alive before interrupting."
       (t:spawn (fn ()
                  (c:write! (.handle thread-container)
                            (Some (current-native-thread%)))
-                 ;; Set the thread-specific dynamic variables the runtime depends on. *current-thread*
-                 ;; is defined here, the others are defined in the core simple-io implementation.
                  (let res =
                    (lisp (Result Dynamic :a) (thunk thread-container)
                      (cl:let ((*current-thread* thread-container))

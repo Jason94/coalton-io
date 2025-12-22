@@ -30,6 +30,9 @@
    #:Concurrent
    #:stop
    #:await
+   #:mask
+   #:unmask
+   #:unmask-finally
 
    #:MonadIoThread
    #:derive-monad-io-thread

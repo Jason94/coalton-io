@@ -34,7 +34,7 @@
     (stop-callback (Unit -> Unit))
     (mask-callback (Unit -> Unit))
     (unmask-callback (Unit -> Unit))
-    (unmask-finally-callback ((UnmaskFinallyMode -> :a) -> Unit)))
+    (unmask-finally-callback ((UnmaskFinallyMode -> Unit) -> Unit)))
 
   (inline)
   (declare fork-future ((MonadException :r) (LiftTo :r :m) (UnliftIo :r :i)
@@ -116,5 +116,10 @@ that were raised in the future thread."
       (wrap-io ((.unmask-callback fut))))
     (inline)
     (define (unmask-finally fut callback)
-      (wrap-io ((.unmask-finally-callback fut) callback))))
+      (lift-to
+       (with-run-in-io
+           (fn (run)
+             (wrap-io
+               ((.unmask-finally-callback fut) (compose (const Unit) (fn (x)
+                                                                       (run! (run (callback x))))))))))))
   )

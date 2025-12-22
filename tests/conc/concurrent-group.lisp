@@ -1,12 +1,15 @@
 (defpackage :coalton-io/tests/conc/group
   (:use #:coalton #:coalton-prelude #:coalton-testing
    #:io/tests/utils
+   #:io/monad-io
    #:io/simple-io
    #:io/exception
    #:io/thread
    #:io/future
    #:io/gen-impl/conc/group
-   #:io/mut))
+   #:io/mut)
+  (:local-nicknames
+   (:at #:io/atomic)))
 (in-package :coalton-io/tests/conc/group)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -48,3 +51,66 @@
       (sleep 2)
       (read store))))
   (is (== None result)))
+
+(define-test test-mask ()
+  (let result =
+    (run-io!
+     (do
+      (masked-gate <- s-new)
+      (stored-gate <- s-new)
+      (store <- (new-var None))
+      (group <- (fork-group (make-list
+                             (do-fork-thread_
+                               (s-await masked-gate)
+                               (write store (Some 10))
+                               (s-signal stored-gate)))))
+      (mask group)
+      (stop group)
+      (s-signal masked-gate)
+      (s-await stored-gate)
+      (read store))))
+  (is (== (Some 10) result)))
+
+(define-test test-unmask ()
+  (let result =
+    (run-io!
+     (do
+      (masked-gate <- s-new)
+      (store <- (new-var None))
+      (group <- (fork-group (make-list
+                             (do-fork-thread_
+                               (s-await masked-gate)
+                               (write store (Some 10))))))
+      (mask group)
+      (unmask group)
+      (stop group)
+      (s-signal masked-gate)
+      (sleep 2)
+      (read store))))
+  (is (== None result)))
+
+(define-test test-unmask-finally ()
+  (let result =
+    (run-io!
+     (do
+      (masked-gate <- s-new)
+      (store-1 <- (new-var 0))
+      (store-2 <- (new-var 0))
+      (finally-counts <- (the (:c (at:AtVar Integer)) (at:new-at-var 0)))
+      (group <- (fork-group (make-list
+                             (do-fork-thread_
+                               (s-await masked-gate)
+                               (write store-1 1))
+                             (do-fork-thread_
+                               (s-await masked-gate)
+                               (write store-2 2)))))
+      (mask group)
+      (stop group)
+      (unmask-finally group (fn (_)
+                              (at:modify finally-counts 1+)))
+      (sleep 2)
+      (res-1 <- (read store-1))
+      (res-2 <- (read store-2))
+      (res-counts <- (at:read finally-counts))
+      (pure (make-list res-1 res-2 res-counts)))))
+  (is (== (make-list 0 0 2) result)))
