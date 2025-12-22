@@ -9,6 +9,7 @@
    #:MVar
    #:new-mvar
    #:new-empty-mvar
+   #:take-mvar-masked
    #:take-mvar
    #:put-mvar
    #:try-take-mvar

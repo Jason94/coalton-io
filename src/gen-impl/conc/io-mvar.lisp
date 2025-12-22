@@ -26,6 +26,7 @@
    #:MonadIo
    #:new-mvar
    #:new-empty-mvar
+   #:take-mvar-masked
    #:take-mvar
    #:put-mvar
    #:try-take-mvar
@@ -84,32 +85,46 @@ depending on the stopped thread operating on an MVar to continue."
             (cv:new)
             (at:new None))))
 
+  (declare take-mvar-masked-inner% (Runtime :rt :t => MVar :a -> Proxy :rt -> :a))
+  (define (take-mvar-masked-inner% mvar rt-prx)
+    (mask-current! rt-prx)
+    (lk:acquire (.lock mvar))
+    (let ((lp (fn ()
+                (match (at:read (.data mvar))
+                  ((Some val)
+                   (at:atomic-write (.data mvar) None)
+                   (lk:release (.lock mvar))
+                   (cv:notify (.notify-empty mvar))
+                   val)
+                  ((None)
+                   (unmask-and-await-safely% rt-prx (.notify-full mvar) (.lock mvar))
+                   (lp))))))
+      (lp)))
+
+  (inline)
+  (declare take-mvar-masked (MonadIoThread :rt :t :m => MVar :a -> :m :a))
+  (define (take-mvar-masked mvar)
+    "Take a value from an MVar, blocking until one is available. Leaves the thread masked
+after the value is retrieved, but the thread is unmasked while blocking. This is useful if
+you need to protect the thread until you restore the MVar to a valid state. See the
+implementation of MChan for an example."
+    (wrap-io-with-runtime (rt-prx)
+      (take-mvar-masked-inner% mvar rt-prx)))
+
+  (inline)
   (declare take-mvar (MonadIoThread :rt :t :m => MVar :a -> :m :a))
   (define (take-mvar mvar)
-    "Take a value from an MVar, blocking until one is available."
+    "Take a value from an MVar, blocking until one is available. The thread is unmasked
+while blocking. Leaves the thread unmasked after returning."
     (wrap-io-with-runtime (rt-prx)
-      ;; TODO: Remove this when the inference bug is fixed
-      (let _ = (the (MVar :a) mvar))
-      (mask-current! rt-prx)
-      (lk:acquire (.lock mvar))
-      (let ((lp (fn ()
-                  (match (at:read (.data mvar))
-                    ((Some val)
-                     (at:atomic-write (.data mvar) None)
-                     (lk:release (.lock mvar))
-                     (cv:notify (.notify-empty mvar))
-                     (unmask-current! rt-prx)
-                     val)
-                    ((None)
-                     (unmask-and-await-safely% rt-prx (.notify-full mvar) (.lock mvar))
-                     (lp))))))
-        (lp))))
+      (let result = (take-mvar-masked-inner% mvar rt-prx))
+      (unmask-current! rt-prx)
+      result))
 
   (declare put-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m Unit))
   (define (put-mvar mvar val)
     "Put a value into an MVar, blocking until it becomes empty."
     (wrap-io-with-runtime (rt-prx)
-      (let _ = (the (MVar :a) mvar))
       (let lock = (.lock mvar))
       (let data = (.data mvar))
       (mask-current! rt-prx)
@@ -132,7 +147,6 @@ depending on the stopped thread operating on an MVar to continue."
   (define (try-take-mvar mvar)
     "Attempt to take a value from an MVar; returns None if empty."
     (wrap-io-with-runtime (rt-prx)
-      (let _ = (the (MVar :a) mvar))
       (mask-current! rt-prx)
       (lk:acquire (.lock mvar))
       (match (at:read (.data mvar))
@@ -151,7 +165,6 @@ depending on the stopped thread operating on an MVar to continue."
   (define (try-put-mvar mvar val)
     "Attempt to put a value into an MVar; returns False if full and the put fails,
 True if the put succeeds."
-    (let _ = (the (MVar :a) mvar))
     (wrap-io-with-runtime (rt-prx)
       (mask-current! rt-prx)
       (lk:acquire (.lock mvar))
@@ -171,7 +184,6 @@ True if the put succeeds."
   (declare read-mvar (MonadIoThread :rt :t :m => MVar :a -> :m :a))
   (define (read-mvar mvar)
     "Read (without removing) the value from an MVar, blocking until one is available."
-    (let _ = (the (MVar :a) mvar))
     (wrap-io-with-runtime (rt-prx)
       (match (at:read (.data mvar))
         ((Some x)
@@ -182,14 +194,12 @@ True if the put succeeds."
   (declare try-read-mvar (MonadIoThread :rt :t :m => MVar :a -> :m (Optional :a)))
   (define (try-read-mvar mvar)
     "Attempt to read (without removing) the value from an MVar; returns None if empty."
-    (let _ = (the (MVar :a) mvar))
     (wrap-io
       (at:read (.data mvar))))
 
   (declare swap-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m :a))
   (define (swap-mvar mvar new-val)
     "Atomically replace the value in an MVar and return the old value."
-    (let _ = (the (MVar :a) mvar))
     (wrap-io-with-runtime (rt-prx)
       (mask-current! rt-prx)
       (lk:acquire (.lock mvar))
@@ -228,7 +238,6 @@ they can block this thread until another thread takes the MVar."
                         (put-mvar mvar)
                         (fn (x)
                           (run (op x)))))
-
           (pure result))))))
   )
 
@@ -255,7 +264,7 @@ they can block this thread until another thread takes the MVar."
   (declare new-empty-chan ((MonadIoThread :rt :t :m) (MonadException :m) => :m (MChan :a)))
   (define new-empty-chan
     "Create a new empty channel."
-    (do-with-mask
+    (do
       (cell <- new-empty-mvar)
       (head-var <- (new-mvar cell))
       (tail-var <- (new-mvar cell))
@@ -264,24 +273,20 @@ they can block this thread until another thread takes the MVar."
   (declare push-chan ((MonadIoThread :rt :t :m) (MonadException :m) => MChan :a -> :a -> :m Unit))
   (define (push-chan chan val)
     "Push VAL onto CHAN."
-    (do-with-mask
+    (do
      (new-tail-var <- new-empty-mvar)
-     (old-tail-var <- (take-mvar (.tail-var chan)))
+     (old-tail-var <- (take-mvar-masked (.tail-var chan))) ;; Masks the thread after this returns
      (put-mvar old-tail-var (ChanNode% val new-tail-var))
-     (put-mvar (.tail-var chan) new-tail-var)))
+     (put-mvar (.tail-var chan) new-tail-var)
+     unmask-current-thread)) ;; Cleanup after take-mvar-masked
 
-  ;; TODO: Rewrite using bracket. I think a new bracket function is needed to get this
-  ;; exactly right.
   (declare pop-chan ((MonadIoThread :rt :t :m) (MonadException :m) => MChan :a -> :m :a))
   (define (pop-chan chan)
     "Pop the front value in CHAN. Blocks while CHAN is empty."
     (do
-     mask-current-thread
-     (old-head-var <- (take-mvar (.head-var chan)))
-     unmask-current-thread
+     (old-head-var <- (take-mvar-masked (.head-var chan))) ;; Masks the thread after this returns
      ((ChanNode% val new-head-var) <- (take-mvar old-head-var))
-     mask-current-thread
      (put-mvar (.head-var chan) new-head-var)
-     unmask-current-thread
+     unmask-current-thread ;; Cleanup after take-mvar-masked
      (pure val)))
   )

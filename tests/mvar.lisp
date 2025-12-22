@@ -295,7 +295,7 @@
       (result-a <- (new-var None))
       (result-b <- (new-var None))
       (do-fork-thread_
-        ;; Let the main thread now we started
+        ;; Let the main thread know we started
         (s-signal s)
         ;; Read the MVar
         (contents <- (read-mvar mv))
@@ -303,7 +303,7 @@
         ;; Signal done
         (s-signal s))
       (do-fork-thread_
-        ;; Let the main thread now we started
+        ;; Let the main thread know we started
         (s-signal s)
         ;; Read the MVar
         (contents <- (read-mvar mv))
@@ -311,7 +311,6 @@
         ;; Signal done
         (s-signal s))
       ;; Wait for both readers to start, then briefly wait to put
-      ;; NOTE: We only put once, so we rely on the first read to wake the other.
       (s-await s)
       (s-await s)
       (sleep 5)
@@ -547,3 +546,32 @@
       (stop-thread thread)
       (try-all (join-thread thread)))))
   (is (== (Some Unit) result)))
+
+;;;
+;;; Test the "leave masked" functions
+;;;
+
+(define-test test-take-masked-leaves-masked ()
+  (let result =
+    (run-io!
+     (do
+      (s-start <- s-new)
+      (s-after <- s-new)
+      (s-stopped <- s-new)
+      (mv <- new-empty-mvar)
+      (result <- new-empty-mvar)
+      (thread <-
+        (do-fork-thread_
+          (s-signal s-start)
+          (take-mvar-masked mv)
+          (s-signal s-after)
+          (s-await s-stopped)
+          (put-mvar result (Some True))))
+      (s-await s-start)
+      (sleep 2)
+      (put-mvar mv Unit)
+      (s-await s-after)
+      (stop-thread thread)
+      (s-signal s-stopped)
+      (take-mvar result))))
+  (is (== (Some True) result)))
