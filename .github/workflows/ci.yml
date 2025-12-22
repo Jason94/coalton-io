@@ -53,6 +53,7 @@ jobs:
       - name: Run tests
         uses: 40ants/run-tests@v2
         with:
+          cache: true
           asdf-system: coalton-io
 
       - name: Load examples
