@@ -194,9 +194,7 @@ continuing."
   (define (value-concurrent-prx _)
     Proxy)
 
-  ;; TODO: Hopefully remove :t from this definition when this issue is fixed:
-  ;; https://github.com/coalton-lang/coalton/issues/1717
-  (define-class ((MonadIo :m) (Runtime :rt :t) => MonadIoThread :rt :t :m (:m -> :rt) (:m -> :t))
+  (define-class ((MonadIo :m) (Runtime :rt :t) => MonadIoThread :rt :t :m (:m -> :rt))
     "A MonadIo which can spawn :t's. Other :t's error
 separately. A spawned :t erroring will not cause the parent
 :t to fail. :t can be any 'thread-like' object, depending on the

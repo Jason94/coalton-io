@@ -212,15 +212,13 @@ True if the put succeeds."
     (wrap-io
       (opt:none? (at:read (.data mvar)))))
 
-  ;; TODO: https://github.com/coalton-lang/coalton/issues/1717
-  ;; (declare with-mvar ((UnliftIo :r :i) (LiftTo :r :m) (MonadException :i) (MonadIoThread :rt :t :i)
-  ;;                      => MVar :a -> (:a -> :r :b) -> :m :b))
+  (declare with-mvar ((UnliftIo :r :i) (LiftTo :r :m) (MonadException :i) (MonadIoThread :rt :t :i)
+                       => MVar :a -> (:a -> :r :b) -> :m :b))
   (define (with-mvar mvar op)
     "Modify with the result of an operation. Blocks until MVar is full.
 If the operation raises an exception, will restore the MVar value and re-raise.
 If other threads are calling PUT-MVAR while the operation is running,
 they can block this thread until another thread takes the MVar."
-    ;; (let _ = (the (MVar :a) mvar))
     (lift-to
      (with-run-in-io
        (fn (run)

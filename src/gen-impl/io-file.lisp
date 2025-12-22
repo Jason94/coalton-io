@@ -203,12 +203,11 @@
 ;;
 
 (coalton-toplevel
-  ;; TODO: Submit Coalton issue for chained fundeps here (see also io-mvar)
-  ;; (declare with-open-file ((f_:File :a) (MonadIoFile :r) (MonadIoFile :i) (UnliftIo :r :i)
-  ;;                          (LiftTo :r :m) (MonadException :i) (MonadIoThread :i :t)
-  ;;                          => f_:StreamOptions
-  ;;                          -> ((f_:FileStream :a) -> :r :b)
-  ;;                          -> :m :b))
+  (declare with-open-file ((f_:File :a) (MonadIoFile :i) (UnliftIo :r :i)
+                           (LiftTo :r :m) (MonadException :i) (MonadIoThread :rt :t :i)
+                           => f_:StreamOptions
+                           -> ((f_:FileStream :a) -> :r :b)
+                           -> :m :b))
   (define (with-open-file opts k)
      "Opens a file stream, performs K on it, then closes the stream.
 Can run any underlying BaseIo, which can be useful but can also cause inference issues
@@ -223,12 +222,11 @@ in some cases. Try WITH-OPEN-FILE_ if you have issues."
                          (fn (file)
                            (run (k file)))))))))
 
-  ;; (declare with-temp-file ((f_:File :a) (MonadIoFile :r) (MonadIoFile :i)
-  ;;                          (UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
-  ;;                          (MonadIoThread :i :t)
-  ;;                          => String
-  ;;                          -> ((f_:FileStream :a) -> :r :b)
-  ;;                          -> :m :b))
+  (declare with-temp-file ((f_:File :a) (MonadIoFile :i) (MonadIoThread :rt :t :i)
+                           (UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
+                           => String
+                           -> ((f_:FileStream :a) -> :r :b)
+                           -> :m :b))
   (define (with-temp-file file-type k)
      "Performs an operation `thunk` on a temporary file. File type extensions need to include `.`
 Can run any underlying BaseIo, which can be useful but can also cause inference issues
@@ -244,10 +242,10 @@ in some cases. Try WITH-TEMP-FILE_ if you have issues."
                            (fn (file)
                              (run (k file))))))))))
 
-  ;; (declare with-temp-directory ((UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
-  ;;                               (MonadIoFile :i) (MonadIoThread :i :t)
-  ;;                               => (f_:Pathname -> :r :a)
-  ;;                               -> :m :a))
+  (declare with-temp-directory ((UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
+                                (MonadIoFile :i) (MonadIoThread :rt :t :i)
+                                => (f_:Pathname -> :r :a)
+                                -> :m :a))
   (define (with-temp-directory k)
       "Performs an operation `thunk` inside a temporary directory.
 Can run any underlying BaseIo, which can be useful but can also cause inference issues
