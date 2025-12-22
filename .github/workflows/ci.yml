@@ -2,49 +2,67 @@ name: CI
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - master
+      - main
+  push:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+  schedule:
+    # Weekly sanity-check (Mondays at 05:00 UTC)
+    - cron: '0 5 * * 1'
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
+    name: Tests (SBCL)
     runs-on: ubuntu-latest
     env:
-      COALTON_DEV: "1"
-      CL_SOURCE_REGISTRY: "${{ github.workspace }}//"
+      LISP: sbcl-bin
+      # Helps Qlot avoid GitHub API rate-limits when fetching tarballs.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install SBCL
+      - name: Preload named-readtables (Roswell workaround)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y sbcl curl git
+          set -euxo pipefail
+          mkdir -p ~/.roswell/local-projects
+          rm -rf ~/.roswell/local-projects/named-readtables
+          git clone --depth 1 --branch master \
+            https://github.com/melisgl/named-readtables.git \
+            ~/.roswell/local-projects/named-readtables
 
-      - name: Install Quicklisp
-        run: |
-          curl -O https://beta.quicklisp.org/quicklisp.lisp
-          sbcl --non-interactive \
-            --load quicklisp.lisp \
-            --eval '(quicklisp-quickstart:install :path "~/quicklisp")' \
-            --eval '(ql:add-to-init-file)' \
-            --eval '(quit)'
-
-      - name: Install Coalton (development mode)
-        run: |
-          mkdir -p ~/quicklisp/local-projects
-          git clone --depth 1 https://github.com/coalton-lang/coalton.git ~/quicklisp/local-projects/coalton
+      - name: Setup Common Lisp (Roswell + Qlot)
+        uses: 40ants/setup-lisp@v4
+        with:
+          # Disable internal caching so it can't overwrite the preloaded local-projects checkout above.
+          cache: false
+          qlfile-template: |
+            dist ultralisp http://dist.ultralisp.org/
+            dist quicklisp https://beta.quicklisp.org/dist/quicklisp.txt
+            github named-readtables melisgl/named-readtables :branch master
+            github coalton coalton-lang/coalton :branch main
+            github coalton-threads garlic0x1/coalton-threads
 
       - name: Run tests
-        working-directory: ${{ github.workspace }}
-        run: |
-          sbcl --non-interactive \
-            --eval '(load "~/quicklisp/setup.lisp")' \
-            --eval '(asdf:test-system "coalton-io")' \
-            --eval '(quit)'
+        uses: 40ants/run-tests@v2
+        with:
+          asdf-system: coalton-io
 
-      - name: Load examples subsystem
-        working-directory: ${{ github.workspace }}
+      - name: Load examples
         run: |
-          sbcl --non-interactive \
-            --eval '(load "~/quicklisp/setup.lisp")' \
-            --eval '(asdf:load-system "coalton-io/examples")' \
-            --eval '(quit)'
+          qlot exec ros run --non-interactive \
+            --eval '(progn
+              (require :asdf)
+              (asdf:load-asd "coalton-io.asd")
+              (asdf:load-system :coalton-io/examples)
+              (format t "~&Loaded coalton-io/examples successfully.~%")
+              (uiop:quit 0))'
+        shell: lispsh -eo pipefail {0}
