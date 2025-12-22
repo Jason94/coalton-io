@@ -254,32 +254,36 @@ they can block this thread until another thread takes the MVar."
     (head-var (MVar (MVar (ChanNode :a))))
     (tail-var (MVar (MVar (ChanNode :a)))))
 
-  (declare new-empty-chan (MonadIoThread :rt :t :m => :m (MChan :a)))
+  (declare new-empty-chan ((MonadIoThread :rt :t :m) (MonadException :m) => :m (MChan :a)))
   (define new-empty-chan
     "Create a new empty channel."
-    (do
-     (cell <- new-empty-mvar)
-     (head-var <- (new-mvar cell))
-     (tail-var <- (new-mvar cell))
-     (pure (MChan head-var tail-var))))
+    (do-with-mask
+      (cell <- new-empty-mvar)
+      (head-var <- (new-mvar cell))
+      (tail-var <- (new-mvar cell))
+      (pure (MChan head-var tail-var))))
 
-  (declare push-chan (MonadIoThread :rt :t :m => MChan :a -> :a -> :m Unit))
+  (declare push-chan ((MonadIoThread :rt :t :m) (MonadException :m) => MChan :a -> :a -> :m Unit))
   (define (push-chan chan val)
     "Push VAL onto CHAN."
-    (let _ = (the (MChan :a) chan))
-    (do
+    (do-with-mask
      (new-tail-var <- new-empty-mvar)
      (old-tail-var <- (take-mvar (.tail-var chan)))
      (put-mvar old-tail-var (ChanNode% val new-tail-var))
      (put-mvar (.tail-var chan) new-tail-var)))
 
-  (declare pop-chan (MonadIoThread :rt :t :m => MChan :a -> :m :a))
+  ;; TODO: Rewrite using bracket. I think a new bracket function is needed to get this
+  ;; exactly right.
+  (declare pop-chan ((MonadIoThread :rt :t :m) (MonadException :m) => MChan :a -> :m :a))
   (define (pop-chan chan)
     "Pop the front value in CHAN. Blocks while CHAN is empty."
-    (let _ = (the (MChan :a) chan))
     (do
-     (old-tail-var <- (take-mvar (.head-var chan)))
-     ((ChanNode% val new-head-var) <- (take-mvar old-tail-var))
+     mask-current-thread
+     (old-head-var <- (take-mvar (.head-var chan)))
+     unmask-current-thread
+     ((ChanNode% val new-head-var) <- (take-mvar old-head-var))
+     mask-current-thread
      (put-mvar (.head-var chan) new-head-var)
+     unmask-current-thread
      (pure val)))
   )
