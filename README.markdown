@@ -6,7 +6,7 @@ _coalton-io_ provides tools to write pure, functional programs in Coalton that c
 * Random numbers
 * Terminal & File IO
 * Multithreading
-* Safely sharing data between threads (_coalton-io_ provides Atomic variables, MVars, MChans, and a Software Transactional Memory system)
+* Safely sharing data between threads (_coalton-io_ provides Atomic variables, MVars, MChans, a Software Transactional Memory system, Futures, Thread Pools, and more)
 
 [**Read the docs here**](https://jason94.github.io/coalton-io/)
 
