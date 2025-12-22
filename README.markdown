@@ -8,9 +8,13 @@ _coalton-io_ provides tools to write pure, functional programs in Coalton that c
 * Multithreading
 * Safely sharing data between threads (_coalton-io_ provides Atomic variables, MVars, MChans, a Software Transactional Memory system, Futures, Thread Pools, and more)
 
-[**Read the docs here**](https://jason94.github.io/coalton-io/)
-
 _coalton-io_ also extends all of this functionality for free if you want to write your own underlying effect type.
+
+### Documentation
+
+[**Read the API docs here**](https://jason94.github.io/coalton-io/)
+
+[Read the asynchronous runtime specification here](docs/runtime.md)
 
 ## Example Usage
 
