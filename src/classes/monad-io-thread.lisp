@@ -180,7 +180,8 @@ inconsistent with whether the Concurrent is ultimately stopped. Regardless of th
 callback should leave any resources in a valid state. An example of a valid callback: closing a log
 file if the thread is stopped, or closing the log file with a final message if the thread is
 continuing."
-     ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r) (MonadException :m) (MonadIo :m)
+     ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r) (MonadException :m)
+      (MonadIoThread :rt :t :m)
       => :c -> (UnmaskFinallyMode -> :r :b) -> :m Unit)))
 
   (inline)
@@ -376,7 +377,7 @@ stopped after being unmasked N times."
 
   (inline)
   (declare unmask-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r)
-                                  => :t -> (UnmaskFinallyMode -> :r Unit) -> :m Unit))
+                                  => :t -> (UnmaskFinallyMode -> :r :b) -> :m Unit))
   (define (unmask-thread-finally thread op-finally)
     "Unmask the thread, run the provided action, and then honor any
  pending stop for that thread after the action finishes.

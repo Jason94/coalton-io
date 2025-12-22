@@ -132,8 +132,8 @@
     (- word 2))
 
   (inline)
-  (declare unmasked-once? (Word -> Boolean))
-  (define (unmasked-once? word)
+  (declare masked-once? (Word -> Boolean))
+  (define (masked-once? word)
     "Check that WORD is masked only once."
     (== 1 (lisp Word (word)
             (cl:ash word -1))))
@@ -370,7 +370,7 @@ just be limited to implementing only solutions #2 or #3.
     ;; Only stop if there are no other masks applied besides the one
     ;; we're undoing now.
     (if (and (matches-flag flag-state PENDING-KILL)
-             (unmasked-once? flag-state))
+             (masked-once? flag-state))
         (thunk Stopped)
         (thunk Running))
     (let new-flag-state =
@@ -380,7 +380,7 @@ just be limited to implementing only solutions #2 or #3.
         (if (at:cas! flags old new)
             new
             (%))))
-    (when (and (unmasked-once? flag-state)
+    (when (and (masked-once? flag-state)
                (matches-flag new-flag-state PENDING-KILL))
       (interrupt-iothread% thread))
     Unit)

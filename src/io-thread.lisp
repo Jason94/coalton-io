@@ -56,6 +56,8 @@
    #:fork-thread-throw_
    #:do-fork-thread_
    #:do-fork-thread-throw_
+   #:unmask-thread-finally_
+   #:unmask-finally_
 
    ;; Re-exports from io/gen-impl/thread
    #:write-line-sync

@@ -10,6 +10,7 @@
         #:io/tests/utils
         )
   (:local-nicknames
+   (:tm #:io/term)
    (:lk #:coalton-threads/lock))
   )
 (in-package :coalton-io/tests/thread)
@@ -249,3 +250,120 @@
       (s-await finished-gate)
       (read value))))
   (is (== result (Some 10))))
+
+(define-test test-mask-other-thread ()
+  (let result =
+    (run-io!
+     (do
+      (started-gate <- s-new)
+      (stopped-gate <- s-new)
+      (finished-gate <- s-new)
+      (value <- (new-var None))
+      (thread <-
+        (do-fork-thread_
+          (s-signal started-gate)
+          (s-await stopped-gate)
+          (write value (Some 10))
+          (s-signal finished-gate)))
+      ;; Wait for the thread to start before masking and stopping it
+      (s-await started-gate)
+      (mask-thread thread)
+      (stop-thread thread)
+      (s-signal stopped-gate)
+      (s-await finished-gate)
+      (read value))))
+  (is (== result (Some 10))))
+
+(define-test test-unmask-other-thread ()
+  (let result =
+    (run-io!
+     (do
+      (started-gate <- s-new)
+      (stopped-gate <- s-new)
+      (value <- (new-var None))
+      (thread <-
+        (do-fork-thread_
+          (s-signal started-gate)
+          (s-await stopped-gate)
+          (write value (Some 10))))
+      ;; Wait for the thread to start before stopping it
+      (s-await started-gate)
+      (mask-thread thread)
+      (unmask-thread thread)
+      (stop-thread thread)
+      (s-signal stopped-gate)
+      (sleep 2)
+      (read value))))
+  (is (== result None)))
+
+(define-test test-unmask-other-thread-stop-on-unmask ()
+  (let result =
+    (run-io!
+     (do
+      (started-gate <- s-new)
+      (stopped-gate <- s-new)
+      (value <- (new-var None))
+      (thread <-
+        (do-fork-thread_
+          (s-signal started-gate)
+          (s-await stopped-gate)
+          (write value (Some 10))))
+      ;; Wait for the thread to start before stopping it
+      (s-await started-gate)
+      (mask-thread thread)
+      (stop-thread thread)
+      (unmask-thread thread)
+      (sleep 2)
+      (read value))))
+  (is (== result None)))
+
+(define-test test-unmask-finally-other-thread-runs-thunk-if-stopped ()
+  (let result =
+    (run-io!
+     (do
+      (started-gate <- s-new)
+      (stopped-gate <- s-new)
+      (value <- (new-var None))
+      (hit-finally <- (new-var None))
+      (thread <-
+        (do-fork-thread_
+          (s-signal started-gate)
+          (s-await stopped-gate)
+          (write value (Some 10))))
+      ;; Wait for the thread to start before stopping it
+      (s-await started-gate)
+      (mask-thread thread)
+      (stop-thread thread)
+      (unmask-thread-finally_ thread (fn (mode)
+                                       (write hit-finally (Some mode))))
+      (s-signal stopped-gate)
+      (sleep 2)
+      (val <- (read value))
+      (hit-finally? <- (read hit-finally))
+      (pure (Tuple val hit-finally?)))))
+  (is (== (Tuple None (Some Stopped)) result)))
+
+(define-test test-unmask-finally-other-thread-runs-thunk-if-not-stopped ()
+  (let result =
+    (run-io!
+     (do
+      (started-gate <- s-new)
+      (continue-gate <- s-new)
+      (value <- (new-var None))
+      (hit-finally <- (new-var None))
+      (thread <-
+        (do-fork-thread_
+          (s-signal started-gate)
+          (s-await continue-gate)
+          (write value (Some 10))))
+      ;; Wait for the thread to start before stopping it
+      (s-await started-gate)
+      (mask-thread thread)
+      (unmask-thread-finally_ thread (fn (mode)
+                                       (write hit-finally (Some mode))))
+      (s-signal continue-gate)
+      (sleep 2)
+      (val <- (read value))
+      (hit-finally? <- (read hit-finally))
+      (pure (Tuple val hit-finally?)))))
+  (is (== (Tuple (Some 10) (Some Running)) result)))
