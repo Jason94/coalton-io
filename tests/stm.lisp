@@ -5,9 +5,9 @@
         #:io/simple-io
         #:io/exception
         #:io/mut
-        #:io/mvar
+        #:io/conc/mvar
         #:io/thread
-        #:io/future
+        #:io/conc/future
         #:io/stm)
   (:import-from #:io/term
    #:write-line)

@@ -1,7 +1,7 @@
 (defpackage :coalton-io/tests/atomic
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:io/simple-io
-        #:io/atomic
+        #:io/conc/atomic
         #:io/exception
         #:io/thread)
   (:local-nicknames

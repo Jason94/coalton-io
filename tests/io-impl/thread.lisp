@@ -6,7 +6,7 @@
         #:io/exception
         #:io/thread
         #:io/mut
-        #:io/mvar
+        #:io/conc/mvar
         #:io/tests/utils
         )
   )

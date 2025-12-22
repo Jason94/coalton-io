@@ -7,7 +7,7 @@
    #:io/resource
    #:io/thread
    #:io/thread-exceptions
-   #:io/mvar
+   #:io/conc/mvar
    #:io/exception)
   (:local-nicknames
    (:s #:coalton-threads/semaphore)

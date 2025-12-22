@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/gen-impl/atomic
+(defpackage :io/gen-impl/conc/atomic
   (:use
    #:coalton
    #:coalton-prelude
@@ -23,7 +23,7 @@
    ;; Library Private
    #:unwrap-atvar
    ))
-(in-package :io/gen-impl/atomic)
+(in-package :io/gen-impl/conc/atomic)
 
 (named-readtables:in-readtable coalton:coalton)
 

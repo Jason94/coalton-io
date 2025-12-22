@@ -5,7 +5,7 @@
         #:io/simple-io
         #:io/thread
         #:io/mut
-        #:io/mvar)
+        #:io/conc/mvar)
   (:import-from #:io/thread-impl/runtime
     #:write-line-sync%)
   (:local-nicknames

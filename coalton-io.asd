@@ -48,11 +48,11 @@
                  ;;;
                  (:module "gen-impl"
                   :serial t
-                  :components ((:file "io-atomic")
-                               (:file "io-term")
+                  :components ((:file "io-term")
                                (:file "io-mut")
-                               (:file "io-mvar")
+                               (:file "conc/io-mvar")
                                (:file "conc/io-future")
+                               (:file "conc/io-atomic")
                                (:file "conc/concurrent-group")
                                (:file "io-thread")
                                (:file "io-file")
@@ -72,19 +72,26 @@
                  ;;;
                  (:file "io-exception")
                  (:file "monad-io")
+                 (:file "simple-io")
+
                  (:file "io-mut")
                  (:file "io-term")
                  (:file "io-random")
                  (:file "io-thread")
-                 (:file "io-atomic")
-                 (:file "io-mvar")
-                 (:file "io-future")
                  (:file "io-file")
                  (:file "io-unique")
                  (:file "io-stm")
                  (:file "io-all")
+
+                 (:module "conc"
+                  :serial t
+                  :components ((:file "io-future")
+                               (:file "io-atomic")
+                               (:file "io-mvar")
+                               (:file "concurrent-group")
+                               ))
+
                  (:file "stubs/term")
-                 (:file "simple-io")
                  )))
   :description "Functional IO interfaces and implementation for Coalton."
   :long-description "Functional IO interfaces and implementation for Coalton. Includes terminal IO, file system IO, random variables,

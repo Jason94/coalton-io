@@ -62,17 +62,18 @@ _coalton-io_ has two example programs to demonstrate how to use `IO`:
 _coalton-io_ provides the following features in these packages:
 
 * `io/exception` - Raise and handle exceptions within `IO`, automatically capture unhandled Lisp/Coalton errors, and easily convert between exceptions and `Result`/`Optional`
-* `io/resource`  - Operations to safely acquire, use, and release resources.
-* `io/term`      - Read/write to the Console
-* `io/file`      - Read/write to files and interact with the file system
-* `io/random`    - Generate random numbers
-* `io/mut`       - Use unsynchronized (non-thread safe) mutable variables in pure code
-* `io/unique`    - Generate guaranteed unique values (thread safe)
-* `io/thread`    - Fork new threads which run their own `IO` operations
-* `io/atomic`    - Atomic mutable variables for sharing state across threads
-* `io/mvar`      - Provides `MVar`s (synchronized single-value mutable stores to hand off data between threads) and `MChan`s (thread safe FIFO queues to stream data between threads)
-* `io/future`    - Futures that run an `IO` computation in another thread and return the value to the calling thread
-* `io/stm`       - Atomically run transactions on mutable memory shared between threads
+* `io/resource`   - Operations to safely acquire, use, and release resources.
+* `io/term`       - Read/write to the Console
+* `io/file`       - Read/write to files and interact with the file system
+* `io/random`     - Generate random numbers
+* `io/mut`        - Use unsynchronized (non-thread safe) mutable variables in pure code
+* `io/unique`     - Generate guaranteed unique values (thread safe)
+* `io/thread`     - Fork new threads which run their own `IO` operations
+* `io/stm`        - Atomically run transactions on mutable memory shared between threads
+* `io/conc/future`- Futures that run an `IO` computation in another thread and return the value to the calling thread
+* `io/conc/atomic`- Atomic mutable variables for sharing state across threads
+* `io/conc/mvar`  - Provides `MVar`s (synchronized single-value mutable stores to hand off data between threads) and `MChan`s (thread safe FIFO queues to stream data between threads)
+* `io/conc/group` - `ConcurrentGroup`s that atomically manage the masking, stopping, and awaiting of a group of `Concurrent`s.
 
 If you just want to use `IO` to write an application, use `io/simple-io` to get the standard `IO` type.
 
@@ -235,4 +236,17 @@ This (slightly longer) example program manages ticket sales with transactions. T
     (write-line (build-str "Earned $" money-earned))
     (write-line "Customers who bought tickets:")
     (foreach-io_ customers-with-tickets write-line))
+```
+
+## Contributing
+
+The file structure of the source code is complex, but mostly organized consistently. How the files are laid out in `src/` is documented [here](src/README.md).
+
+### Running the tests
+
+One of the tests requires the working directory to be at the repository root. To change in Sly/Slime, type `,cd` in the REPL and navigate to the root directory.
+
+Run the tests in the REPL with:
+```lisp
+(asdf:test-system "coalton-io")
 ```

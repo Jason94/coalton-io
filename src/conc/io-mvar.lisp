@@ -1,11 +1,11 @@
 (cl:in-package :cl-user)
 
-(defpackage :io/mvar
+(defpackage :io/conc/mvar
   (:use
    #:io/io-impl/mvar
-   #:io/gen-impl/mvar)
+   #:io/gen-impl/conc/mvar)
   (:export
-   ;; Re-exports from io/classes/monad-io-mvar
+   ;; Re-exports from io/gen-impl/conc/mvar
    #:MVar
    #:new-mvar
    #:new-empty-mvar
@@ -19,7 +19,7 @@
    #:is-empty-mvar
    #:do-with-mvar
 
-   #:Chan
+   #:MChan
    #:new-empty-chan
    #:push-chan
    #:pop-chan
@@ -30,4 +30,4 @@
    #:with-mvar_
    #:do-with-mvar_))
 
-(in-package :io/mvar)
+(in-package :io/conc/mvar)

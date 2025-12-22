@@ -11,7 +11,7 @@
    #:io/classes/monad-exception
    #:io/classes/monad-io
    #:io/classes/monad-io-thread
-   #:io/gen-impl/mvar
+   #:io/gen-impl/conc/mvar
    )
   (:export
    #:Future

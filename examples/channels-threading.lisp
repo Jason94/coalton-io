@@ -8,7 +8,7 @@
    #:io/term
    #:io/exception
    #:io/random
-   #:io/future
+   #:io/conc/future
    #:coalton-library/experimental/do-control-core
    #:coalton-library/experimental/do-control-loops)
   (:local-nicknames
@@ -16,7 +16,7 @@
    (:f_ #:coalton-library/file)
    (:f #:io/file)
    (:r #:coalton-library/result)
-   (:mv #:io/mvar)
+   (:mv #:io/conc/mvar)
    (:m #:io/mut)))
 (in-package :io/examples/channels-threading)
 
@@ -58,7 +58,7 @@
          (pure Unit))
        (write-line "Done writing data file..."))))
 
-  (declare reader-thread (mv:Chan (Optional String) -> IO Unit))
+  (declare reader-thread (mv:MChan (Optional String) -> IO Unit))
   (define (reader-thread mchan-input)
     (do
      (f:do-with-open-file_ (f_:Input (into data-filename)) (fs)
@@ -68,7 +68,7 @@
      (do-loop-times (_ n-workers)
        (mv:push-chan mchan-input None))))
 
-  (declare parser-thread (mv:Chan (Optional String) -> mv:Chan (Optional Integer) -> IO Unit))
+  (declare parser-thread (mv:MChan (Optional String) -> mv:MChan (Optional Integer) -> IO Unit))
   (define (parser-thread mchan-input mchan-int)
     (do-if-not-valM (str (mv:pop-chan mchan-input))
           (mv:push-chan mchan-int None)
@@ -76,7 +76,7 @@
         (mv:push-chan mchan-int (Some x)))
       (parser-thread mchan-input mchan-int)))
 
-  (declare summer-thread (mv:Chan (Optional Integer) -> IO Integer))
+  (declare summer-thread (mv:MChan (Optional Integer) -> IO Integer))
   (define (summer-thread mchan-int)
     (do
      (sum <- (m:new-var 0))

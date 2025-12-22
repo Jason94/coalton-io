@@ -6,10 +6,10 @@
    #:io/simple-io
    #:io/thread
    #:io/term
-   #:io/future
-   #:io/mvar)
+   #:io/conc/future
+   #:io/conc/mvar)
   (:local-nicknames
-   (:at #:io/atomic)
+   (:at #:io/conc/atomic)
    ))
 (in-package :io/examples/fork-laws)
 

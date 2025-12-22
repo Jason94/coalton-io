@@ -16,19 +16,20 @@
                                  'io/thread-exceptions
                                  'io/exception
                                  'io/monad-io
+                                 'io/simple-io
                                  'io/resource
                                  'io/mut
                                  'io/term
                                  'io/random
                                  'io/thread
-                                 'io/atomic
-                                 'io/mvar
-                                 'io/future
                                  'io/file
                                  'io/unique
                                  'io/stm
+                                 'io/conc/future
+                                 'io/conc/atomic
+                                 'io/conc/mvar
+                                 'io/conc/group
                                  'io/io-all
-                                 'io/simple-io
                                  'io/stubs/term
                                  ))))
 

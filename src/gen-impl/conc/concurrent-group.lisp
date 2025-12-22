@@ -39,13 +39,14 @@ ConcurrentGroup provides the following guarantees:
 * When you stop the group, it will send the stop signal to all of the enclosed Concurrents.
 * When you await the group, it will block until all of the enclosed Concurrents have completed.
 * When you await the group, it will error if any one of the enclosed Concurrents errored.
-* Calling unmask-finally on the group runs the callback on each Concurrent separately, not once
-  on the thread calling (unmask-finally).
+* Calling unmask-finally on the group runs the callback on each Concurrent separately, not
+  once on the thread calling (unmask-finally).
 
-ConcurrentGroups guarantees are only valid if management of the enclosed Concurrents is done
-through the group. For example, if one thread tries to mask the group while another thread tries
-to stop one of the individual Concurrents in the group, then the second thread might stop the
-individual Concurrent before the first thread has a chance to mask it."
+ConcurrentGroups guarantees are only valid if management of the enclosed Concurrents is
+done through the group. For example, if one thread tries to mask the group while another
+thread tries to stop one of the individual Concurrents in the group, then the second
+thread might stop the individual Concurrent before the first thread has a chance to mask
+it."
     (pool (List :c))
     (lock lk:Lock))
 

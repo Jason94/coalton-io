@@ -6,12 +6,12 @@
    #:io/simple-io
    #:io/exception
    #:io/thread
-   #:io/future
-   #:io/gen-impl/conc/group
+   #:io/conc/future
+   #:io/conc/group
    #:io/mut)
   (:local-nicknames
    (:tm #:io/term)
-   (:at #:io/atomic)))
+   (:at #:io/conc/atomic)))
 (in-package :coalton-io/tests/conc/group)
 
 (named-readtables:in-readtable coalton:coalton)

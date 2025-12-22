@@ -1,11 +1,11 @@
 (cl:in-package :cl-user)
-(defpackage :io/future
+(defpackage :io/conc/future
   (:use
    #:io/gen-impl/conc/future
    #:io/io-impl/future
    )
   (:export
-   ;; Re-exports from io/gen-impl/future
+   ;; Re-exports from io/gen-impl/conc/future
    #:Future
    #:fork-future
    #:try-read-future
@@ -16,6 +16,6 @@
    #:fork-future_
    #:do-fork-future_
    ))
-(in-package :io/future)
+(in-package :io/conc/future)
 
 (named-readtables:in-readtable coalton:coalton)

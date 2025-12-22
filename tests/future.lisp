@@ -3,7 +3,7 @@
         #:io/simple-io
         #:io/exception
         #:io/thread
-        #:io/future
+        #:io/conc/future
         #:io/mut))
 (in-package :coalton-io/tests/future)
 
