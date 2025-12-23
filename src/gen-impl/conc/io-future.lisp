@@ -91,7 +91,7 @@ that were raised in the future thread."
           (raise-dynamic dyn-e))))))
   )
 
-(cl:defmacro do-fork-future (cl:&body body)
+(defmacro do-fork-future (cl:&body body)
   `(fork-future
     (do
      ,@body)))

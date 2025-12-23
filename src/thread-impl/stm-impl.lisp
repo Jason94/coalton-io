@@ -34,7 +34,7 @@
   )
 (in-package :io/thread-impl/stm-impl)
 
-(cl:defmacro mem-barrier ()
+(defmacro mem-barrier ()
   `(lisp Void ()
      (sb-thread:barrier (:read))))
 

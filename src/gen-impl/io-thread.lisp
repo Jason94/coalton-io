@@ -28,6 +28,6 @@ for debugging."
     (wrap-io (write-line-sync% msg) Unit))
   )
 
-(cl:defmacro implement-monad-io-thread (monad runtime thread)
+(defmacro implement-monad-io-thread (monad runtime thread)
   `(define-instance (MonadIoThread ,runtime ,thread ,monad)
      ))

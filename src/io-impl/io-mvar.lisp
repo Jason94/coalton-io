@@ -27,7 +27,7 @@
 
   )
 
-(cl:defmacro do-with-mvar_ ((sym mvar) cl:&body body)
+(defmacro do-with-mvar_ ((sym mvar) cl:&body body)
   `(with-mvar_
      ,mvar
      (fn (,sym)

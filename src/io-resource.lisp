@@ -44,7 +44,7 @@ afterward."
         unmask-current-thread))))
   )
 
-(cl:defmacro do-with-mask (cl:&body body)
+(defmacro do-with-mask (cl:&body body)
   "Evaluate BODY with the current thread masked, automatically unmasking
 afterward."
   `(with-mask

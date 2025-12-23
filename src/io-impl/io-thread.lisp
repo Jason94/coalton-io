@@ -44,12 +44,12 @@
   (define unmask-finally_ unmask-finally)
   )
 
-(cl:defmacro do-fork-thread_ (cl:&body body)
+(defmacro do-fork-thread_ (cl:&body body)
   `(fork-thread_
     (do
      ,@body)))
 
-(cl:defmacro do-fork-thread-throw_ (cl:&body body)
+(defmacro do-fork-thread-throw_ (cl:&body body)
   `(fork-thread-throw_
     (do
      ,@body)))

@@ -86,7 +86,7 @@ exceptions as an (Err e)."
 ;;; Derive Macros
 ;;;
 
-(cl:defmacro derive-monad-io (monad-param monadT-form)
+(defmacro derive-monad-io (monad-param monadT-form)
   "Automatically derive an instance of MonadIo for a monad transformer.
 
 Example:
@@ -94,7 +94,7 @@ Example:
   `(define-instance (MonadIo ,monad-param => MonadIo ,monadT-form)
      (define wrap-io_ (compose lift wrap-io_))))
 
-(cl:defmacro derive-lift-io (monad-param monadT-form)
+(defmacro derive-lift-io (monad-param monadT-form)
   "Automatically derive an instance of LiftIo for a monad transformer.
 
 Example:
@@ -145,7 +145,7 @@ Example:
 ;;; Monad Helpers
 ;;;
 
-(cl:defmacro wrap-io (cl:&body body)
+(defmacro wrap-io (cl:&body body)
   "Wrap the execution of BODY in the IO monad.
 Supports any MonadIo instance.
 
@@ -155,7 +155,7 @@ Example:
       (cl:print str))"
   `(wrap-io_ (fn () ,@body)))
 
-(cl:defmacro run-as! (m-type m-op)
+(defmacro run-as! (m-type m-op)
   "Run M-OP using the concrete RunIo M-TYPE. Useful for situations where
 you want to create a generic MonadIo operation and immediately run it,
 so the compiler can't infer the type of the actual monad you want to use.
@@ -210,13 +210,13 @@ If you're having inference issues, try foreach-io_."
 ;; Syntactic Sugar Macros
 ;;
 
-(cl:defmacro do-map-into-io ((var lst) cl:&body body)
+(defmacro do-map-into-io ((var lst) cl:&body body)
   `(map-into-io ,lst
      (fn (,var)
        (do
         ,@body))))
 
-(cl:defmacro do-foreach-io ((var into-itr) cl:&body body)
+(defmacro do-foreach-io ((var into-itr) cl:&body body)
   `(foreach-io ,into-itr
      (fn (,var)
        (do

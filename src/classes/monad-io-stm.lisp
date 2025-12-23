@@ -62,7 +62,7 @@ retry, then the entire transaction retries."
 the transaction is aborted and the exception is re-raised."
      (STM :m :a -> :m :a))))
 
-(cl:defmacro derive-monad-io-stm (monad-param monadT-form)
+(defmacro derive-monad-io-stm (monad-param monadT-form)
   "Automatically derive an instance of MonadIoSTM for a monad transformer.
 
 Example:
@@ -88,7 +88,7 @@ Example:
   (derive-monad-io-stm :m (LoopT :m))
   )
 
-(cl:defmacro do-run-tx (cl:&body body)
+(defmacro do-run-tx (cl:&body body)
   `(run-tx
     (do
      ,@body)))

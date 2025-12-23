@@ -26,7 +26,7 @@
    #:derive-monad-io-all))
 (in-package :io/io-all)
 
-(cl:defmacro derive-monad-io-all (monad-param monadT-form)
+(defmacro derive-monad-io-all (monad-param monadT-form)
   `(progn
      (derive-monad-io ,monad-param ,monadT-form)
      (derive-monad-io-thread ,monad-param ,monadT-form)
@@ -36,7 +36,7 @@
      (derive-monad-io-term ,monad-param ,monadT-form)
      (derive-monad-io-unique ,monad-param ,monadT-form)))
 
-(cl:defmacro implement-monad-io-all (monad)
+(defmacro implement-monad-io-all (monad)
   `(progn
      (implement-monad-io-thread ,monad)
      (implement-monad-io-var ,monad)

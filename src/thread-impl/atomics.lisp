@@ -39,8 +39,6 @@
 
 (named-readtables:in-readtable coalton:coalton)
 
-(cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0) (cl:debug 0)))
-
 ;;
 ;; This file wraps the Atomics library to Coalton.
 ;; https://github.com/Shinmera/atomics

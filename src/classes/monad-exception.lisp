@@ -125,7 +125,7 @@ them as exceptions."
                                       (catch-thunk thunk)))))
   )
 
-(cl:defmacro wrap-error (cl:&body body)
+(defmacro wrap-error (cl:&body body)
     "Run BODY, catching any unhandled Lisp/Coalton errors and raising
 them as exceptions."
   `(wrap-error_ (fn () ,@body)))
@@ -134,21 +134,21 @@ them as exceptions."
 ;;; Syntax Macros
 ;;;
 
-(cl:defmacro do-reraise (op cl:&body body)
+(defmacro do-reraise (op cl:&body body)
   "Convenience macro for reraise."
   `(reraise ,op
     (fn ()
       (do
        ,@body))))
 
-(cl:defmacro do-handle (op (err-sym) cl:&body body)
+(defmacro do-handle (op (err-sym) cl:&body body)
   "Convenience macro for handle."
   `(handle ,op
     (fn (,err-sym)
       (do
        ,@body))))
 
-(cl:defmacro do-handle-all (op cl:&body body)
+(defmacro do-handle-all (op cl:&body body)
   "Convenience macro for handle-all.
 
 Example:

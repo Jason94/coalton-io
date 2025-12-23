@@ -152,7 +152,7 @@
 
   )
 
-(cl:defmacro derive-monad-io-file (monad-param monadT-form)
+(defmacro derive-monad-io-file (monad-param monadT-form)
   "Derive a `MonadIoFile` instance for MONADT-FORM by lifting into the base instance.
 
 Example:

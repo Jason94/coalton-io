@@ -48,7 +48,7 @@
                (cl:random limit))))
   )
 
-(cl:defmacro implement-monad-io-random (monad)
+(defmacro implement-monad-io-random (monad)
   `(define-instance (MonadIoRandom ,monad)
      (define make-random-state make-random-state%)
      (define copy-random-state copy-random-state%)

@@ -99,7 +99,7 @@
          (random-elt_ lst)))
   )
 
-(cl:defmacro derive-monad-io-random (monad-param monadT-form)
+(defmacro derive-monad-io-random (monad-param monadT-form)
   "Automatically derive an instance of MonadIoRandom for a monad transformer.
 
 Example:

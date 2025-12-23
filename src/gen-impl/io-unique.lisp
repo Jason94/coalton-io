@@ -25,7 +25,7 @@
   (define new-unique%
     (wrap-io (Unique% (at:atomic-update-swap counter% (+ 1))))))
 
-(cl:defmacro implement-monad-io-unique (monad)
+(defmacro implement-monad-io-unique (monad)
   `(define-instance (MonadIoUnique ,monad)
      (define new-unique new-unique%)))
 

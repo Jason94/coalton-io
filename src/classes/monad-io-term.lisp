@@ -32,7 +32,7 @@
      "Read a line from standard input."
      (:m String))))
 
-(cl:defmacro derive-monad-io-term (monad-param monadT-form)
+(defmacro derive-monad-io-term (monad-param monadT-form)
   "Automatically derive an instance of MonadIoTerm for a monad transformer.
 
 Example:

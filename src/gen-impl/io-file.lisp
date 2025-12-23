@@ -162,7 +162,7 @@
     (wrap-io (f_:set-file-position fs pos)))
 )
 
-(cl:defmacro implement-monad-io-file (monad)
+(defmacro implement-monad-io-file (monad)
   `(define-instance (MonadIoFile ,monad)
      (define exists? exists?%)
      (define file-exists? file-exists?%)
@@ -261,7 +261,7 @@ in some cases. Try WITH-TEMP-DIRECTORY_ if you have issues."
 
   )
 
-(cl:defmacro do-with-open-file (opts (fs) cl:&body body)
+(defmacro do-with-open-file (opts (fs) cl:&body body)
   "`do` sugar for `with-open-file`. Expands to a continuation where BODY runs in `do`.
 
 Usage:
@@ -271,11 +271,11 @@ Usage:
 "
   `(with-open-file ,opts (fn (,fs) (do ,@body))))
 
-(cl:defmacro do-with-temp-file (type (fs) cl:&body body)
+(defmacro do-with-temp-file (type (fs) cl:&body body)
   "`do` sugar for `with-temp-file` (TYPE is a string like \"txt\")."
   `(with-temp-file ,type (fn (,fs) (do ,@body))))
 
-(cl:defmacro do-with-temp-directory ((dir) cl:&body body)
+(defmacro do-with-temp-directory ((dir) cl:&body body)
   "`do` sugar for `with-temp-directory`."
   `(with-temp-directory (fn (,dir) (do ,@body))))
 

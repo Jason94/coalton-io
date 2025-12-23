@@ -29,7 +29,7 @@ the produced :m is run."
     fork-future)
   )
 
-(cl:defmacro do-fork-future_ (cl:&body body)
+(defmacro do-fork-future_ (cl:&body body)
   `(fork-future_
     (do
      ,@body)))

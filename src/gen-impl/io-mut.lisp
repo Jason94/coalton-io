@@ -47,7 +47,7 @@
     "Modify the value in an Var and return the old value."
     (wrap-io (c:update-swap! f cel))))
 
-(cl:defmacro implement-monad-io-var (monad)
+(defmacro implement-monad-io-var (monad)
   `(define-instance (MonadIoVar ,monad)
      (define new-var new-var%)
      (define read read%)

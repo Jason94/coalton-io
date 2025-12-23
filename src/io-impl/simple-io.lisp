@@ -52,7 +52,7 @@
 ;;; Debugging Helpers
 ;;;
 
-(cl:defmacro compile-debug-sleep (sleep-ms)
+(defmacro compile-debug-sleep (sleep-ms)
   "If environmental variable SIMPLE_IO_DEBUG_SLEEP = 'y', sleep for SLEEP-MS.
 See >>="
   (cl:if (cl:equalp (uiop:getenv "SIMPLE_IO_DEBUG_SLEEP") "y")
@@ -317,13 +317,13 @@ More efficient than foreach-io, if you can run your effect in a BaseIo."
 
   )
 
-(cl:defmacro do-map-into-io_ ((var lst) cl:&body body)
+(defmacro do-map-into-io_ ((var lst) cl:&body body)
   `(map-into-io_ ,lst
      (fn (,var)
        (do
         ,@body))))
 
-(cl:defmacro do-foreach-io_ ((var into-itr) cl:&body body)
+(defmacro do-foreach-io_ ((var into-itr) cl:&body body)
   `(foreach-io_ ,into-itr
      (fn (,var)
        (do

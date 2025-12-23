@@ -41,7 +41,7 @@
 
 (named-readtables:in-readtable coalton:coalton)
 
-(cl:defmacro build-str (cl:&rest str-parts)
+(defmacro build-str (cl:&rest str-parts)
   "Concatenate all STR-PARTS."
   `(fold <> "" (make-list ,@(cl:mapcar (cl:lambda (clause)
                                          `(as String ,clause))

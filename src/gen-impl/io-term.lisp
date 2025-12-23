@@ -34,7 +34,7 @@
     (wrap-io (lisp :a ()
                (cl:read-line)))))
 
-(cl:defmacro implement-monad-io-term (monad)
+(defmacro implement-monad-io-term (monad)
   `(define-instance (MonadIoTerm ,monad)
      (define write write%)
      (define write-line write-line%)

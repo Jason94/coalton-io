@@ -13,7 +13,7 @@
 
 (named-readtables:in-readtable coalton:coalton)
 
-(cl:defmacro implement-monad-io-stm (monad)
+(defmacro implement-monad-io-stm (monad)
   `(define-instance (MonadIoSTM ,monad)
      (define new-tvar new-tvar%)
      (define read-tvar read-tvar%)

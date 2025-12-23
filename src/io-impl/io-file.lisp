@@ -42,7 +42,7 @@
                                  -> :m :a))
   (define with-temp-directory_ with-temp-directory))
 
-(cl:defmacro do-with-open-file_ (opts (fs) cl:&body body)
+(defmacro do-with-open-file_ (opts (fs) cl:&body body)
   "`do` sugar for `with-open-file_`. Expands to a continuation where BODY runs in `do`.
 
 Usage:
@@ -52,10 +52,10 @@ Usage:
 "
   `(with-open-file_ ,opts (fn (,fs) (do ,@body))))
 
-(cl:defmacro do-with-temp-file_ (type (fs) cl:&body body)
+(defmacro do-with-temp-file_ (type (fs) cl:&body body)
   "`do` sugar for `with-temp-file_` (TYPE is a string like \"txt\")."
   `(with-temp-file_ ,type (fn (,fs) (do ,@body))))
 
-(cl:defmacro do-with-temp-directory_ ((dir) cl:&body body)
+(defmacro do-with-temp-directory_ ((dir) cl:&body body)
   "`do` sugar for `with-temp-directory_`."
   `(with-temp-directory_ (fn (,dir) (do ,@body))))

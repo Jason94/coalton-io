@@ -47,7 +47,7 @@
      "Modify the value in a variable by applying F, and return the old value."
      (Var :a -> (:a -> :a) -> :m :a))))
 
-(cl:defmacro derive-monad-var (monad-param monadT-form)
+(defmacro derive-monad-var (monad-param monadT-form)
   "Automatically derive an instance of MonadIoVar for a monad transformer.
 
 Example:

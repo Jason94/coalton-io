@@ -51,7 +51,7 @@ Threadsafe - calling from different threads will still result in unique
 values across all threads."
      (:m Unique))))
 
-(cl:defmacro derive-monad-io-unique (monad-param monadT-form)
+(defmacro derive-monad-io-unique (monad-param monadT-form)
   "Automatically derive an instance of MonadIoUnique for a monad transformer.
 
 Example:

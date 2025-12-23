@@ -220,7 +220,7 @@ threads, etc."
     "Get the Runtime type for a MonadIoThread operation."
     (runtime-for (proxy-of op))))
 
-(cl:defmacro derive-monad-io-thread (monad-param monadT-form)
+(defmacro derive-monad-io-thread (monad-param monadT-form)
   "Automatically derive an instance of MonadIoThread for a monad transformer.
 
 Example:
@@ -239,7 +239,7 @@ Example:
   (derive-monad-io-thread :m (LoopT :m))
   )
 
-(cl:defmacro inject-runtime (f cl:&rest args)
+(defmacro inject-runtime (f cl:&rest args)
   "Weave proxies to inject the runtime proxy as the first argument of f.
 Assumes the output has type :m :a for some MonadIoThread :m."
   `(progn
@@ -248,7 +248,7 @@ Assumes the output has type :m :a for some MonadIoThread :m."
       (wrap-io (,f (runtime-for m-prx) ,@args))
       m-prx)))
 
-(cl:defmacro wrap-io-with-runtime ((rt-prx-sym) cl:&body body)
+(defmacro wrap-io-with-runtime ((rt-prx-sym) cl:&body body)
   "Wrap the body in a wrap-io and pass a proxy to the runtime with RT-PRX-SYM."
   (cl:let ((m-prx (cl:gensym)))
     `(progn
@@ -415,12 +415,12 @@ continuing."
 
   )
 
-(cl:defmacro do-fork-thread (cl:&body body)
+(defmacro do-fork-thread (cl:&body body)
   `(fork-thread
     (do
      ,@body)))
 
-(cl:defmacro do-fork-thread-throw (cl:&body body)
+(defmacro do-fork-thread-throw (cl:&body body)
   `(fork-thread-throw
     (do
      ,@body)))
