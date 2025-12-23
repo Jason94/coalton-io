@@ -13,6 +13,8 @@
    #:Stopped
    #:Running
 
+   #:IoThread
+
    ;; Re-exports from io/classes/monad-io-thread
    #:Runtime
    #:current-thread!
