@@ -30,6 +30,11 @@
   ;;
   ;; TODO: Once Coalton gets GADTs, we can scrap all of this!
   (define-struct (Future :a)
+    "Container for an value that will eventually be returned by a concurrent operation.
+
+Concurrent:
+  - Future's `(Concurrent Future :a)` instance defers to the underlying thread, so it takes
+    on masking semantics of the underyling thread's `Concurrent` instance."
     (value-mvar (MVar (Result Dynamic :a)))
     (stop-callback (Unit -> Unit))
     (mask-callback (Unit -> Unit))
@@ -44,6 +49,10 @@
     "Spawn a new future, which will run and eventually return the result
 from TASK. The future is guaranteed to only ever run at most once, when
 the produced :m is run."
+    ;; CONCURRENT:
+    ;; - No reason to mask before thread is returned
+    ;; - Though calling the stored callbacks will take "some" time, this does not create
+    ;;   new boundaries for race conditions, so masking them would be pointless
     (let m-prx = Proxy)
     (let rt-prx = (runtime-for m-prx))
     (as-proxy-of
@@ -92,6 +101,9 @@ that were raised in the future thread."
   )
 
 (defmacro do-fork-future (cl:&body body)
+  "Spawn a new future, which will run and eventually return the result
+from TASK. The future is guaranteed to only ever run at most once, when
+the produced :m is run."
   `(fork-future
     (do
      ,@body)))
