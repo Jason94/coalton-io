@@ -102,3 +102,70 @@ It's worth noting that the potential for `unmask!` to stop the thread doesn't ac
 
 This code is unsafe because the `unmask!` call on line four could stop the thread before `release-resource` has a chance to run on line five. However, even if `unmask!` did not honor pending stops and never stopped the thread, this code would still be unsafe because the current thread could receive an asynchronous stop after line four but before line five.
 
+## Concurrent Function Documentation
+
+`coalton-io` follows the following user-facing and internal documentation practices for any functions that run safely in a concurrent environment.
+
+### Docstrings
+
+The following default assumptions apply to all concurrent functions:
+
+1. The function masks itself during any critical sections.
+2. The function unmasks any masks it applied before it exits.
+3. The function does not block.
+4. If it does block, the function does not mask any blocking operation.
+5. The function does not mask execution of any callback passed into it, in case it blocks.
+
+Functions may violate these assumptions. However, any non-standard behavior must be documented in a `Concurrent:` section of the docstring. Pay particular attention to the `Concurrent` documentation for any functions used, particular if they leave the thread masked. Emphasize any non-standard behavior requiring the caller to take action.
+
+Here is an example of a comprehensive `Concurrent:` docstring from the MVar implementation:
+
+```lisp
+  (inline)
+  (declare take-mvar-masked (MonadIoThread :rt :t :m => MVar :a -> :m :a))
+  (define (take-mvar-masked mvar)
+    "Take a value from an MVar, blocking until one is available.
+
+Concurrent:
+  - WARNING: Leaves the thread masked when returns to protect caller's critical regions
+    based on consuming and restoring MVar to a valid state. See MChan for an example.
+  - Blocks while the MVar is empty
+  - Read-consumers (including `take-mvar-masked`) are woken individual on succesfull puts,
+    in order of acquisition
+  - On succesful take, one blocking writer is woken in order of acquisition"
+    ;; CONCURRENT: Inherits CONCURRENT semantics from take-mvar-masked-inner%
+    (wrap-io-with-runtime (rt-prx)
+      (take-mvar-masked-inner% mvar rt-prx)))
+```
+
+### Internal Documentation
+
+Any concurrent function should have a top-level, internal `CONCURRENT:` comment briefly (1) justifying the soundness of its masking behavior and (2) noting any invariant behavior. These comments should be treated similarly to SAFETY comments in Rust.
+
+Here is an example of a comprehensive `CONCURRENT:` comment from the MVar implementation:
+
+```lisp
+  (declare take-mvar-masked-inner% (Runtime :rt :t => MVar :a -> Proxy :rt -> :a))
+  (define (take-mvar-masked-inner% mvar rt-prx)
+    "Concurrent: Leaves the thread masked once."
+    ;; CONCURRENT: Masks before entering the critical region.
+    ;; unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
+    ;; catch block guaranteeing lock release.
+    ;; The thread can only be stopped during unmask-and-await-safely%, thus cannot
+    ;; be stopped between emptying the MVar and notifying listeners.
+    ;; On the post-wakeup success path, does not unmask and leaves the applied mask
+    ;; to the caller to handle.
+    (mask-current! rt-prx)
+    (lk:acquire (.lock mvar))
+    (let ((lp (fn ()
+                (match (at:read (.data mvar))
+                  ((Some val)
+                   (at:atomic-write (.data mvar) None)
+                   (lk:release (.lock mvar))
+                   (cv:notify (.notify-empty mvar))
+                   val)
+                  ((None)
+                   (unmask-and-await-safely% rt-prx (.notify-full mvar) (.lock mvar))
+                   (lp))))))
+      (lp)))
+```

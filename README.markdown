@@ -246,6 +246,8 @@ This (slightly longer) example program manages ticket sales with transactions. T
 
 The file structure of the source code is complex, but the project is organized consistently. How the files are laid out in `src/` is documented [here](src/README.md).
 
+Contributions to the concurrent codebase are welcome. However, because asynchronous exceptions are particularly tricky to develop around, please follow the standards for _Concurent Function Documentation_ given in [the runtime documentation](docs/runtime.md). 
+
 ### Running the tests
 
 One of the tests requires the working directory to be at the repository root. To change in Sly/Slime, type `,cd` in the REPL and navigate to the root directory.

@@ -49,14 +49,10 @@
 (coalton-toplevel
 
   (define-struct (MVar :a)
-    "A synchronized container that can be empty or hold one :a.
-Can put data into the container, blocking until it is empty.
-Can take data out of the container, blocking until it is full.
+    "A synchronized container that can be empty or hold an :a.
 
-All critical MVar operations are masked, so stopping a thread that's operating on
-MVar's won't leave MVar's in an inoperable state. However, irresponsible stopping
-could still cause deadlocks, race conditions, etc. if other threads were
-depending on the stopped thread operating on an MVar to continue."
+All critical MVar operations are masked. However, irresponsible stopping could still cause
+deadlocks and other race conditions."
     (lock                lk:Lock)
     (read-broadcast-pool (DataBroadcastPool :a))
     (notify-full         cv:ConditionVariable)
@@ -87,6 +83,17 @@ depending on the stopped thread operating on an MVar to continue."
 
   (declare take-mvar-masked-inner% (Runtime :rt :t => MVar :a -> Proxy :rt -> :a))
   (define (take-mvar-masked-inner% mvar rt-prx)
+    "Concurrent: Leaves the thread masked once."
+    ;; CONCURRENT: Masks before entering the critical region.
+    ;; unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
+    ;; catch block guaranteeing lock release.
+    ;; The thread can only be stopped during unmask-and-await-safely%, thus cannot
+    ;; be stopped between emptying the MVar and notifying listeners.
+    ;; Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;; condition and interpose lock acquisition before waiting/notifying.
+    ;; See <cite SO post>
+    ;; On the post-wakeup success path, does not unmask and leaves the applied mask
+    ;; to the caller to handle.
     (mask-current! rt-prx)
     (lk:acquire (.lock mvar))
     (let ((lp (fn ()
@@ -104,18 +111,32 @@ depending on the stopped thread operating on an MVar to continue."
   (inline)
   (declare take-mvar-masked (MonadIoThread :rt :t :m => MVar :a -> :m :a))
   (define (take-mvar-masked mvar)
-    "Take a value from an MVar, blocking until one is available. Leaves the thread masked
-after the value is retrieved, but the thread is unmasked while blocking. This is useful if
-you need to protect the thread until you restore the MVar to a valid state. See the
-implementation of MChan for an example."
+    "Take a value from an MVar, blocking until one is available.
+
+Concurrent:
+  - WARNING: Leaves the thread masked when returns to protect caller's critical regions
+    based on consuming and restoring MVar to a valid state. See MChan for an example.
+  - Blocks while the MVar is empty
+  - Read-consumers (including `take-mvar-masked`) are woken individual on succesfull puts,
+    in order of acquisition
+  - On succesful take, one blocking writer is woken in order of acquisition"
+    ;; CONCURRENT: Inherits CONCURRENT semantics from take-mvar-masked-inner%
     (wrap-io-with-runtime (rt-prx)
       (take-mvar-masked-inner% mvar rt-prx)))
 
   (inline)
   (declare take-mvar (MonadIoThread :rt :t :m => MVar :a -> :m :a))
   (define (take-mvar mvar)
-    "Take a value from an MVar, blocking until one is available. The thread is unmasked
-while blocking. Leaves the thread unmasked after returning."
+    "Take a value from an MVar, blocking until one is available.
+
+Concurrent:
+  - Blocks while the MVar is empty
+  - Read-consumers (including `take-mvar`) are woken individual on succesful puts,
+    in order of acquisition
+  - On succesful take, one blocking writer is woken in order of acquisition"
+    ;; CONCURRENT:
+    ;; Inherits CONCURRENT semantics from take-mvar-masked-inner%.
+    ;; unmasks from take-mvar-masked-inner% before returning to caller.
     (wrap-io-with-runtime (rt-prx)
       (let result = (take-mvar-masked-inner% mvar rt-prx))
       (unmask-current! rt-prx)
@@ -123,7 +144,23 @@ while blocking. Leaves the thread unmasked after returning."
 
   (declare put-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m Unit))
   (define (put-mvar mvar val)
-    "Put a value into an MVar, blocking until it becomes empty."
+    "Fill an empty MVar, blocking until it becomes empty.
+
+Concurrent:
+  - Blocks while the MVar is full
+  - Writers (including `put-mvar`) are woken individual on succesful takes in order
+    of acquisition
+  - On succesful put, blocking read-consumers are woken individually in order of acquisition
+  - On succesful put, all blocking read-non-consumers are woken simultaneously. New data
+    is handed directly to woken read-non-consumers so they don't contend on the MVar."
+    ;; CONCURRENT: Masks before entering the critical region.
+    ;; unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
+    ;; catch block guaranteeing lock release.
+    ;; The thread can only be stopped during unmask-and-await-safely%, thus cannot
+    ;; be stopped between emptying the MVar and notifying listeners.
+    ;; Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;; condition and interpose lock acquisition before waiting/notifying.
+    ;; See <cite SO post>
     (wrap-io-with-runtime (rt-prx)
       (let lock = (.lock mvar))
       (let data = (.data mvar))
@@ -145,45 +182,88 @@ while blocking. Leaves the thread unmasked after returning."
 
   (declare try-take-mvar (MonadIoThread :rt :t :m => MVar :a -> :m (Optional :a)))
   (define (try-take-mvar mvar)
-    "Attempt to take a value from an MVar; returns None if empty."
+    "Attempt to immediately take a value from an MVar. Returns None if empty.
+
+Concurrent:
+  - Can briefly block while waiting to empty the MVar, if contended
+  - On succesful take, one blocking writer is woken in order of acquisition"
+    ;; CONCURRENT:
+    ;; Does not need to mask until acquiring lock, because atomic read and function
+    ;; return can't leave MVar in inconsistent state.
+    ;; Exit on initial read fail is valid because not obligated to retry until full.
+    ;; Subsequent read test after acquisition is required in case MVar was emptied
+    ;; between initial atomic read and lock acquisition.
+    ;; Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;; condition and interpose lock acquisition before waiting/notifying.
+    ;; See <cite SO post>
     (wrap-io-with-runtime (rt-prx)
-      (mask-current! rt-prx)
-      (lk:acquire (.lock mvar))
       (match (at:read (.data mvar))
-        ((Some x)
-         (at:atomic-write (.data mvar) None)
-         (lk:release (.lock mvar))
-         (cv:notify (.notify-empty mvar))
-         (unmask-current! rt-prx)
-         (Some x))
         ((None)
-         (lk:release (.lock mvar))
-         (unmask-current! rt-prx)
-         None))))
+         None)
+        ((Some _)
+         (mask-current! rt-prx)
+         (lk:acquire (.lock mvar))
+         (match (at:read (.data mvar))
+           ((Some x)
+            (at:atomic-write (.data mvar) None)
+            (lk:release (.lock mvar))
+            (cv:notify (.notify-empty mvar))
+            (unmask-current! rt-prx)
+            (Some x))
+           ((None)
+            (lk:release (.lock mvar))
+            (unmask-current! rt-prx)
+            None))))))
 
   (declare try-put-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m Boolean))
   (define (try-put-mvar mvar val)
-    "Attempt to put a value into an MVar; returns False if full and the put fails,
-True if the put succeeds."
+    "Attempt to immediately put a value into an MVar. Returns True if succeeded.
+
+Concurrent:
+  - Can briefly block while waiting to fill the MVar, if contended
+  - On succesful put, blocking read-consumers are woken individually in order of acquisition
+  - On succesful put, all blocking read-non-consumers are woken simultaneously. New data
+    is handed directly to woken read-non-consumers so they don't contend on the MVar."
+    ;; CONCURRENT:
+    ;; Does not need to mask until acquiring lock, because atomic read and function
+    ;; return can't leave MVar in inconsistent state.
+    ;; Exit on initial read fail is valid because not obligated to retry until empty.
+    ;; Subsequent read test after acquisition is required in case MVar was filled
+    ;; between initial atomic read and lock acquisition.
+    ;; Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;; condition and interpose lock acquisition before waiting/notifying.
+    ;; See <cite SO post>
     (wrap-io-with-runtime (rt-prx)
-      (mask-current! rt-prx)
-      (lk:acquire (.lock mvar))
       (match (at:read (.data mvar))
         ((Some _)
-         (lk:release (.lock mvar))
-         (unmask-current! rt-prx)
          False)
         ((None)
-         (at:atomic-write (.data mvar) (Some val))
-         (lk:release (.lock mvar))
-         (publish (.read-broadcast-pool mvar) val)
-         (cv:notify (.notify-full mvar))
-         (unmask-current! rt-prx)
-         True))))
+         (mask-current! rt-prx)
+         (lk:acquire (.lock mvar))
+         (match (at:read (.data mvar))
+           ((Some _)
+            (lk:release (.lock mvar))
+            (unmask-current! rt-prx)
+            False)
+           ((None)
+            (at:atomic-write (.data mvar) (Some val))
+            (lk:release (.lock mvar))
+            (publish (.read-broadcast-pool mvar) val)
+            (cv:notify (.notify-full mvar))
+            (unmask-current! rt-prx)
+            True))))))
 
   (declare read-mvar (MonadIoThread :rt :t :m => MVar :a -> :m :a))
   (define (read-mvar mvar)
-    "Read (without removing) the value from an MVar, blocking until one is available."
+    "Read a value from an MVar, blocking until one is available. Does not consume value.
+
+Concurrent:
+  - Blocks while the MVar is empty
+  - Blocking read-non-consumers (including `read-mvar`) are woken simultaneously on 
+    succesful put. Data is handed directly to woken readers, which don't contend on mvar."
+    ;; CONCURRENT:
+    ;; Does not need to mask around read-only atomic happy path.
+    ;; subscribe blocks until a publish and masks its own critical regions.
     (wrap-io-with-runtime (rt-prx)
       (match (at:read (.data mvar))
         ((Some x)
@@ -193,13 +273,24 @@ True if the put succeeds."
 
   (declare try-read-mvar (MonadIoThread :rt :t :m => MVar :a -> :m (Optional :a)))
   (define (try-read-mvar mvar)
-    "Attempt to read (without removing) the value from an MVar; returns None if empty."
+    "Attempt to immediately read a value from an MVar. Returns None if empty."
     (wrap-io
       (at:read (.data mvar))))
 
   (declare swap-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m :a))
   (define (swap-mvar mvar new-val)
-    "Atomically replace the value in an MVar and return the old value."
+    "Atomically replace the value in an MVar and return the old value.
+
+Concurrent:
+  - Blocks while the MVar is empty
+  - Wakes the next blocking read-consumer when `swap-mvar` completes."
+    ;; CONCURRENT:
+    ;; Masks before entering the critical region.
+    ;; unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
+    ;; catch block guaranteeing lock release.
+    ;; Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;; condition and interpose lock acquisition before waiting/notifying.
+    ;; See <cite SO post>
     (wrap-io-with-runtime (rt-prx)
       (mask-current! rt-prx)
       (lk:acquire (.lock mvar))
@@ -212,6 +303,9 @@ True if the put succeeds."
                      (unmask-current! rt-prx)
                      old-val)
                     ((None)
+                     ;; BUG: If the thread is stopped in unmask-and-await-safely% after
+                     ;; waking but before masking and the MVar is full, then the lock
+                     ;; will be released BUT the next read-consumer won't be notified.
                      (unmask-and-await-safely% rt-prx (.notify-full mvar) (.lock mvar))
                      (lp))))))
         (lp))))
@@ -222,26 +316,43 @@ True if the put succeeds."
     (wrap-io
       (opt:none? (at:read (.data mvar)))))
 
-  (declare with-mvar ((UnliftIo :r :i) (LiftTo :r :m) (MonadException :i) (MonadIoThread :rt :t :i)
-                       => MVar :a -> (:a -> :r :b) -> :m :b))
+  )
+
+(coalton-toplevel
+  ;; NOTE: It would be preferable to restore the initial value of the MVar on a fail.
+  ;; However, this would violate the requirement that bracket-io cleanup not block
+  ;; and would leave the thread unstoppable.
+  ;; TODO: Possibly check and restore if it's a non-thread stop exception? But is the
+  ;; inconsistent behavior worth it? Probably not?
+  (declare with-mvar ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :i)
+                       => MVar :a -> (:a -> :r :a) -> :m :a))
   (define (with-mvar mvar op)
-    "Modify with the result of an operation. Blocks until MVar is full.
-If the operation raises an exception, will restore the MVar value and re-raise.
-If other threads are calling PUT-MVAR while the operation is running,
-they can block this thread until another thread takes the MVar."
+    "Run an operation with the value from an MVar, blocking until one is available.
+Stores the result of the operation in the MVar and returns.
+
+WARNING: If the computation raises an unhandled exception or is stopped, leaves the MVar
+empty!
+
+Concurrent:
+  - WARNING: Does not mask during the computation. To ensure completion, caller must mask
+  - Blocks while the MVar is empty
+  - Inherits notify semantics from `put-mvar`
+  - Does not leave the MVar locked during the computation. Thus, other threads can
+    put the MVar during the computation and force `with-mvar` to block until empty."
+    ;; CONCURRENT:
+    ;; Doesn't explicitly mask (see above), but take-mvar and put-mvar mask their critical sections.
     (lift-to
      (with-run-in-io
        (fn (run)
-         (do
-          (result <-
-           (bracket-io_ (take-mvar mvar)
-                        (put-mvar mvar)
-                        (fn (x)
-                          (run (op x)))))
-          (pure result))))))
+         (lift-io
+          (do
+           (val <- (take-mvar mvar))
+           (result <- (run (op val)))
+           (put-mvar mvar result)
+           (pure result)))))))
   )
 
-(cl:defmacro do-with-mvar ((sym mvar) cl:&body body)
+(defmacro do-with-mvar ((sym mvar) cl:&body body)
   `(with-mvar
      ,mvar
      (fn (,sym)
