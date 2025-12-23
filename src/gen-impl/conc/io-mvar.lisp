@@ -406,7 +406,7 @@ Concurrent:
     (head-var (MVar (MVar (ChanNode :a))))
     (tail-var (MVar (MVar (ChanNode :a)))))
 
-  (declare new-empty-chan ((MonadIoThread :rt :t :m) (MonadException :m) => :m (MChan :a)))
+  (declare new-empty-chan (MonadIoThread :rt :t :m => :m (MChan :a)))
   (define new-empty-chan
     "Create a new empty channel."
     (do
@@ -415,7 +415,7 @@ Concurrent:
       (tail-var <- (new-mvar cell))
       (pure (MChan head-var tail-var))))
 
-  (declare push-chan ((MonadIoThread :rt :t :m) (MonadException :m) => MChan :a -> :a -> :m Unit))
+  (declare push-chan (MonadIoThread :rt :t :m => MChan :a -> :a -> :m Unit))
   (define (push-chan chan val)
     "Push VAL onto CHAN."
     (do
@@ -425,7 +425,7 @@ Concurrent:
      (put-mvar (.tail-var chan) new-tail-var)
      unmask-current-thread)) ;; Cleanup after take-mvar-masked
 
-  (declare pop-chan ((MonadIoThread :rt :t :m) (MonadException :m) => MChan :a -> :m :a))
+  (declare pop-chan (MonadIoThread :rt :t :m => MChan :a -> :m :a))
   (define (pop-chan chan)
     "Pop the front value in CHAN. Blocks while CHAN is empty."
     (do
