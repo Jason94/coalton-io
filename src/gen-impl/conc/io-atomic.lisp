@@ -5,6 +5,7 @@
    #:coalton-prelude
    #:io/utils
    #:io/classes/monad-io
+   #:io/classes/monad-exception
    )
   (:local-nicknames
    (:at #:io/thread-impl/atomics)
@@ -31,6 +32,9 @@
 
   (repr :transparent)
   (define-type (AtVar :a)
+    "A container that can be read and modified atomically."
+    ;; CONCURRENT:
+    ;; In general, atomic algorithms don't require masking.
     (AtVar% (at:Atomic :a)))
 
   (inline)
@@ -41,45 +45,49 @@
   (inline)
   (declare new-at-var (MonadIo :m => :a -> :m (AtVar :a)))
   (define (new-at-var val)
-    "Create a new atomic variable with an initial value."
+    "Create a new AtVar containing `val`."
     (wrap-io (AtVar% (at:new val))))
 
   (inline)
   (declare read (MonadIo :m => AtVar :a -> :m :a))
   (define (read atm)
-    "Read the value from an atomic variable."
+    "Atomically read the value from `atm`."
     (wrap-io (at:read (unwrap-atvar atm))))
 
   (inline)
   (declare write (MonadIo :m => AtVar :a -> :a -> :m Unit))
   (define (write atm val)
-    "Write a new value to an atomic variable."
+    "Atomically write a new value to `atm`."
     (wrap-io (at:atomic-write (unwrap-atvar atm) val)))
 
   (inline)
-  (declare modify (MonadIo :m => AtVar :a -> (:a -> :a) -> :m :a))
+  (declare modify ((MonadIo :m) (MonadException :m) => AtVar :a -> (:a -> :a) -> :m :a))
   (define (modify atm f)
-    "Atomically modify by applying F, then return the new
-value of the atomic variable. F may be called multiple times,
-and must be a pure function. If F errors, it will be raised
-in (:m :a) as an UnhandledError exception, and the atomic
-variable will not be modified."
+    "Atomically modify `atm` by applying `f` and return the new value. `f` must be a pure
+function. If `f` throws an error, `atm` will be unchanged and the error will be handleable
+via `MonadException`.
+
+Concurrent:
+  - WARNING: `f` will be retried each time the calling thread loses the race to update
+    `atm`, so `f` must be pure."
     (wrap-io (at:atomic-update (unwrap-atvar atm) f)))
 
   (inline)
   (declare modify-swap (MonadIo :m => AtVar :a -> (:a -> :a) -> :m :a))
   (define (modify-swap atm f)
-    "Atomically modify by applying F, then return the old
-value of the variable. F may be called multiple times, and
-must be a pure function. If F errors, it will be raised
-in (:m :a) as an UnhandledError exception, and the atomic
-variable will not be modified."
+    "Atomically modify `atm` by applying `f` and return the old value. `f` must be a pure
+function. If `f` throws an error, `atm` will be unchanged and the error will be handleable
+via `MonadException`.
+
+Concurrent:
+  - WARNING: `f` will be retried each time the calling thread loses the race to update
+    `atm`, so `f` must be pure."
     (wrap-io (at:atomic-update-swap (unwrap-atvar atm) f)))
 
   (inline)
   (declare push (MonadIo :m => AtVar (List :a) -> :a -> :m (List :a)))
   (define (push atm elt)
-    "Atomically push a value onto an atomic list."
+    "Atomically push a value onto an atomic list. Returns the new list."
     (wrap-io (at:atomic-push (unwrap-atvar atm) elt)))
 
   (inline)

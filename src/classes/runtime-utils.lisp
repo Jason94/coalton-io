@@ -22,6 +22,10 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
+  ;; TODO: Standardize usage of 'finally' throughout the library.
+  ;; There's two separate concepts: (1) Call a cleanup function only on failure,
+  ;; and (2) guarantee a cleanup function is called regardless of failure or success.
+  ;; "Finally" should cleanly refer to one, and another word should refer to the other.
   ;; TODO: Remove lambda when this is fixed:
   ;; https://github.com/coalton-lang/coalton/issues/1719
   (inline)

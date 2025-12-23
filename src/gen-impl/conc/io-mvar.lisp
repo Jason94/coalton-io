@@ -283,14 +283,17 @@ Concurrent:
 
 Concurrent:
   - Blocks while the MVar is empty
-  - Wakes the next blocking read-consumer when `swap-mvar` completes."
+  - Wakes the next blocking read-consumer when `swap-mvar` completes"
     ;; CONCURRENT:
-    ;; Masks before entering the critical region.
-    ;; unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
-    ;; catch block guaranteeing lock release.
-    ;; Notifying after release is valid because all waiter/notifiers evaluate guard
-    ;; condition and interpose lock acquisition before waiting/notifying.
-    ;; See <cite SO post>
+    ;; - Masks before entering the critical region.
+    ;; - unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
+    ;;   catch block guaranteeing lock release.
+    ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;;   condition and interpose lock acquisition before waiting/notifying.
+    ;;   See <cite SO post>
+    ;; - If the thread is stopped in unmask-and-await-safely-finally% after waking
+    ;;   but before masking (very unlikely), notifies the next waiting read-consumer
+    ;;   to prevent lost handoff.
     (wrap-io-with-runtime (rt-prx)
       (mask-current! rt-prx)
       (lk:acquire (.lock mvar))
@@ -303,10 +306,12 @@ Concurrent:
                      (unmask-current! rt-prx)
                      old-val)
                     ((None)
-                     ;; BUG: If the thread is stopped in unmask-and-await-safely% after
-                     ;; waking but before masking and the MVar is full, then the lock
-                     ;; will be released BUT the next read-consumer won't be notified.
-                     (unmask-and-await-safely% rt-prx (.notify-full mvar) (.lock mvar))
+                     (unmask-and-await-safely-finally%
+                      rt-prx
+                      (.notify-full mvar)
+                      (.lock mvar)
+                      (fn ()
+                        (cv:notify (.notify-full mvar))))
                      (lp))))))
         (lp))))
 
@@ -353,6 +358,18 @@ Concurrent:
   )
 
 (defmacro do-with-mvar ((sym mvar) cl:&body body)
+  "Run an operation with the value from an MVar, blocking until one is available.
+Stores the result of the operation in the MVar and returns.
+
+WARNING: If the computation raises an unhandled exception or is stopped, leaves the MVar
+empty!
+
+Concurrent:
+  - WARNING: Does not mask during the computation. To ensure completion, caller must mask
+  - Blocks while the MVar is empty
+  - Inherits notify semantics from `put-mvar`
+  - Does not leave the MVar locked during the computation. Thus, other threads can
+    put the MVar during the computation and force `with-mvar` to block until empty."
   `(with-mvar
      ,mvar
      (fn (,sym)
