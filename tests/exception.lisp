@@ -3,10 +3,14 @@
         #:coalton-library/types
         #:coalton-library/monad/statet
         #:coalton-library/experimental/do-control-core
+        #:io/tests/utils
         #:io/utils
         #:io/simple-io
         #:io/exception
-        #:io/monad-io)
+        #:io/monad-io
+        #:io/thread)
+  (:local-nicknames
+   (:m #:io/mut))
   )
 (in-package :coalton-io/tests/exception)
 
@@ -98,6 +102,52 @@
       (pure b))))
   (is (== -10 result)))
 
+;;;
+;;; Multithreaded Tests
+;;;
+
+(define-test test-handle-all-doesnt-catch-thread-stops ()
+  (let result =
+    (run-io!
+     (do
+      (s-start <- s-new)
+      (s-stopped <- s-new)
+      (m-result <- (m:new-var None))
+      (thread <-
+        (do-fork-thread_
+          (handle-all
+           (do
+            (s-signal s-start)
+            (s-await s-stopped)
+            (m:write m-result (Some True)))
+           (const (m:write m-result (Some False))))))
+      (s-await s-start)
+      (stop thread)
+      (s-signal s-stopped)
+      (sleep 2)
+      (m:read m-result))))
+  (is (== None result)))
+
+(define-test test-try-dynamic-doesnt-catch-thread-stops ()
+  (let result =
+    (run-io!
+     (do
+      (s-start <- s-new)
+      (s-stopped <- s-new)
+      (m-result <- (m:new-var None))
+      (thread <-
+        (do-fork-thread_
+          (try-dynamic
+           (do
+            (s-signal s-start)
+            (s-await s-stopped)))
+          (m:write m-result (Some True))))
+      (s-await s-start)
+      (stop thread)
+      (s-signal s-stopped)
+      (sleep 2)
+      (m:read m-result))))
+  (is (== None result)))
 
 ;;;
 ;;; StateT instance tests

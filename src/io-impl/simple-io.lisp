@@ -204,7 +204,6 @@ implement MonadException and handle asynchronous exception signals."
              ((None)
               result))))))))
 
-  ;; BUG: This handles thread interrupt exceptions, which it *definitely* shouldn't
   (inline)
   (declare handle-all-io (IO :a -> (Unit -> IO :a) -> IO :a))
   (define (handle-all-io io-op handle-op)
@@ -215,16 +214,25 @@ implement MonadException and handle asynchronous exception signals."
         (match result
           ((Ok a)
            (Ok a))
-          ((Err _)
-           (run-io-handled! (handle-op))))))))
+          ((Err e)
+           ;; Don't allow handle-all to accidentally mask the thread!
+           (if (can-cast-to? e (the (Proxy ThreadingException) Proxy))
+               (Err e)
+               (run-io-handled! (handle-op)))))))))
 
   (inline)
   (declare try-dynamic-io (IO :a -> IO (Result Dynamic :a)))
   (define (try-dynamic-io io-op)
     (IO%
      (fn ()
-       (Ok
-        (run-io-handled! io-op)))))
+       (let result = (run-io-handled! io-op))
+       (match result
+         ((Ok _)
+          (Ok result))
+         ((Err e)
+          (if (can-cast-to? e (the (Proxy ThreadingException) Proxy))
+              (Err e)
+              (Ok result)))))))
 
   ;;
   ;; MonadException Instance
