@@ -192,8 +192,10 @@ conditions. DONT USE THIS!"
                     (fa->stmb val-a)))))))
 
   (define-instance (Monad :io => Monad (STM :io))
+    ;; See https://github.com/coalton-lang/coalton/issues/1730
     (inline)
-    (define >>= flatmap-tx%))
+    (define (>>= m f)
+      (flatmap-tx% m f)))
 
   (define-instance ((MonadException :io) (MonadIo :io) => MonadException (STM :io))
     (inline)
