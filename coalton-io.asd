@@ -30,9 +30,7 @@
                  (:module "thread-impl"
                   :serial t
                   :components ((:file "atomics")
-                               (:file "runtime")
-                               (:file "stm-impl")))
-                 (:file "classes/monad-io-stm")
+                               (:file "runtime")))
                  ;; TODO: Finish converting this to use Runtime, then move
                  ;; to gen-impl/conc
                  (:file "thread-impl/data-broadcast-pool")
@@ -54,11 +52,11 @@
                                (:file "conc/io-future")
                                (:file "conc/io-atomic")
                                (:file "conc/concurrent-group")
+                               (:file "conc/stm")
                                (:file "io-thread")
                                (:file "io-file")
                                (:file "io-random")
-                               (:file "io-unique")
-                               (:file "io-stm")))
+                               (:file "io-unique")))
                  (:module "io-impl"
                   :serial t
                   :components ((:file "runtime")
@@ -80,7 +78,6 @@
                  (:file "io-thread")
                  (:file "io-file")
                  (:file "io-unique")
-                 (:file "io-stm")
                  (:file "io-all")
 
                  (:module "conc"
@@ -89,6 +86,7 @@
                                (:file "io-atomic")
                                (:file "io-mvar")
                                (:file "concurrent-group")
+                               (:file "stm")
                                ))
 
                  (:file "stubs/term")
@@ -119,13 +117,14 @@ mutable variables, multithreading, and several data structures to safely share s
                  (:file "io-atomic")
                  (:file "mvar")
                  (:file "future")
-                 (:file "stm")
                  (:module "io-impl"
                   :serial t
                   :components ((:file "thread")))
                  (:module "conc"
                   :serial t
-                  :components ((:file "concurrent-group")))
+                  :components ((:file "concurrent-group")
+                               (:file "stm")
+                               ))
                  (:file "package"))))
   :description "Test system for coalton-io"
   :perform (test-op (op c) (symbol-call '#:coalton-io/tests '#:run-tests)))

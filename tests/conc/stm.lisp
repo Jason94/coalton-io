@@ -1,4 +1,4 @@
-(defpackage :coalton-io/tests/stm
+(defpackage :coalton-io/tests/conc/stm
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:coalton-library/experimental/do-control-core
         #:io/utils
@@ -8,20 +8,20 @@
         #:io/conc/mvar
         #:io/thread
         #:io/conc/future
-        #:io/stm)
+        #:io/conc/stm)
   (:import-from #:io/term
    #:write-line)
-  (:import-from #:io/thread-impl/stm-impl
+  (:import-from #:io/gen-impl/conc/stm
    #:tx-io!%)
   (:local-nicknames
    (:l #:coalton-library/list))
   )
-(in-package :coalton-io/tests/stm)
+(in-package :coalton-io/tests/conc/stm)
 
 (named-readtables:in-readtable coalton:coalton)
 
-(fiasco:define-test-package #:coalton-io/tests/stm-fiasco)
-(coalton-fiasco-init #:coalton-io/tests/stm-fiasco)
+(fiasco:define-test-package #:coalton-io/tests/conc/stm-fiasco)
+(coalton-fiasco-init #:coalton-io/tests/conc/stm-fiasco)
 
 ;;;
 ;;; Single threaded tests

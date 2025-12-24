@@ -339,4 +339,4 @@ More efficient than foreach-io, if you can run your effect in a BaseIo."
   (io/gen-impl/file:implement-monad-io-file IO)
   (io/gen-impl/random:implement-monad-io-random IO)
   (io/gen-impl/term:implement-monad-io-term IO)
-  (io/gen-impl/stm:implement-monad-io-stm IO))
+  )

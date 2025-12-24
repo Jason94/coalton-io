@@ -1,13 +1,15 @@
 (cl:in-package :cl-user)
-(defpackage :io/thread-impl/stm-impl
+(defpackage :io/gen-impl/conc/stm
   (:use
    #:coalton
    #:coalton-prelude
+   #:coalton-library/types
    #:coalton-library/experimental/do-control-core
    #:io/utils
    #:io/classes/monad-exception
    #:io/classes/monad-io
-   #:io/thread-impl/runtime
+   #:io/classes/monad-io-thread
+   #:io/classes/runtime-utils
    )
   (:local-nicknames
    (:opt #:coalton-library/optional)
@@ -22,17 +24,20 @@
    #:TVar
    #:STM
 
+   #:new-tvar
+   #:read-tvar
+   #:write-tvar
+   #:modify-tvar
+   #:retry
+   #:or-else
+   #:run-tx
+   #:do-run-tx
+
    ;; Library Private
-   #:new-tvar%
-   #:read-tvar%
-   #:write-tvar%
-   #:modify-tvar%
-   #:retry%
-   #:or-else%
-   #:run-tx%
+   #:tx-io!%
    )
   )
-(in-package :io/thread-impl/stm-impl)
+(in-package :io/gen-impl/conc/stm)
 
 (defmacro mem-barrier ()
   `(lisp Void ()
@@ -389,8 +394,9 @@ For safety, disconnects the transactions when done."
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
   (inline)
-  (declare new-tvar% (MonadIo :m => :a -> :m (TVar :a)))
-  (define (new-tvar% val)
+  (declare new-tvar (MonadIo :m => :a -> :m (TVar :a)))
+  (define (new-tvar val)
+    "Create a mutable variable that can be used inside an atomic transaction."
     (wrap-io
       (TVar% (c:new val))))
 
@@ -431,13 +437,23 @@ For safety, disconnects the transactions when done."
   (define global-write-cv-lock (lk:new))
 
   (inline)
-  (declare wait-for-write-tx!% (Unit -> Unit))
-  (define (wait-for-write-tx!%)
-    ;; BUG: Needs to use unmask-and-await-safely%, which will require refactoring stm-impl
-    ;; to use the generic Runtime interface
+  (declare wait-for-write-tx!% (Runtime :rt :t => Proxy :rt -> Word -> Unit))
+  (define (wait-for-write-tx!% rt-prx lock-snapshot)
+    ;; CONCURRENT:
+    ;; - Masks before entering the critical region
+    ;; - unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
+    ;;   catch block guaranteeing lock release.
+    ;; - Check for incremented lock snapshot protects against spurious wakeups without
+    ;;   any intervening commit
+    (mask-current! rt-prx)
     (lk:acquire global-write-cv-lock)
-    (cv:await global-write-cv global-write-cv-lock)
-    (lk:release global-write-cv-lock)
+    (rec % ()
+      (unmask-and-await-safely% rt-prx global-write-cv global-write-cv-lock)
+      (if (>= lock-snapshot (get-global-time))
+          (%)
+          (progn
+            (lk:release global-write-cv-lock)
+            (unmask-current! rt-prx))))
     Unit)
 
   (inline)
@@ -513,22 +529,25 @@ For safety, disconnects the transactions when done."
      (log-write-value% (.write-log tx-data) tvar val)))
 
   (inline)
-  (declare read-tvar% (MonadIo :m => TVar :a -> STM :m :a))
-  (define (read-tvar% tvar)
+  (declare read-tvar (MonadIo :m => TVar :a -> STM :m :a))
+  (define (read-tvar tvar)
+    "Read a mutable variable inside an atomic transaction."
     (STM%
      (fn (tx-data)
        (wrap-io
          (inner-read-tvar% tvar tx-data)))))
 
   (inline)
-  (declare write-tvar% (MonadIo :m => TVar :a -> :a -> STM :m Unit))
-  (define (write-tvar% tvar val)
+  (declare write-tvar (MonadIo :m => TVar :a -> :a -> STM :m Unit))
+  (define (write-tvar tvar val)
+    "Write to a mutable variable inside an atomic transaction."
     (STM%
      (fn (tx-data)
        (wrap-io (inner-write-tvar% tvar val tx-data)))))
 
-  (declare modify-tvar% (MonadIo :m => TVar :a -> (:a -> :a) -> STM :m :a))
-  (define (modify-tvar% tvar f)
+  (declare modify-tvar (MonadIo :m => TVar :a -> (:a -> :a) -> STM :m :a))
+  (define (modify-tvar tvar f)
+    "Modify a mutable variable inside an atomic transaction."
     (STM%
      (fn (tx-data)
        (wrap-io
@@ -543,16 +562,22 @@ For safety, disconnects the transactions when done."
             (map (const result)
                  (inner-write-tvar% tvar result tx-data))))))))
 
-  (declare tx-commit-io% (MonadIo :m => TxData% -> :m Boolean))
+  (declare tx-commit-io% (MonadIoThread :rt :t :m => TxData% -> :m Boolean))
   (define (tx-commit-io% tx-data)
-    (wrap-io
+    ;; CONCURRENT:
+    ;; - Function is a no-op for read-only transactions, so no need to mask
+    ;; - Masks right before incrementing the global spinlock counter, which would render
+    ;;   the STM inoperable if stopped before re-incrementing
+    ;; - Unmasks only after committing the transaction, unlocking the global spinlock,
+    ;;   and notifying waiting retries
+    (wrap-io-with-runtime (rt-prx)
       (when (opt:some? (c:read (.parent-tx tx-data)))
         (error "Cannot commit a nested transaction."))
       (if (read-only? tx-data)
           True
           (progn
             (let result = (c:new True))
-            (mask-current-thread!%)
+            (mask-current! rt-prx)
             (while (and
                     ;; Stop looping if we already need to abort.
                     (c:read result)
@@ -572,19 +597,34 @@ For safety, disconnects the transactions when done."
               (at:atomic-inc1 global-lock)
               (broadcast-write-cv!%)
               Unit)
-            (unmask-current-thread!%)
+            (unmask-current! rt-prx)
             (c:read result)))))
 
   (inline)
-  (declare retry% (MonadIo :m => STM :m :a))
-  (define retry%
+  (declare retry (MonadIo :m => STM :m :a))
+  (define retry
+    "Retry the current operation because the observed state is invalid. Waits for a write
+transaction to commit somewhere else, and then tries this transaction again.
+
+This is useful if the transaction needs to wait for other threads to update the data
+before it can continue. For example, if the transaction reads from a (TVar Queue) and the
+queue is empty, it must wait until another thread pushes onto the queue before it can
+continue.
+
+Concurrent:
+  - When the transaction runs, executing retry will abort the transaction and sleep the
+    thread. The thread will sleep until any write transaction commits to the STM, when
+    the retrying thread will wake and retry its transaction.
+"
     (STM%
      (fn (_)
       (wrap-io
         TxRetryAfterWrite))))
 
-  (declare or-else% (MonadIo :m => STM :m :a -> STM :m :a -> STM :m :a))
-  (define (or-else% tx-a tx-b)
+  (declare or-else (MonadIo :m => STM :m :a -> STM :m :a -> STM :m :a))
+  (define (or-else tx-a tx-b)
+    "Run TX-A. If it signals a retry, run TX-b. If both transactions signal a
+retry, then the entire transaction retries."
     (STM%
      (fn (tx-data)
        (do
@@ -600,21 +640,43 @@ For safety, disconnects the transactions when done."
             (merge-read-log-into-parent-tx% a-tx-data)
             (run-stm% tx-data tx-b)))))))
 
-  (declare run-tx% ((MonadIo :m) (MonadException :m) => STM :m :a -> :m :a))
-  (define (run-tx% tx)
-    (rec % ()
-      (do
-       (tx-data <- (tx-begin-io%))
-       (do-matchM (run-stm% tx-data tx)
-         ((TxFailed)
-          (%))
-         ((TxRetryAfterWrite)
-          (progn
-            (wait-for-write-tx!%)
-            (%)))
-         ((TxSuccess val)
-          (commit-succeeded? <- (tx-commit-io% tx-data))
-          (if commit-succeeded?
-              (pure val)
-              (%)))))))
+  (declare run-tx ((MonadIoThread :rt :t :m) (MonadException :m) => STM :m :a -> :m :a))
+  (define (run-tx tx)
+     "Run an atomic transaction. If the transaction raises an exception, the transaction
+is aborted and the exception is re-raised.
+
+WARNING: The STM can abort and re-run the transaction repeatedly, until it completes with
+a consistent snapshot of the data. Therefore, TX must be pure."
+    ;; CONCURRENT:
+    ;; - Inherits concurrent semantics from wait-for-write-tx!% and tx-commit-io%
+    ;; - No other part of run-tx has any concurrent concerns
+    (let m-prx = Proxy)
+    (let rt-prx = (runtime-for m-prx))
+    (as-proxy-of
+     (rec % ()
+       (do
+        (tx-data <- (tx-begin-io%))
+        (do-matchM (run-stm% tx-data tx)
+          ((TxFailed)
+           (%))
+          ((TxRetryAfterWrite)
+           (progn
+             (wait-for-write-tx!% rt-prx (c:read (.lock-snapshot tx-data)))
+             (%)))
+          ((TxSuccess val)
+           (commit-succeeded? <- (tx-commit-io% tx-data))
+           (if commit-succeeded?
+               (pure val)
+               (%))))))
+     m-prx))     
   )
+
+(defmacro do-run-tx (cl:&body body)
+  "Run an atomic transaction. If the transaction raises an exception, the transaction
+is aborted and the exception is re-raised.
+
+WARNING: The STM can abort and re-run the transaction repeatedly, until it completes with
+a consistent snapshot of the data. Therefore, TX must be pure."
+  `(run-tx
+    (do
+     ,@body)))
