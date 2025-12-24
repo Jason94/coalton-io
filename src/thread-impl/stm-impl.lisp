@@ -72,8 +72,8 @@
 
   (define-type (TxResult% :a)
     (TxSuccess :a)
-    TxRetryAfterWrite
-    TxFailed)
+    TxRetryAfterWrite ;; User-requested sleep until another write commit
+    TxFailed) ;; Another thread wrote to an accessed TVar during our commit
 
   (define-instance (Functor TxResult%)
     (inline)
@@ -320,7 +320,7 @@ conditions. DONT USE THIS!"
 
   (declare merge-read-log-into-parent-tx% (TxData% -> Unit))
   (define (merge-read-log-into-parent-tx% tx-data)
-    "Merge only child tx's snapshot and read log into its parents.
+    "Merge only the child tx's snapshot and read log into its parents'.
 For safety, disconnects the transactions when done."
     (let parent-tx? = (c:read (.parent-tx tx-data)))
     (match parent-tx?
@@ -336,7 +336,7 @@ For safety, disconnects the transactions when done."
 
   (declare merge-into-parent-tx% (TxData% -> Unit))
   (define (merge-into-parent-tx% tx-data)
-    "Merge child tx's snapshot, read log, and write log into its parents.
+    "Merge the child tx's snapshot, read log, and write log into its parents'.
 For safety, disconnects the transactions when done."
     (let parent-tx? = (c:read (.parent-tx tx-data)))
     (match parent-tx?
@@ -400,6 +400,9 @@ For safety, disconnects the transactions when done."
   ;; is that whatever we do use HAS to eventually call something that is
   ;; a memory barrier in SBCL.
   ;; https://www.sbcl.org/manual/sbcl.pdf
+  ;; TODO: Upon further reading, atomic operations *do* establish a memory barrier.
+  ;; It might be possible to remove the explicit memory barrier calls, which would
+  ;; give the STM portability beyond SBCL.
   (declare global-lock at:AtomicInteger)
   (define global-lock (at:new-at-int 0))
 
@@ -417,19 +420,21 @@ For safety, disconnects the transactions when done."
   ;;
   ;; HOWEVER, when a user retries because the observed TVars are in some bad state,
   ;; there's no guarantee that the period until the state is possibly valid (after
-  ;; the next write commit to the read TVar's), so just spinning after a user-signalled
-  ;; retry could potentially spin forever. The most fine-grained approach to this would
-  ;; be to have a per-TVar CV, and a transaction awaits any CV in its read-log after
-  ;; a manually retry. For now, we take the middle-ground and just have one global CV
-  ;; that every write signals. Each user retry'd commit will do one attempt after
-  ;; every write transaction.
-
+  ;; the next write commit to the read TVar's) is short, so spinning after a user-signalled
+  ;; retry could potentially spin forever.  For now, just have one global CV that every
+  ;; write signals. Each user retry'd commit will do one attempt after every write
+  ;; transaction. A better, but more complicated, solution would be to use the broadcast
+  ;; pool to send a log of all written TVar's per each transaction, and woken threads
+  ;; could choose to re-attempt their transaction or go back to sleep. The actual solution
+  ;; is to implement runtime-level thread parking and waking.
   (define global-write-cv (cv:new))
   (define global-write-cv-lock (lk:new))
 
   (inline)
   (declare wait-for-write-tx!% (Unit -> Unit))
   (define (wait-for-write-tx!%)
+    ;; BUG: Needs to use unmask-and-await-safely%, which will require refactoring stm-impl
+    ;; to use the generic Runtime interface
     (lk:acquire global-write-cv-lock)
     (cv:await global-write-cv global-write-cv-lock)
     (lk:release global-write-cv-lock)

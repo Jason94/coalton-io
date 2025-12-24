@@ -85,15 +85,15 @@ deadlocks and other race conditions."
   (define (take-mvar-masked-inner% mvar rt-prx)
     "Concurrent: Leaves the thread masked once."
     ;; CONCURRENT: Masks before entering the critical region.
-    ;; unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
-    ;; catch block guaranteeing lock release.
-    ;; The thread can only be stopped during unmask-and-await-safely%, thus cannot
-    ;; be stopped between emptying the MVar and notifying listeners.
-    ;; Notifying after release is valid because all waiter/notifiers evaluate guard
-    ;; condition and interpose lock acquisition before waiting/notifying.
-    ;; See <cite SO post>
-    ;; On the post-wakeup success path, does not unmask and leaves the applied mask
-    ;; to the caller to handle.
+    ;; - unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
+    ;;   catch block guaranteeing lock release.
+    ;; - The thread can only be stopped during unmask-and-await-safely%, thus cannot
+    ;;   be stopped between emptying the MVar and notifying listeners.
+    ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;;   condition and interpose lock acquisition before waiting/notifying.
+    ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
+    ;; - On the post-wakeup success path, does not unmask and leaves the applied mask
+    ;;   to the caller to handle.
     (mask-current! rt-prx)
     (lk:acquire (.lock mvar))
     (let ((lp (fn ()
@@ -153,14 +153,15 @@ Concurrent:
   - On succesful put, blocking read-consumers are woken individually in order of acquisition
   - On succesful put, all blocking read-non-consumers are woken simultaneously. New data
     is handed directly to woken read-non-consumers so they don't contend on the MVar."
-    ;; CONCURRENT: Masks before entering the critical region.
-    ;; unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
-    ;; catch block guaranteeing lock release.
-    ;; The thread can only be stopped during unmask-and-await-safely%, thus cannot
-    ;; be stopped between emptying the MVar and notifying listeners.
-    ;; Notifying after release is valid because all waiter/notifiers evaluate guard
-    ;; condition and interpose lock acquisition before waiting/notifying.
-    ;; See <cite SO post>
+    ;; CONCURRENT:
+    ;; - Masks before entering the critical region.
+    ;; - unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
+    ;;   catch block guaranteeing lock release.
+    ;; - The thread can only be stopped during unmask-and-await-safely%, thus cannot
+    ;;   be stopped between emptying the MVar and notifying listeners.
+    ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;;   condition and interpose lock acquisition before waiting/notifying.
+    ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
     (wrap-io-with-runtime (rt-prx)
       (let lock = (.lock mvar))
       (let data = (.data mvar))
@@ -188,14 +189,14 @@ Concurrent:
   - Can briefly block while waiting to empty the MVar, if contended
   - On succesful take, one blocking writer is woken in order of acquisition"
     ;; CONCURRENT:
-    ;; Does not need to mask until acquiring lock, because atomic read and function
-    ;; return can't leave MVar in inconsistent state.
-    ;; Exit on initial read fail is valid because not obligated to retry until full.
-    ;; Subsequent read test after acquisition is required in case MVar was emptied
-    ;; between initial atomic read and lock acquisition.
-    ;; Notifying after release is valid because all waiter/notifiers evaluate guard
-    ;; condition and interpose lock acquisition before waiting/notifying.
-    ;; See <cite SO post>
+    ;; - Does not need to mask until acquiring lock, because atomic read and function
+    ;;   return can't leave MVar in inconsistent state.
+    ;; - Exit on initial read fail is valid because not obligated to retry until full.
+    ;; - Subsequent read test after acquisition is required in case MVar was emptied
+    ;;   between initial atomic read and lock acquisition.
+    ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;;   condition and interpose lock acquisition before waiting/notifying.
+    ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
     (wrap-io-with-runtime (rt-prx)
       (match (at:read (.data mvar))
         ((None)
@@ -225,14 +226,14 @@ Concurrent:
   - On succesful put, all blocking read-non-consumers are woken simultaneously. New data
     is handed directly to woken read-non-consumers so they don't contend on the MVar."
     ;; CONCURRENT:
-    ;; Does not need to mask until acquiring lock, because atomic read and function
-    ;; return can't leave MVar in inconsistent state.
-    ;; Exit on initial read fail is valid because not obligated to retry until empty.
-    ;; Subsequent read test after acquisition is required in case MVar was filled
-    ;; between initial atomic read and lock acquisition.
-    ;; Notifying after release is valid because all waiter/notifiers evaluate guard
-    ;; condition and interpose lock acquisition before waiting/notifying.
-    ;; See <cite SO post>
+    ;; - Does not need to mask until acquiring lock, because atomic read and function
+    ;;   return can't leave MVar in inconsistent state.
+    ;; - Exit on initial read fail is valid because not obligated to retry until empty.
+    ;; - Subsequent read test after acquisition is required in case MVar was filled
+    ;;   between initial atomic read and lock acquisition.
+    ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;;   condition and interpose lock acquisition before waiting/notifying.
+    ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
     (wrap-io-with-runtime (rt-prx)
       (match (at:read (.data mvar))
         ((Some _)
@@ -262,8 +263,8 @@ Concurrent:
   - Blocking read-non-consumers (including `read-mvar`) are woken simultaneously on 
     succesful put. Data is handed directly to woken readers, which don't contend on mvar."
     ;; CONCURRENT:
-    ;; Does not need to mask around read-only atomic happy path.
-    ;; subscribe blocks until a publish and masks its own critical regions.
+    ;; - Does not need to mask around read-only atomic happy path.
+    ;; - subscribe blocks until a publish and masks its own critical regions.
     (wrap-io-with-runtime (rt-prx)
       (match (at:read (.data mvar))
         ((Some x)
