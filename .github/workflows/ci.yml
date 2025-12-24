@@ -94,9 +94,15 @@ jobs:
             github coalton-threads garlic0x1/coalton-threads
 
       - name: Run tests
-        uses: 40ants/run-tests@v2
-        with:
-          asdf-system: coalton-io
+        run: |
+          set -euxo pipefail
+          cat <<'EOF' > run-tests.lisp
+          (require :asdf)
+          (asdf:load-asd "coalton-io.asd")
+          (asdf:test-system :coalton-io)
+          (uiop:quit 0)
+          EOF
+          qlot exec ros run --non-interactive --load run-tests.lisp
 
       - name: Load examples
         run: |
