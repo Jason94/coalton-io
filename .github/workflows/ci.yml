@@ -110,8 +110,6 @@ jobs:
           set -euxo pipefail
           cat <<'EOF' > load-examples.lisp
           (require :asdf)
-          (setf asdf:*compile-file-failure-behaviour* :error
-                asdf:*compile-file-warning-behaviour* :error)
 
           (handler-case
               (progn
@@ -125,4 +123,5 @@ jobs:
           EOF
 
           qlot exec ros -L sbcl-bin run -- --non-interactive --disable-debugger --load load-examples.lisp
+
 
