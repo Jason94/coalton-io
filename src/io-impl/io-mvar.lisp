@@ -21,10 +21,10 @@
 (coalton-toplevel
 
   (declare with-mvar_ ((MonadIoThread IoRuntime IoThread :m) (LiftTo IO :m)
-                       => MVar :a -> (:a -> IO :a) -> :m :a))
+                       => MVar :a -> (:a -> IO :b) -> :m :b))
   (define with-mvar_
     "Run an operation with the value from an MVar, blocking until one is available.
-Stores the result of the operation in the MVar and returns.
+Restore the MVar value and return the result of the operation.
 
 WARNING: If the computation raises an unhandled exception or is stopped, leaves the MVar
 empty!

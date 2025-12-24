@@ -331,10 +331,10 @@ Concurrent:
   ;; TODO: Possibly check and restore if it's a non-thread stop exception? But is the
   ;; inconsistent behavior worth it? Probably not?
   (declare with-mvar ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :i)
-                       => MVar :a -> (:a -> :r :a) -> :m :a))
+                       => MVar :a -> (:a -> :r :b) -> :m :b))
   (define (with-mvar mvar op)
     "Run an operation with the value from an MVar, blocking until one is available.
-Stores the result of the operation in the MVar and returns.
+Restore the MVar value and return the result of the operation.
 
 WARNING: If the computation raises an unhandled exception or is stopped, leaves the MVar
 empty!
@@ -354,7 +354,7 @@ Concurrent:
           (do
            (val <- (take-mvar mvar))
            (result <- (run (op val)))
-           (put-mvar mvar result)
+           (put-mvar mvar val)
            (pure result)))))))
   )
 

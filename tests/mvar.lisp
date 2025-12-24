@@ -147,9 +147,9 @@
         (do-with-mvar_ (x mv)
           (raise "Error inside do-with-mvar")
           (pure (+ x 100)))))
-      (result-val <- (read-mvar mv))
+      (result-val <- (try-read-mvar mv))
       (pure (Tuple result1 result-val)))))
-  (is (== (Tuple (Err "Error inside do-with-mvar") 10)
+  (is (== (Tuple (Err "Error inside do-with-mvar") None)
           result)))
 
 ;; These tests thread MVar operations in different sequences
