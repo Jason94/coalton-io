@@ -106,10 +106,21 @@ jobs:
 
       - name: Load examples
         run: |
-          qlot exec ros run --non-interactive \
-            --eval '(progn
-              (require :asdf)
-              (asdf:load-asd "coalton-io.asd")
-              (asdf:load-system :coalton-io/examples)
-              (format t "~&Loaded coalton-io/examples successfully.~%")
-              (uiop:quit 0))'
+            set -euxo pipefail
+            cat <<'EOF' > load-examples.lisp
+            (require :asdf)
+            (setf asdf:*compile-file-failure-behaviour* :error
+                  asdf:*compile-file-warning-behaviour* :error)
+
+            (handler-case
+                (progn
+                  (asdf:load-asd "coalton-io.asd")
+                  (asdf:load-system :coalton-io/examples)
+                  (format t "~&Loaded coalton-io/examples successfully.~%")
+                  (uiop:quit 0))
+              (error (e)
+                (format *error-output* "~&ERROR while loading examples: ~A~%" e)
+                (uiop:quit 1)))
+            EOF
+
+            qlot exec sbcl --non-interactive --disable-debugger --load load-examples.lisp
