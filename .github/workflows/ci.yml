@@ -113,4 +113,3 @@ jobs:
               (asdf:load-system :coalton-io/examples)
               (format t "~&Loaded coalton-io/examples successfully.~%")
               (uiop:quit 0))'
-        shell: lispsh -eo pipefail {0}
