@@ -12,7 +12,7 @@
 
    ;; Re-exports from io/io-impl/conc/worker-pool
    #:new-worker-pool_
-   #:subit-job_
+   #:submit-job_
    ))
 
 (in-package :io/conc/worker-pool)

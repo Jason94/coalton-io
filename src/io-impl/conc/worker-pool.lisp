@@ -14,7 +14,7 @@
    )
   (:export
    #:new-worker-pool_
-   #:subit-job_
+   #:submit-job_
    ))
 (in-package :io/io-impl/conc/worker-pool)
 
