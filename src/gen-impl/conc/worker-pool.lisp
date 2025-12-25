@@ -33,9 +33,14 @@
     (threads (ConcurrentGroup :t Unit))
     (queue (MChan (Optional (:i Unit)))))
 
-  (declare worker-op (BaseIo :i => MChan (Optional (:i Unit)) -> :i Unit))
-  (define (worker-op _)
-    (pure Unit))
+  (declare worker-op ((BaseIo :i) (MonadIoThread :rt :t :i) => MChan (Optional (:i Unit)) -> :i Unit))
+  (define (worker-op queue)
+    (do-matchM (pop-chan queue)
+      ((None)
+       (pure Unit))
+      ((Some task)
+       task
+       (worker-op queue))))
 
   (declare fork-worker-op ((MonadIoThread :rt :t :i) (UnliftIo :i :i)
                            => MChan (Optional (:i Unit)) -> :i :t))
