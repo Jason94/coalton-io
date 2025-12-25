@@ -46,6 +46,8 @@
    ))
 (in-package :io/io-impl/simple-io)
 
+(cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 0)))
+
 (named-readtables:in-readtable coalton:coalton)
 
 ;;;
@@ -81,6 +83,10 @@ See >>="
        (inline
         (Ok (f))))))
 
+  ;; NOTE: Catching prevents SBCL from optimizing tail calls because it needs to protect
+  ;; the stack. Therefore run-io-handled! can *only* be called in exception combinators,
+  ;; where we'll eat the cost (in theory looping those could blow the stack) and at
+  ;; the top-level run boundary. Usually use run-io-unhandled! or run-io!
   (inline)
   (declare run-io-handled! (IO :a -> Result Dynamic :a))
   (define (run-io-handled! (IO% f->a?))
@@ -97,6 +103,11 @@ implement MonadException and handle asynchronous exception signals."
            (to-dynamic unh-err)))))
       ((Ok a)
        a)))
+
+  (inline)
+  (declare run-io-unhandled! (IO :a -> Result Dynamic :a))
+  (define (run-io-unhandled! (IO% f->a?))
+    (f->a?))
 
   (inline)
   (declare run-io! (IO :a -> :a))
@@ -155,7 +166,7 @@ implement MonadException and handle asynchronous exception signals."
            (Err e))
           ((Ok a)
            (compile-debug-sleep 5)
-           (run-io-handled! (fa->io-b a))))))))
+           (run-io-unhandled! (fa->io-b a))))))))
 
   (inline)
   (declare raise-io ((RuntimeRepr :e) (Signalable :e) => :e -> IO :a))

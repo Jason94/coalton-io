@@ -254,4 +254,3 @@
              7
              (get-word-from-dictionary "hangman_dictionary.txt"))
             hangman)))
-
