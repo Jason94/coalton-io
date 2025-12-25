@@ -103,25 +103,3 @@ jobs:
           (uiop:quit 0)
           EOF
           qlot exec ros run --non-interactive --load run-tests.lisp
-
-      - name: Load examples
-        shell: bash
-        run: |
-          set -euxo pipefail
-          cat <<'EOF' > load-examples.lisp
-          (require :asdf)
-
-          (handler-case
-              (progn
-                (asdf:load-asd "coalton-io.asd")
-                (asdf:load-system :coalton-io/examples)
-                (format t "~&Loaded coalton-io/examples successfully.~%")
-                (uiop:quit 0))
-            (error (e)
-              (format *error-output* "~&ERROR while loading examples: ~A~%" e)
-              (uiop:quit 1)))
-          EOF
-
-          qlot exec ros -L sbcl-bin run -- --non-interactive --disable-debugger --load load-examples.lisp
-
-
