@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - master
+      - main
+  push:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+  schedule:
+    # Weekly sanity-check (Mondays at 05:00 UTC)
+    - cron: '0 5 * * 1'
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (SBCL)
+    runs-on: ubuntu-latest
+    env:
+      LISP: sbcl-bin
+      # Bump this to force a full cache refresh.
+      cache-name: coalton-io
+      # Helps Qlot avoid GitHub API rate-limits when fetching tarballs.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Grant all perms to make cache restoring possible
+        shell: bash
+        run: |
+          sudo mkdir -p /usr/local/etc/roswell
+          sudo chown "${USER}" /usr/local/etc/roswell
+          # Here the ros binary will be restored:
+          sudo chown "${USER}" /usr/local/bin
+
+      - name: Get current month
+        id: current-month
+        shell: bash
+        run: |
+          echo "value=$(date -u '+%Y-%m')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Roswell setup
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            qlfile
+            qlfile.lock
+            /usr/local/bin/ros
+            ~/.cache/common-lisp/
+            ~/.roswell
+            /usr/local/etc/roswell
+            .qlot
+          key: ${{ steps.current-month.outputs.value }}-${{ env.cache-name }}-ubuntu-latest-quicklisp-${{ env.LISP }}-${{ hashFiles('qlfile.lock') }}
+
+      - name: Restore path to cached files
+        if: steps.cache.outputs.cache-hit == 'true'
+        shell: bash
+        run: |
+          echo "$HOME/.roswell/bin" >> "$GITHUB_PATH"
+          echo ".qlot/bin" >> "$GITHUB_PATH"
+
+      - name: Preload named-readtables (Roswell workaround)
+        run: |
+          set -euxo pipefail
+          mkdir -p ~/.roswell/local-projects
+          if [ -d ~/.roswell/local-projects/named-readtables/.git ]; then
+            git -C ~/.roswell/local-projects/named-readtables fetch --depth 1 origin master
+            git -C ~/.roswell/local-projects/named-readtables reset --hard FETCH_HEAD
+          else
+            git clone --depth 1 --branch master \
+              https://github.com/melisgl/named-readtables.git \
+              ~/.roswell/local-projects/named-readtables
+          fi
+
+      - name: Setup Common Lisp (Roswell + Qlot)
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: 40ants/setup-lisp@v4
+        with:
+          cache: false
+          qlfile-template: |
+            dist ultralisp http://dist.ultralisp.org/
+            dist quicklisp https://beta.quicklisp.org/dist/quicklisp.txt
+            github named-readtables melisgl/named-readtables :branch master
+            github coalton coalton-lang/coalton :branch main
+            github coalton-threads garlic0x1/coalton-threads
+
+      - name: Run tests
+        run: |
+          set -euxo pipefail
+          cat <<'EOF' > run-tests.lisp
+          (require :asdf)
+          (asdf:load-asd "coalton-io.asd")
+          (asdf:test-system :coalton-io)
+          (uiop:quit 0)
+          EOF
+          qlot exec ros run --non-interactive --load run-tests.lisp

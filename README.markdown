@@ -1,4 +1,7 @@
 # `coalton-io` - Functional Applications in Coalton
+<p align="center">
+    <img alt="Coalton IO Build Status" src="https://github.com/Jason94/coalton-io/actions/workflows/ci.yml/badge.svg?branch=main" />
+</p>
 
 _coalton-io_ provides tools to write pure, functional programs in Coalton that can perform necessary tasks like:
 * Robust exception handling & Resource safety
