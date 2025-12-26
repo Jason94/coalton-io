@@ -127,6 +127,7 @@ mutable variables, multithreading, and several data structures to safely share s
                   :serial t
                   :components ((:file "concurrent-group")
                                (:file "stm")
+                               (:file "worker-pool")
                                ))
                  (:file "package"))))
   :description "Test system for coalton-io"

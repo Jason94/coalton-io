@@ -21,6 +21,7 @@
    #:new-worker-pool
    #:submit-job
    #:request-shutdown
+   #:do-submit-job
    ))
 (in-package :io/gen-impl/conc/worker-pool)
 
@@ -70,4 +71,57 @@
   (define (request-shutdown pool)
     (do-loop-times (_ (.n-threads pool))
       (push-chan (.queue pool) None)))
+
+  (declare stop% ((Concurrent (ConcurrentGroup :t Unit) (List Unit)) (MonadException :m) (MonadIoThread :rt :t :m)
+                  => WorkerPool :i :t -> :m Unit))
+  (define (stop% pool)
+    (stop (.threads pool)))
+
+  ;; TODO: As far as I can tell, (Concurrent :t Unit) should be enough for the compiler to "find"
+  ;; the (Concurrent (ConcurrentGroup :t Unit)) instance, but for some reason it needs the annotation.
+  ;; Post an issue to Github and/or try to find a minimal reproduction.
+  (declare await-foo ((Concurrent :t Unit) (MonadException :m) (MonadIoThread :rt :t :m)
+                      (Concurrent (ConcurrentGroup :t Unit) (List Unit))
+                      => WorkerPool :i :t -> :m Unit))
+  (define (await-foo pool)
+    (do
+     (await (.threads pool))
+     (pure Unit)))
   )
+
+(coalton-toplevel
+
+  (declare unmask-finally% ((Concurrent (ConcurrentGroup :t Unit) (List Unit)) (UnliftIo :r :i) (LiftTo :r :m)
+                            (MonadIoThread :rt :t :m) (MonadException :m) (MonadIoThread :rt :t :r)
+                            (Concurrent :t Unit)
+                            => WorkerPool :i :t -> (UnmaskFinallyMode -> :r :b) -> :m Unit))
+  (define (unmask-finally% pool f)
+    (unmask-finally (.threads pool) f)
+  )
+
+  (define-instance (Concurrent (ConcurrentGroup :t Unit) (List Unit)
+                    => Concurrent (WorkerPool :i :t) Unit)
+    (inline)
+    (define (stop pool)
+      (stop (.threads pool)))
+    (inline)
+    (define (await pool)
+      (do
+       (await (.threads pool))
+       (pure Unit)))
+    (inline)
+    (define (mask pool)
+      (mask (.threads pool)))
+    (inline)
+    (define (unmask pool)
+      (unmask (.threads pool)))
+    (inline)
+    (define (unmask-finally pool f)
+      (unmask-finally (.threads pool) f)))
+    
+  )
+
+(defmacro do-submit-job (pool cl:&body body)
+  `(submit-job ,pool
+    (do
+     ,@body)))
