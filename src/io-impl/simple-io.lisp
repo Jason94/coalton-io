@@ -92,16 +92,21 @@ See >>="
   (define (run-io-handled! (IO% f->a?))
     "Run an IO, but instead of raising, pass on any exceptions. Used internally to
 implement MonadException and handle asynchronous exception signals."
+    (error "Run io handled fail")
     (let result = (catch-thunk f->a?))
     (match result
-      ((Err unh-err)
-       (let (UnhandledError e) = unh-err)
-       (Err
-        (cond
-          ((lisp Boolean (e) (cl:typep e 'ThreadingException))
-           (force-dynamic (the (Proxy ThreadingException) Proxy) e))
-          (True
-           (to-dynamic e)))))
+      ((Err io-err)
+       (match io-err
+         ((UnhandledError e)
+          (Err
+           (cond
+             ((lisp Boolean (e) (cl:typep e 'ThreadingException))
+              (force-dynamic (the (Proxy ThreadingException) Proxy) e))
+             (True
+              ;; If we don't know what the error is, we can't do anything about it now.
+              (to-dynamic io-err)))))
+         ((HandledError dyn)
+          (Err dyn))))
       ((Ok a)
        (Ok a))))
 
@@ -118,10 +123,16 @@ implement MonadException and handle asynchronous exception signals."
       ((Ok a)
        a)
       ((Err dyn-e)
+       (traceobject "run-io! dyn-e" dyn-e)
+       (traceobject "run-io! cast dyn-e" (the (Optional IoError)
+                                              (cast dyn-e)))
        (match (cast dyn-e)
-         ((Some (UnhandledError e))
-          (let _ = (the MockException e))
-          (throw e))
+         ((Some io-err)
+          (match io-err
+            ((UnhandledError _)
+             (throw io-err))
+            ((HandledError dyn)
+             (throw-dynamic dyn))))
          ((None)
           (throw-dynamic dyn-e))))))
 
@@ -163,12 +174,12 @@ implement MonadException and handle asynchronous exception signals."
   (inline)
   (declare raise-io ((RuntimeRepr :e) (Signalable :e) => :e -> IO :a))
   (define (raise-io e)
-    (IO% (fn () (error e))))
+    (IO% (fn () (throw (HandledError (to-dynamic e))))))
 
   (inline)
   (declare raise-dynamic-io (Dynamic -> IO :a))
   (define (raise-dynamic-io dyn)
-    (IO% (fn () (throw-dynamic dyn))))
+    (IO% (fn () (throw (HandledError dyn)))))
 
   (inline)
   (declare raise-io_ ((RuntimeRepr :e) (Signalable :e) => :e -> IO Unit))

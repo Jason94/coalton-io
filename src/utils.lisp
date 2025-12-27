@@ -11,7 +11,9 @@
   (:export
    #:Word
    #:build-str
+   #:IoError
    #:UnhandledError
+   #:HandledError
    #:flatten-err
    #:catch-thunk
    #:force-string
@@ -53,15 +55,18 @@
   (define-type-alias Word #+32-bit U32 #+64-bit U64
     "An integer that fits in a CPU word.")
 
-  (derive Eq)
-  (repr :lisp)
-  (define-type (UnhandledError :e)
+  (define-exception IoError
     "An unhandled error that was thrown inside a wrap-io call."
-    (UnhandledError :e))
+    (UnhandledError String)
+    (HandledError Dynamic))
 
-  (define-instance (Signalable :e => Signalable (UnhandledError :e))
-    (define (error (UnhandledError e))
-      (error e)))
+  ;; (define-instance (Signalable :e => Signalable (IoError :e))
+  ;;   (define (error err)
+  ;;     (match err
+  ;;       ((UnhandledError e)
+  ;;        (error e))
+  ;;       ((HandledError dyn-e)
+  ;;        (throw-dynamic dyn-e)))))
 
   (inline)
   (declare flatten-err (Result :e (Result :e :a) -> Result :e :a))
@@ -72,15 +77,25 @@
       ((Err e)
        (Err e))))
 
-  (declare catch-thunk ((Unit -> :a) -> Result (UnhandledError :e) :a))
+  (declare catch-thunk ((Unit -> :a) -> Result IoError :a))
   (define (catch-thunk thunk)
     "Wraps `thunk` in a Lisp `handler-case`, and captures the output
 as Err or Ok. Useful if you want to capture any thrown error, which is
 currently not possible natively in Coalton. Works even with custom
 Coalton exceptions via `define-exception`."
-    (lisp (Result (UnhandledError :e) :a) (thunk)
+    (lisp (Result IoError :a) (thunk)
+      (cl:break)
+      (cl:format cl:t "catch-thunk")
+      (cl:error "SCREW OFF")
       (cl:handler-case (Ok (call-coalton-function thunk))
+        (IoError/UnhandledError (e)
+          (cl:format cl:t "Unhandled Error")
+          (Err e))
+        (IoError/HandledError (e)
+          (cl:format cl:t "handled Error")
+          (Err e))
         (cl:error (e)
+          (cl:format cl:t "Any Error")
           (Err (UnhandledError e))))))
 
   (inline)

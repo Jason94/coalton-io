@@ -135,15 +135,24 @@
     (pure (<> "Caught TE2: " msg)))
   )
 
-(coalton
- (run-io!
-  (handle-io
-   (raise-io (TE "Test Error"))
-   handle-te2)))
+;; (coalton
+;;  (run-io!
+;;   (raise-io (TE "Test Error"))))
 
-(coalton
- (the (Optional TestException)
-      (cast (to-dynamic (TE "Test Error")))))
+;; (coalton
+;;  (the (Optional IoError)
+;;       (cast
+;;        (to-dynamic (TE "Test Error")))))
+
+;; (coalton
+;;  (run-io!
+;;   (handle-io
+;;    (raise-io (TE "Test Error"))
+;;    handle-te2)))
+
+;; (coalton
+;;  (the (Optional TestException)
+;;       (cast (to-dynamic (TE "Test Error")))))
 
 (define-test test-handle-actual-type ()
   (let result =
@@ -171,5 +180,5 @@
        (fn common-lisp:nil
          (error "Test Error")
          1)))))
-  (let _ = (the (Result (UnhandledError :a) Integer) res))
+  (let _ = (the (Result IoError Integer) res))
   (is (r:err? res)))

@@ -51,8 +51,7 @@
   ;; just instances of UnliftIo.
   (define-class (Monad :m => MonadException :m)
     "A Monad that can raise and handle exceptions. IMPORTANT: Any MonadException
-must catch and wrap all unhandled errors inside a wrap-io call as an UnhandledError.
-See utils/catch-thunk."
+must catch and wrap all unhandled errors inside a wrap-io call."
     (raise
      "Raise an exception."
      ((RuntimeRepr :e) (Signalable :e) => :e -> :m :a))
