@@ -42,6 +42,8 @@
    ))
 (in-package :io/utils)
 
+(cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 0)))
+
 (named-readtables:in-readtable coalton:coalton)
 
 (defmacro build-str (cl:&rest str-parts)

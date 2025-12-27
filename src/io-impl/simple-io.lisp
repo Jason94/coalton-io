@@ -46,7 +46,7 @@
    ))
 (in-package :io/io-impl/simple-io)
 
-(cl:declaim (cl:optimize (cl:speed 0) (cl:debug 3) (cl:safety 3)))
+(cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 0)))
 
 (named-readtables:in-readtable coalton:coalton)
 
@@ -78,10 +78,7 @@ See >>="
   (inline)
   (declare wrap-io%_ ((Unit -> :a) -> IO :a))
   (define (wrap-io%_ f)
-    (IO%
-     (fn ()
-       (inline
-        (f)))))
+    (IO% f))
 
   ;; NOTE: Catching prevents SBCL from optimizing tail calls because it needs to protect
   ;; the stack. Therefore run-io-handled!% can *only* be called in exception combinators,
@@ -147,7 +144,7 @@ implement MonadException and handle asynchronous exception signals."
           (f->b))))))
 
   (define-instance (Monad IO)
-    ;; (inline)
+    (inline)
     (define (>>= (IO% f->a) fa->io-b)
       (IO%
        (fn ()
@@ -304,9 +301,9 @@ effect in a BaseIo."
       (wrap-io
         (let results = (c:new (make-list)))
         (for a in (it:into-iter itr)
-          (c:push! results (run! (as-proxy-of
-                                  (a->mb a)
-                                  io-prx))))
+          (c:push! results (run-io-unhandled! (as-proxy-of
+                                               (a->mb a)
+                                               io-prx))))
         (reverse (c:read results)))
       (proxy-swap-inner io-prx))))
 
@@ -320,9 +317,9 @@ More efficient than foreach-io, if you can run your effect in a BaseIo."
      (as-proxy-of
       (wrap-io
         (for a in (it:into-iter itr)
-          (run! (as-proxy-of
-                 (a->mb a)
-                 io-prx)))
+          (run-io-unhandled! (as-proxy-of
+                              (a->mb a)
+                              io-prx)))
         Unit)
       (proxy-swap-inner io-prx))))
 

@@ -63,12 +63,12 @@
              (format out "~A,~A,~A,~A,~A,~A,~A,~A,~A~%"
                      bench metric
                      (getf plist :samples)
-                     (getf plist :total)
-                     (getf plist :minimum)
-                     (getf plist :maximum)
-                     (getf plist :median)
-                     (getf plist :average)
-                     (getf plist :deviation)))))
+                     (float (getf plist :total))
+                     (float (getf plist :minimum))
+                     (float (getf plist :maximum))
+                     (float (getf plist :median))
+                     (float (getf plist :average))
+                     (float (getf plist :deviation))))))
        result))
     (values)))
 
