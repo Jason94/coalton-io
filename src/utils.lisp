@@ -25,6 +25,7 @@
    #:from-anything-opt
    #:anything-eq
    #:Dynamic
+   #:Dynamic%
    #:to-dynamic
    #:force-dynamic
    #:cast
@@ -55,16 +56,17 @@
   (define-type-alias Word #+32-bit U32 #+64-bit U64
     "An integer that fits in a CPU word.")
 
-  (define-exception IoError
+  (define-exception IoError 
     "An unhandled error that was thrown inside a wrap-io call."
-    (UnhandledError String)
-    (HandledError Dynamic))
-
-  ;; (define-instance (Signalable :e => Signalable (IoError :e))
+    (UnhandledError Anything (Unit -> Unit)) ;; re-throw thunk
+    (HandledError Dynamic (Unit -> Unit))) ;; error val, error thunk
+  
+  ;; (define-instance (Signalable (IoError :e))
   ;;   (define (error err)
   ;;     (match err
-  ;;       ((UnhandledError e)
-  ;;        (error e))
+  ;;       ((UnhandledError _ throw-thunk)
+  ;;        (throw-thunk)
+  ;;        (error "Malformed UnhandledError throw-thunk"))
   ;;       ((HandledError dyn-e)
   ;;        (throw-dynamic dyn-e)))))
 
@@ -84,19 +86,18 @@ as Err or Ok. Useful if you want to capture any thrown error, which is
 currently not possible natively in Coalton. Works even with custom
 Coalton exceptions via `define-exception`."
     (lisp (Result IoError :a) (thunk)
-      (cl:break)
-      (cl:format cl:t "catch-thunk")
-      (cl:error "SCREW OFF")
       (cl:handler-case (Ok (call-coalton-function thunk))
         (IoError/UnhandledError (e)
-          (cl:format cl:t "Unhandled Error")
           (Err e))
         (IoError/HandledError (e)
-          (cl:format cl:t "handled Error")
           (Err e))
         (cl:error (e)
-          (cl:format cl:t "Any Error")
-          (Err (UnhandledError e))))))
+          (cl:let ((throw-thunk (coalton
+                                 (fn ()
+                                   (lisp :a ()
+                                     (cl:error e))
+                                   Unit))))
+            (Err (UnhandledError e throw-thunk)))))))
 
   (inline)
   (declare force-string (:a -> String))

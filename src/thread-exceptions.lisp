@@ -6,6 +6,7 @@
    #:io/utils
    )
   (:export
+   ;; Library Public
    #:ThreadingException
    #:InterruptCurrentThread
    #:ThreadingException/InterruptCurrentThread
@@ -17,6 +18,9 @@
    #:UnmaskFinallyMode
    #:Stopped
    #:Running
+
+   ;; Library Private
+   #:is-threading-exception
    ))
 (in-package :io/thread-exceptions)
 
@@ -29,6 +33,16 @@ This type isn't really an exception, it's more of a message."
   (define-instance (Signalable ThreadingException)
     (define (error x)
       (error x)))
+
+  (declare is-threading-exception (IoError -> Boolean))
+  (define (is-threading-exception io-err)
+    "Return True if IO-ERR contains a threading exception."
+    (let val = (match io-err
+                 ((UnhandledError e _)
+                  e)
+                 ((HandledError (Dynamic% e _) _)
+                  e)))
+   (lisp Boolean (val) (cl:typep val 'ThreadingException)))
 
   (define-exception SynchronousThreadException
     "Exceptions that a thread raises whenever it encounters a threading

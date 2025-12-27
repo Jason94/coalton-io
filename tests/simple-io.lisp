@@ -7,6 +7,7 @@
   (:local-nicknames
    (:exc #:io/exception)
    (:r #:coalton-library/result)
+   (:opt #:coalton-library/optional)
    (:l #:coalton-library/list)
    (:c #:coalton-library/cell))
   )
@@ -140,9 +141,19 @@
 ;;   (raise-io (TE "Test Error"))))
 
 ;; (coalton
-;;  (the (Optional IoError)
+;;  (the (Optional TestException)
 ;;       (cast
 ;;        (to-dynamic (TE "Test Error")))))
+
+;; (coalton (runtime-repr-of (TE "Test Error")))
+
+;; (coalton
+;;   (io/io-impl/simple-io::run-io-unhandled!
+;;    (raise-io (TE "Test Error"))))
+
+;; (coalton (error (TE "Test Error")))
+;; (coalton (error (HandledError (to-dynamic (TE "Test ERror")))))
+
 
 ;; (coalton
 ;;  (run-io!
@@ -172,13 +183,13 @@
       handle-te)))
   (is (== "Caught: Error" result)))
 
+(test-handle-different-type)
+
 (define-test test-unhandled-errors ()
   (let res =
     (run-io!
-     (exc:try
-      (wrap-io_
-       (fn common-lisp:nil
-         (error "Test Error")
-         1)))))
-  (let _ = (the (Result IoError Integer) res))
-  (is (r:err? res)))
+     (exc:try-all
+      (wrap-io
+        (error "Test Error")
+        1))))
+  (is (opt:none? res)))

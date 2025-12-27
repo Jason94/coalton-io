@@ -84,31 +84,26 @@ See >>="
         (f)))))
 
   ;; NOTE: Catching prevents SBCL from optimizing tail calls because it needs to protect
-  ;; the stack. Therefore run-io-handled! can *only* be called in exception combinators,
+  ;; the stack. Therefore run-io-handled!% can *only* be called in exception combinators,
   ;; where we'll eat the cost (in theory looping those could blow the stack) and at
   ;; the top-level run boundary. Usually use run-io-unhandled! or run-io!
   (inline)
-  (declare run-io-handled! (IO :a -> Result Dynamic :a))
-  (define (run-io-handled! (IO% f->a?))
+  (declare run-io-handled!% (IO :a -> Result IoError :a))
+  (define (run-io-handled!% (IO% f->a?))
     "Run an IO, but instead of raising, pass on any exceptions. Used internally to
 implement MonadException and handle asynchronous exception signals."
-    (error "Run io handled fail")
-    (let result = (catch-thunk f->a?))
-    (match result
-      ((Err io-err)
-       (match io-err
-         ((UnhandledError e)
-          (Err
-           (cond
-             ((lisp Boolean (e) (cl:typep e 'ThreadingException))
-              (force-dynamic (the (Proxy ThreadingException) Proxy) e))
-             (True
-              ;; If we don't know what the error is, we can't do anything about it now.
-              (to-dynamic io-err)))))
-         ((HandledError dyn)
-          (Err dyn))))
-      ((Ok a)
-       (Ok a))))
+    (catch-thunk f->a?))
+
+  (inline)
+  (declare run-io-handled! (IO :a -> Result Dynamic :a))
+  (define (run-io-handled! io)
+    (r:map-err (fn (io-err)
+                 (match io-err
+                   ((UnhandledError _ _)
+                    (to-dynamic io-err))
+                   ((HandledError dyn-err _)
+                    dyn-err)))
+               (run-io-handled!% io)))
 
   (inline)
   (declare run-io-unhandled! (IO :a -> :a))
@@ -119,22 +114,17 @@ implement MonadException and handle asynchronous exception signals."
   (declare run-io! (IO :a -> :a))
   (define (run-io! io-op)
     "Top-level run-io! that raises any unhandled exceptions."
-    (match (run-io-handled! io-op)
+    (match (run-io-handled!% io-op)
       ((Ok a)
        a)
-      ((Err dyn-e)
-       (traceobject "run-io! dyn-e" dyn-e)
-       (traceobject "run-io! cast dyn-e" (the (Optional IoError)
-                                              (cast dyn-e)))
-       (match (cast dyn-e)
-         ((Some io-err)
-          (match io-err
-            ((UnhandledError _)
-             (throw io-err))
-            ((HandledError dyn)
-             (throw-dynamic dyn))))
-         ((None)
-          (throw-dynamic dyn-e))))))
+      ((Err io-err)
+       (match io-err
+         ((UnhandledError _ throw-thunk)
+          (throw-thunk)
+          (error "Malformed UnhandledError throw-thunk"))
+         ((HandledError _ err-thunk)
+          (err-thunk)
+          (error "Malformed HandledError err-thunk"))))))
 
   (define-instance (Functor IO)
     (inline)
@@ -174,12 +164,14 @@ implement MonadException and handle asynchronous exception signals."
   (inline)
   (declare raise-io ((RuntimeRepr :e) (Signalable :e) => :e -> IO :a))
   (define (raise-io e)
-    (IO% (fn () (throw (HandledError (to-dynamic e))))))
+    (IO% (fn () (throw (HandledError (to-dynamic e)
+                                     (fn () (error e)))))))
 
   (inline)
   (declare raise-dynamic-io (Dynamic -> IO :a))
   (define (raise-dynamic-io dyn)
-    (IO% (fn () (throw (HandledError dyn)))))
+    (IO% (fn () (throw (HandledError dyn
+                                     (fn () (throw-dynamic dyn)))))))
 
   (inline)
   (declare raise-io_ ((RuntimeRepr :e) (Signalable :e) => :e -> IO Unit))
@@ -190,32 +182,34 @@ implement MonadException and handle asynchronous exception signals."
   (define (reraise-io op catch-op)
     (IO%
      (fn ()
-       (let result = (run-io-handled! op))
+       (let result = (run-io-handled!% op))
        (match result
          ((Ok a)
           a)
          ((Err e)
           (run-io-unhandled! (catch-op))
-          (throw-dynamic e))))))
+          (throw e))))))
 
   (inline)
   (declare handle-io (RuntimeRepr :e => IO :a -> (:e -> IO :a) -> IO :a))
   (define (handle-io io-op handle-op)
     (IO%
      (fn ()
-      (let result = (run-io-handled! io-op))
+      (let result = (run-io-handled!% io-op))
       (match result
         ((Ok a)
          a)
-        ((Err e?)
-         (traceobject "e?" e?)
-         (let casted = (cast e?))
-         (traceobject "cast e?" casted)
-         (match casted
-           ((Some e)
-            (run-io-unhandled! (handle-op e)))
-           ((None)
-            (throw-dynamic e?))))))))
+        ((Err io-err)
+         (match io-err
+           ((UnhandledError _ _)
+            (throw io-err))
+           ((HandledError e? _)
+            (let casted = (cast e?))
+            (match casted
+              ((Some e)
+               (run-io-unhandled! (handle-op e)))
+              ((None)
+               (throw io-err))))))))))
 
   (inline)
   (declare handle-all-io (IO :a -> (Unit -> IO :a) -> IO :a))
@@ -223,14 +217,14 @@ implement MonadException and handle asynchronous exception signals."
     "Run IO-OP, and run HANDLE-OP to handle exceptions of any type thrown by IO-OP."
     (IO%
      (fn ()
-      (let result = (run-io-handled! io-op))
+      (let result = (run-io-handled!% io-op))
       (match result
         ((Ok a)
          a)
-        ((Err e)
+        ((Err io-err)
          ;; Don't allow handle-all to accidentally mask the thread!
-         (if (can-cast-to? e (the (Proxy ThreadingException) Proxy))
-             (throw-dynamic e)
+         (if (is-threading-exception io-err)
+             (throw io-err)
              (run-io-unhandled! (handle-op))))))))
 
   (inline)
@@ -238,14 +232,18 @@ implement MonadException and handle asynchronous exception signals."
   (define (try-dynamic-io io-op)
     (IO%
      (fn ()
-       (let result = (run-io-handled! io-op))
+       (let result = (run-io-handled!% io-op))
        (match result
-         ((Ok _)
-          result)
-         ((Err e)
-          (if (can-cast-to? e (the (Proxy ThreadingException) Proxy))
-              (throw-dynamic e)
-              (Err e)))))))
+         ((Ok a)
+          (Ok a))
+         ((Err io-err)
+          (if (is-threading-exception io-err)
+              (throw io-err)
+              (match io-err
+                ((UnhandledError _ _)
+                 (throw io-err))
+                ((HandledError e _)
+                 (Err e)))))))))
 
   ;;
   ;; MonadException Instance
