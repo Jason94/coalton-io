@@ -135,6 +135,16 @@
     (pure (<> "Caught TE2: " msg)))
   )
 
+(coalton
+ (run-io!
+  (handle-io
+   (raise-io (TE "Test Error"))
+   handle-te2)))
+
+(coalton
+ (the (Optional TestException)
+      (cast (to-dynamic (TE "Test Error")))))
+
 (define-test test-handle-actual-type ()
   (let result =
     (run-io!

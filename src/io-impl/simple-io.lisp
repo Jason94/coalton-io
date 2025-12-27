@@ -46,7 +46,7 @@
    ))
 (in-package :io/io-impl/simple-io)
 
-(cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 0)))
+(cl:declaim (cl:optimize (cl:speed 0) (cl:debug 3) (cl:safety 3)))
 
 (named-readtables:in-readtable coalton:coalton)
 
@@ -73,7 +73,7 @@ See >>="
   ;;
   (repr :transparent)
   (define-type (IO :a)
-    (IO% (Unit -> Result Dynamic :a)))
+    (IO% (Unit -> :a)))
 
   (inline)
   (declare wrap-io%_ ((Unit -> :a) -> IO :a))
@@ -81,7 +81,7 @@ See >>="
     (IO%
      (fn ()
        (inline
-        (Ok (f))))))
+        (f)))))
 
   ;; NOTE: Catching prevents SBCL from optimizing tail calls because it needs to protect
   ;; the stack. Therefore run-io-handled! can *only* be called in exception combinators,
@@ -92,7 +92,8 @@ See >>="
   (define (run-io-handled! (IO% f->a?))
     "Run an IO, but instead of raising, pass on any exceptions. Used internally to
 implement MonadException and handle asynchronous exception signals."
-    (match (catch-thunk f->a?)
+    (let result = (catch-thunk f->a?))
+    (match result
       ((Err unh-err)
        (let (UnhandledError e) = unh-err)
        (Err
@@ -100,12 +101,12 @@ implement MonadException and handle asynchronous exception signals."
           ((lisp Boolean (e) (cl:typep e 'ThreadingException))
            (force-dynamic (the (Proxy ThreadingException) Proxy) e))
           (True
-           (to-dynamic unh-err)))))
+           (to-dynamic e)))))
       ((Ok a)
-       a)))
+       (Ok a))))
 
   (inline)
-  (declare run-io-unhandled! (IO :a -> Result Dynamic :a))
+  (declare run-io-unhandled! (IO :a -> :a))
   (define (run-io-unhandled! (IO% f->a?))
     (f->a?))
 
@@ -125,58 +126,49 @@ implement MonadException and handle asynchronous exception signals."
           (throw-dynamic dyn-e))))))
 
   (define-instance (Functor IO)
-    (define (map fb->c io-op)
-      (match io-op
-        ((IO% funit->b)
+    (inline)
+    (define (map fa->b io-a)
+      (match io-a
+        ((IO% funit->a)
          (IO%
           (fn ()
-            (map fb->c (funit->b))))))))
+            (fa->b (funit->a))))))))
 
   (define-instance (Applicative IO)
     (inline)
-    (define (pure x) (IO% (fn () (Ok x))))
+    (define (pure x) (IO% (fn () x)))
     (inline)
-    (define (liftA2 fa->b->c (IO% f->a?) (IO% f->b?))
+    (define (liftA2 fa->b->c (IO% f->a) (IO% f->b))
       (IO%
        (fn ()
-        (match (f->a?)
-          ((Err e1)
-           (Err e1))
-          ((Ok a)
-           (match (f->b?)
-             ((Err e2)
-              (Err e2))
-             ((Ok b)
-              (Ok (fa->b->c a b))))))))))
+         (fa->b->c
+          (f->a)
+          (f->b))))))
 
   (define-instance (Monad IO)
     ;; (inline)
-    (define (>>= (IO% f->a?) fa->io-b)
+    (define (>>= (IO% f->a) fa->io-b)
       (IO%
        (fn ()
-        ;; It's VERY difficult to determinalistically test the thread runtime's
-        ;; behavior for managing async exceptions outside of the wrap-io boundary.
-        ;; To support those test cases, IO provides a conditional compilation
-        ;; mechanism to insert a 5 MS sleep during the >>= operation, which is
-        ;; guaranteed to be outside of wrap-io.
-        ;;
-        ;; To trigger this, set SIMPLE_IO_DEBUG_SLEEP = 'y' and compile simple-io.lisp
-        (match (f->a?)
-          ((Err e)
-           (Err e))
-          ((Ok a)
-           (compile-debug-sleep 5)
-           (run-io-unhandled! (fa->io-b a))))))))
+         ;; It's VERY difficult to determinalistically test the thread runtime's
+         ;; behavior for managing async exceptions outside of the wrap-io boundary.
+         ;; To support those test cases, IO provides a conditional compilation
+         ;; mechanism to insert a 5 MS sleep during the >>= operation, which is
+         ;; guaranteed to be outside of wrap-io.
+         ;;
+         ;; To trigger this, set SIMPLE_IO_DEBUG_SLEEP = 'y' and compile simple-io.lisp
+         (compile-debug-sleep 5)
+         (run-io-unhandled! (fa->io-b (f->a)))))))
 
   (inline)
   (declare raise-io ((RuntimeRepr :e) (Signalable :e) => :e -> IO :a))
   (define (raise-io e)
-    (IO% (fn () (Err (to-dynamic e)))))
+    (IO% (fn () (error e))))
 
   (inline)
   (declare raise-dynamic-io (Dynamic -> IO :a))
   (define (raise-dynamic-io dyn)
-    (IO% (fn () (Err dyn))))
+    (IO% (fn () (throw-dynamic dyn))))
 
   (inline)
   (declare raise-io_ ((RuntimeRepr :e) (Signalable :e) => :e -> IO Unit))
@@ -188,32 +180,31 @@ implement MonadException and handle asynchronous exception signals."
     (IO%
      (fn ()
        (let result = (run-io-handled! op))
-       (do-match result
-         ((Ok _)
-          result)
-         ((Err _)
-          (let result2 = (run-io-handled! (catch-op)))
-          (match result2
-            ((Ok _)
-             result)
-            ((Err e)
-             (Err e))))))))
+       (match result
+         ((Ok a)
+          a)
+         ((Err e)
+          (run-io-unhandled! (catch-op))
+          (throw-dynamic e))))))
 
   (inline)
   (declare handle-io (RuntimeRepr :e => IO :a -> (:e -> IO :a) -> IO :a))
   (define (handle-io io-op handle-op)
     (IO%
      (fn ()
-      (let ((result (run-io-handled! io-op)))
-        (match result
-          ((Ok a)
-           (Ok a))
-          ((Err e?)
-           (match (cast e?)
-             ((Some e)
-              (run-io-handled! (handle-op e)))
-             ((None)
-              result))))))))
+      (let result = (run-io-handled! io-op))
+      (match result
+        ((Ok a)
+         a)
+        ((Err e?)
+         (traceobject "e?" e?)
+         (let casted = (cast e?))
+         (traceobject "cast e?" casted)
+         (match casted
+           ((Some e)
+            (run-io-unhandled! (handle-op e)))
+           ((None)
+            (throw-dynamic e?))))))))
 
   (inline)
   (declare handle-all-io (IO :a -> (Unit -> IO :a) -> IO :a))
@@ -221,15 +212,15 @@ implement MonadException and handle asynchronous exception signals."
     "Run IO-OP, and run HANDLE-OP to handle exceptions of any type thrown by IO-OP."
     (IO%
      (fn ()
-      (let ((result (run-io-handled! io-op)))
-        (match result
-          ((Ok a)
-           (Ok a))
-          ((Err e)
-           ;; Don't allow handle-all to accidentally mask the thread!
-           (if (can-cast-to? e (the (Proxy ThreadingException) Proxy))
-               (Err e)
-               (run-io-handled! (handle-op)))))))))
+      (let result = (run-io-handled! io-op))
+      (match result
+        ((Ok a)
+         a)
+        ((Err e)
+         ;; Don't allow handle-all to accidentally mask the thread!
+         (if (can-cast-to? e (the (Proxy ThreadingException) Proxy))
+             (throw-dynamic e)
+             (run-io-unhandled! (handle-op))))))))
 
   (inline)
   (declare try-dynamic-io (IO :a -> IO (Result Dynamic :a)))
@@ -239,11 +230,11 @@ implement MonadException and handle asynchronous exception signals."
        (let result = (run-io-handled! io-op))
        (match result
          ((Ok _)
-          (Ok result))
+          result)
          ((Err e)
           (if (can-cast-to? e (the (Proxy ThreadingException) Proxy))
-              (Err e)
-              (Ok result)))))))
+              (throw-dynamic e)
+              (Err e)))))))
 
   ;;
   ;; MonadException Instance
