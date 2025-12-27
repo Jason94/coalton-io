@@ -44,6 +44,8 @@
 
 (named-readtables:in-readtable coalton:coalton)
 
+(cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 0)))
+
 (coalton-toplevel
 
   ;;;

@@ -139,3 +139,14 @@ mutable variables, multithreading, and several data structures to safely share s
                  (:file "hangman")
                  (:file "fork-laws"))))
   :description "Example programs for coalton-io.")
+
+(defsystem "coalton-io/benchmarks"
+  :author "Jason Walker"
+  :license "MIT"
+  :depends-on ("coalton-io" "trivial-benchmark" "yason")
+  :components ((:module "benchmarks"
+                :components
+                ((:file "benchmarks")
+                 (:file "simple-io")
+                 )))
+  :description "Benchmarks for coalton-io.")
