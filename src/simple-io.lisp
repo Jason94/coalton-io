@@ -21,6 +21,8 @@
    #:do-foreach-io_
    #:map-into-io_
    #:do-map-into-io_
+   #:times-io_
+   #:do-times-io_
    ))
 
 (in-package :io/simple-io)

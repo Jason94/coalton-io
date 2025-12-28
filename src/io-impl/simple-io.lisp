@@ -14,7 +14,8 @@
    #:io/thread-impl/runtime
    )
   (:import-from #:coalton-library/experimental/loops
-   #:dolist)
+   #:dolist
+   #:dotimes)
   (:import-from #:coalton-library/experimental/do-control-loops-adv
    #:LoopT)
   (:import-from #:coalton-library/types
@@ -43,6 +44,8 @@
    #:do-foreach-io_
    #:map-into-io_
    #:do-map-into-io_
+   #:times-io_
+   #:do-times-io_
    ))
 (in-package :io/io-impl/simple-io)
 
@@ -312,17 +315,21 @@ effect in a BaseIo."
   (define (foreach-io_ itr a->mb)
     "Efficiently perform a monadic operation for each element of an iterator.
 More efficient than foreach-io, if you can run your effect in a BaseIo."
-    (let io-prx = Proxy)
     (lift-io
-     (as-proxy-of
-      (wrap-io
+     (wrap-io%_
+      (fn ()
         (for a in (it:into-iter itr)
-          (run-io-unhandled! (as-proxy-of
-                              (a->mb a)
-                              io-prx)))
-        Unit)
-      (proxy-swap-inner io-prx))))
+          (run-io-unhandled! (a->mb a)))
+        Unit))))
 
+  (declare times-io_ (LiftIo IO :m => UFix -> IO :a -> :m Unit))
+  (define (times-io_ n io-op)
+    "Efficiently perform an IO operation N times."
+    (lift-io
+     (wrap-io%_
+      (fn ()
+        (dotimes (_ n)
+          (run-io-unhandled! io-op))))))
   )
 
 (defmacro do-map-into-io_ ((var lst) cl:&body body)
@@ -336,6 +343,11 @@ More efficient than foreach-io, if you can run your effect in a BaseIo."
      (fn (,var)
        (do
         ,@body))))
+
+(defmacro do-times-io_ (n cl:&body body)
+  `(times-io_ ,n
+    (do
+     ,@body)))
 
 ;;;
 ;;; IO Capability Implementations
