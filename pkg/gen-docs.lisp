@@ -24,11 +24,11 @@
                                  'io/thread
                                  'io/file
                                  'io/unique
-                                 'io/stm
                                  'io/conc/future
                                  'io/conc/atomic
                                  'io/conc/mvar
                                  'io/conc/group
+                                 'io/conc/stm
                                  'io/io-all
                                  'io/stubs/term
                                  ))))
