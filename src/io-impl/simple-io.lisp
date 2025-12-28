@@ -359,6 +359,7 @@ to the value of the element in the iterator."
          ,@body)))))
 
 (defmacro do-times-io_ (n cl:&body body)
+  "Efficiently perform an IO operation N times."
   `(times-io_ ,n
     (do
      ,@body)))

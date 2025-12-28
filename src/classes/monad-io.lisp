@@ -8,6 +8,7 @@
    #:io/utils
    )
   (:import-from #:coalton-library/experimental/loops
+   #:dotimes
    #:dolist)
   (:import-from #:coalton-library/experimental/do-control-loops-adv
    #:LoopT)
@@ -39,7 +40,9 @@
    #:map-into-io
    #:do-map-into-io
    #:foreach-io
-   #:do-foreach-io))
+   #:do-foreach-io
+   #:times-io
+   #:do-times-io))
 (in-package :io/classes/monad-io)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -215,6 +218,18 @@ faster!"
               (let monad-op = (run (a->mb c)))
               (for a in itr
                 (run! monad-op)))))))))
+
+  (declare times-io ((UnliftIo :r :io) (LiftTo :r :m) => UFix -> :r :b -> :m Unit))
+  (define (times-io n io-op)
+    "Efficiently perform an IO operation N times. If the effect can be run in
+simple-io/IO, the version in that package will be faster!"
+    (lift-to
+     (with-run-in-io
+       (fn (run)
+         (let base-op = (run io-op))
+         (wrap-io
+           (dotimes (_ n)
+             (run! base-op)))))))
   )
 
 ;;
@@ -237,3 +252,10 @@ be run in simple-io/IO, the version in that package will be faster!"
         (let ,var-sym = (c:read ,cell-sym))
         (do
          ,@body)))))
+
+(defmacro do-times-io (n cl:&body body)
+  "Efficiently perform an IO operation N times. If the effect can be run in
+simple-io/IO, the version in that package will be faster!"
+  `(times-io ,n
+    (do
+     ,@body)))
