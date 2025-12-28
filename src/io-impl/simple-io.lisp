@@ -311,16 +311,25 @@ effect in a BaseIo."
       (proxy-swap-inner io-prx))))
 
   (declare foreach-io_ ((LiftIo IO :m) (it:IntoIterator :i :a)
-                        => :i -> (:a -> IO :b) -> :m Unit))
-  (define (foreach-io_ itr a->mb)
+                        => :i -> (c:Cell :a -> IO :b) -> :m Unit))
+  (define (foreach-io_ coll a->mb)
     "Efficiently perform a monadic operation for each element of an iterator.
-More efficient than foreach-io, if you can run your effect in a BaseIo."
+More efficient than foreach-io, if your effect can run in IO. The next element of the
+iterator is passed into the operation via a cell."
     (lift-io
      (wrap-io%_
       (fn ()
-        (for a in (it:into-iter itr)
-          (run-io-unhandled! (a->mb a)))
-        Unit))))
+        (let itr = (it:into-iter coll))
+        (let fst = (it:next! itr))
+        (match fst
+          ((None)
+           Unit)
+          ((Some initial-val)
+           (let c = (c:new initial-val))
+           (let monad-op = (a->mb c))
+           (for a in itr
+             (c:write! c a)
+             (run-io-unhandled! monad-op))))))))
 
   (declare times-io_ (LiftIo IO :m => UFix -> IO :a -> :m Unit))
   (define (times-io_ n io-op)
@@ -338,11 +347,16 @@ More efficient than foreach-io, if you can run your effect in a BaseIo."
        (do
         ,@body))))
 
-(defmacro do-foreach-io_ ((var into-itr) cl:&body body)
-  `(foreach-io_ ,into-itr
-     (fn (,var)
-       (do
-        ,@body))))
+(defmacro do-foreach-io_ ((var-sym into-itr) cl:&body body)
+  "Efficiently perform a monadic operation for each element of an iterator.
+More efficient than foreach-io, if your effect can run in IO. VAR-SYM is bound
+to the value of the element in the iterator."
+  (cl:let ((cell-sym (cl:gensym "iteration-val")))
+    `(foreach-io_ ,into-itr
+      (fn (,cell-sym)
+        (let ,var-sym = (c:read ,cell-sym))
+        (do
+         ,@body)))))
 
 (defmacro do-times-io_ (n cl:&body body)
   `(times-io_ ,n
