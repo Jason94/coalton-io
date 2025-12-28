@@ -34,7 +34,8 @@
     (threads (ConcurrentGroup :t Unit))
     (queue (MChan (Optional (:i Unit)))))
 
-  (declare worker-op ((BaseIo :i) (MonadIoThread :rt :t :i) => MChan (Optional (:i Unit)) -> :i Unit))
+  (declare worker-op ((BaseIo :i) (MonadIoThread :rt :t :i) (MonadException :i)
+                      => MChan (Optional (:i Unit)) -> :i Unit))
   (define (worker-op queue)
     (do-matchM (pop-chan queue)
       ((None)
@@ -43,12 +44,13 @@
        task
        (worker-op queue))))
 
-  (declare fork-worker-op ((MonadIoThread :rt :t :i) (UnliftIo :i :i)
+  (declare fork-worker-op ((MonadIoThread :rt :t :i) (UnliftIo :i :i) (MonadException :i)
                            => MChan (Optional (:i Unit)) -> :i :t))
   (define (fork-worker-op queue)
     (fork-thread (worker-op queue)))
 
   (declare new-worker-pool ((MonadIoThread :rt :t :m) (UnliftIo :i :i) (MonadIoThread :rt :t :i)
+                            (MonadException :i)
                             (MonadException :m) (Concurrent :t Unit) (LiftIo :i :m)
                             => UFix -> :m (WorkerPool :i :t)))
   (define (new-worker-pool n-threads)
@@ -60,6 +62,7 @@
      (pure (WorkerPool n-threads threads queue))))
 
   (declare submit-job ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :i)
+                       (MonadException :i)
                        => WorkerPool :i :t -> :r Unit -> :m Unit))
   (define (submit-job pool job)
     (lift-to
@@ -67,7 +70,8 @@
        (fn (run)
          (push-chan (.queue pool) (Some (run job)))))))
 
-  (declare request-shutdown (MonadIoThread :rt :t :m => WorkerPool :i :t -> :m Unit))
+  (declare request-shutdown ((MonadIoThread :rt :t :m) (MonadException :m)
+                             => WorkerPool :i :t -> :m Unit))
   (define (request-shutdown pool)
     (do-loop-times (_ (.n-threads pool))
       (push-chan (.queue pool) None)))
