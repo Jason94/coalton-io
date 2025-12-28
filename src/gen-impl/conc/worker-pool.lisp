@@ -95,9 +95,9 @@
 
 (coalton-toplevel
 
-  (declare unmask-finally% ((Concurrent (ConcurrentGroup :t Unit) (List Unit)) (UnliftIo :r :i) (LiftTo :r :m)
+  (declare unmask-finally% ((Concurrent (ConcurrentGroup :t Unit) (List Unit)) (Concurrent :t Unit)
+                            (UnliftIo :r :i) (LiftTo :r :m)
                             (MonadIoThread :rt :t :m) (MonadException :m) (MonadIoThread :rt :t :r)
-                            (Concurrent :t Unit)
                             => WorkerPool :i :t -> (UnmaskFinallyMode -> :r :b) -> :m Unit))
   (define (unmask-finally% pool f)
     (unmask-finally (.threads pool) f)
