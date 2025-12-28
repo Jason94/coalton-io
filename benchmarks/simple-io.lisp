@@ -115,7 +115,7 @@
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
-(defparameter *count* 49)
+(defparameter *count* 100)
 
 (define-benchmark increment-list-loop-non-monadic ()
   (declare (optimize speed))
