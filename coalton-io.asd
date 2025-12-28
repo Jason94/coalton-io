@@ -1,6 +1,6 @@
 (defsystem "coalton-io"
   :long-name "coalton-io"
-  :version "0.1"
+  :version "0.2"
   :author "Jason Walker"
   :maintainer "Jason Walker"
   :mailto "Jason0@pm.me"
