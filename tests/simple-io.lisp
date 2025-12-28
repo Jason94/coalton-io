@@ -7,6 +7,7 @@
   (:local-nicknames
    (:exc #:io/exception)
    (:r #:coalton-library/result)
+   (:opt #:coalton-library/optional)
    (:l #:coalton-library/list)
    (:c #:coalton-library/cell))
   )
@@ -153,13 +154,13 @@
       handle-te)))
   (is (== "Caught: Error" result)))
 
+(test-handle-different-type)
+
 (define-test test-unhandled-errors ()
   (let res =
     (run-io!
-     (exc:try
-      (wrap-io_
-       (fn common-lisp:nil
-         (error "Test Error")
-         1)))))
-  (let _ = (the (Result (UnhandledError :a) Integer) res))
-  (is (r:err? res)))
+     (exc:try-all
+      (wrap-io
+        (error "Test Error")
+        1))))
+  (is (opt:none? res)))

@@ -8,6 +8,7 @@
    #:io/utils
    )
   (:import-from #:coalton-library/experimental/loops
+   #:dotimes
    #:dolist)
   (:import-from #:coalton-library/experimental/do-control-loops-adv
    #:LoopT)
@@ -39,10 +40,14 @@
    #:map-into-io
    #:do-map-into-io
    #:foreach-io
-   #:do-foreach-io))
+   #:do-foreach-io
+   #:times-io
+   #:do-times-io))
 (in-package :io/classes/monad-io)
 
 (named-readtables:in-readtable coalton:coalton)
+
+(cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 0)))
 
 (coalton-toplevel
 
@@ -193,17 +198,40 @@ and return the results. If you're having inference issues, try map-into-io_"
              (reverse (c:read results)))))))
 
   (declare foreach-io ((UnliftIo :r :io) (LiftTo :r :m) (it:IntoIterator :i :a)
-                       => :i -> (:a -> :r :b) -> :m Unit))
-  (define (foreach-io itr a->mb)
+                       => :i -> (c:Cell :a -> :r :b) -> :m Unit))
+  (define (foreach-io coll a->mb)
     "Efficiently perform a monadic operation for each element of an iterator.
-If you're having inference issues, try foreach-io_."
+The next element of the iterator is passed into the operation via a cell.
+If your effect can be run in simple-io/IO, the version in that package will be
+faster!"
     (lift-to
      (with-run-in-io
        (fn (run)
          (wrap-io
-           (for a in (it:into-iter itr)
-             (run! (run (a->mb a))))
-           Unit)))))
+           (let itr = (it:into-iter coll))
+           (let fst = (it:next! itr))
+           (match fst
+             ((None)
+              Unit)
+             ((Some initial-val)
+              (let c = (c:new initial-val))
+              (let monad-op = (run (a->mb c)))
+              (run! monad-op)
+              (for a in itr
+                (c:write! c a)
+                (run! monad-op)))))))))
+
+  (declare times-io ((UnliftIo :r :io) (LiftTo :r :m) => UFix -> :r :b -> :m Unit))
+  (define (times-io n io-op)
+    "Efficiently perform an IO operation N times. If the effect can be run in
+simple-io/IO, the version in that package will be faster!"
+    (lift-to
+     (with-run-in-io
+       (fn (run)
+         (let base-op = (run io-op))
+         (wrap-io
+           (dotimes (_ n)
+             (run! base-op)))))))
   )
 
 ;;
@@ -216,8 +244,23 @@ If you're having inference issues, try foreach-io_."
        (do
         ,@body))))
 
-(defmacro do-foreach-io ((var into-itr) cl:&body body)
-  `(foreach-io ,into-itr
-     (fn (,var)
-       (do
-        ,@body))))
+(defmacro do-foreach-io ((var-sym into-itr) cl:&body body)
+  "Efficiently perform a monadic operation for each element of an iterator.
+VAR-SYM is bound to the value of the element in the iterator. If your effect can
+be run in simple-io/IO, the version in that package will be faster!"
+  (cl:let ((cell-sym (cl:gensym "iteration-val")))
+    `(foreach-io ,into-itr
+      (fn (,cell-sym)
+        (do
+         ,@(cl-maptree (cl:lambda (sym)
+                         (cl:if (cl:eq sym var-sym)
+                            `(c:read ,cell-sym)
+                            sym))
+                       body))))))
+
+(defmacro do-times-io (n cl:&body body)
+  "Efficiently perform an IO operation N times. If the effect can be run in
+simple-io/IO, the version in that package will be faster!"
+  `(times-io ,n
+    (do
+     ,@body)))

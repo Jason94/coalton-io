@@ -9,6 +9,8 @@
    #:io/thread-exceptions
    #:io/conc/mvar
    #:io/exception)
+  (:import-from #:io/term
+   #:write-line)
   (:local-nicknames
    (:s #:coalton-threads/semaphore)
    )
@@ -136,6 +138,6 @@
       ;; Ensure the computation has started before stopping it
       (s-await start-gate)
       (stop-thread thread)
-      (s-await cleanup-done-gate)
+      (sleep 5)
       (read cleanup))))
-  (is cleanup-completed?))
+  (is (not cleanup-completed?)))

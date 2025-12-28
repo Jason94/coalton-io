@@ -9,9 +9,12 @@
   (:local-nicknames
    (:b #:coalton-library/bits))
   (:export
+   #:cl-maptree
    #:Word
    #:build-str
+   #:IoError
    #:UnhandledError
+   #:HandledError
    #:flatten-err
    #:catch-thunk
    #:force-string
@@ -23,6 +26,7 @@
    #:from-anything-opt
    #:anything-eq
    #:Dynamic
+   #:Dynamic%
    #:to-dynamic
    #:force-dynamic
    #:cast
@@ -39,7 +43,16 @@
    ))
 (in-package :io/utils)
 
+(cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 0)))
+
 (named-readtables:in-readtable coalton:coalton)
+
+(cl:defun cl-maptree (fn tree)
+  "Recursively applies FN to all non-cons elements (atoms) in a tree structure."
+  (cl:if (cl:atom tree)
+         (cl:funcall fn tree)
+         (cl:cons (cl-maptree fn (cl:car tree))
+                  (cl-maptree fn (cl:cdr tree)))))
 
 (defmacro build-str (cl:&rest str-parts)
   "Concatenate all STR-PARTS."
@@ -53,15 +66,19 @@
   (define-type-alias Word #+32-bit U32 #+64-bit U64
     "An integer that fits in a CPU word.")
 
-  (derive Eq)
-  (repr :lisp)
-  (define-type (UnhandledError :e)
+  (define-exception IoError 
     "An unhandled error that was thrown inside a wrap-io call."
-    (UnhandledError :e))
-
-  (define-instance (Signalable :e => Signalable (UnhandledError :e))
-    (define (error (UnhandledError e))
-      (error e)))
+    (UnhandledError Anything (Unit -> Unit)) ;; re-throw thunk
+    (HandledError Dynamic (Unit -> Unit))) ;; error val, error thunk
+  
+  ;; (define-instance (Signalable (IoError :e))
+  ;;   (define (error err)
+  ;;     (match err
+  ;;       ((UnhandledError _ throw-thunk)
+  ;;        (throw-thunk)
+  ;;        (error "Malformed UnhandledError throw-thunk"))
+  ;;       ((HandledError dyn-e)
+  ;;        (throw-dynamic dyn-e)))))
 
   (inline)
   (declare flatten-err (Result :e (Result :e :a) -> Result :e :a))
@@ -72,16 +89,25 @@
       ((Err e)
        (Err e))))
 
-  (declare catch-thunk ((Unit -> :a) -> Result (UnhandledError :e) :a))
+  (declare catch-thunk ((Unit -> :a) -> Result IoError :a))
   (define (catch-thunk thunk)
     "Wraps `thunk` in a Lisp `handler-case`, and captures the output
 as Err or Ok. Useful if you want to capture any thrown error, which is
 currently not possible natively in Coalton. Works even with custom
 Coalton exceptions via `define-exception`."
-    (lisp (Result (UnhandledError :e) :a) (thunk)
+    (lisp (Result IoError :a) (thunk)
       (cl:handler-case (Ok (call-coalton-function thunk))
+        (IoError/UnhandledError (e)
+          (Err e))
+        (IoError/HandledError (e)
+          (Err e))
         (cl:error (e)
-          (Err (UnhandledError e))))))
+          (cl:let ((throw-thunk (coalton
+                                 (fn ()
+                                   (lisp :a ()
+                                     (cl:error e))
+                                   Unit))))
+            (Err (UnhandledError e throw-thunk)))))))
 
   (inline)
   (declare force-string (:a -> String))

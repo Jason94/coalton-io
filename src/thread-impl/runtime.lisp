@@ -229,7 +229,7 @@ thread is alive before interrupting."
                          ((LogAndSwallow)
                           (lisp :a (e)
                             (cl:format cl:*error-output*
-                                       "Unhandled exception occurred: ~a~%"
+                                       "~%Unhandled exception occurred: ~a~%"
                                        e))
                           (Err e))
                          ((ThrowException)
@@ -255,7 +255,13 @@ thread is alive before interrupting."
     (let join-result =
       (lisp (Result Dynamic Unit) (native-thread)
         (bt:join-thread native-thread)))
-    join-result)
+    (match join-result
+      ((Ok _)
+       join-result)
+      ((Err dyn)
+       (if (dynamic-is-threading-exception? dyn)
+           (Ok Unit)
+           join-result))))
 
   (inline)
   (declare sleep!% (UFix -> Unit))
