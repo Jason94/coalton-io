@@ -327,6 +327,7 @@ iterator is passed into the operation via a cell."
           ((Some initial-val)
            (let c = (c:new initial-val))
            (let monad-op = (a->mb c))
+           (run-io-unhandled! monad-op)
            (for a in itr
              (c:write! c a)
              (run-io-unhandled! monad-op))))))))
@@ -354,9 +355,12 @@ to the value of the element in the iterator."
   (cl:let ((cell-sym (cl:gensym "iteration-val")))
     `(foreach-io_ ,into-itr
       (fn (,cell-sym)
-        (let ,var-sym = (c:read ,cell-sym))
         (do
-         ,@body)))))
+         ,@(cl-maptree (cl:lambda (sym)
+                         (cl:if (cl:eq sym var-sym)
+                            `(c:read ,cell-sym)
+                            sym))
+                       body))))))
 
 (defmacro do-times-io_ (n cl:&body body)
   "Efficiently perform an IO operation N times."

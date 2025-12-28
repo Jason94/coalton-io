@@ -136,35 +136,6 @@
     (pure (<> "Caught TE2: " msg)))
   )
 
-;; (coalton
-;;  (run-io!
-;;   (raise-io (TE "Test Error"))))
-
-;; (coalton
-;;  (the (Optional TestException)
-;;       (cast
-;;        (to-dynamic (TE "Test Error")))))
-
-;; (coalton (runtime-repr-of (TE "Test Error")))
-
-;; (coalton
-;;   (io/io-impl/simple-io::run-io-unhandled!
-;;    (raise-io (TE "Test Error"))))
-
-;; (coalton (error (TE "Test Error")))
-;; (coalton (error (HandledError (to-dynamic (TE "Test ERror")))))
-
-
-;; (coalton
-;;  (run-io!
-;;   (handle-io
-;;    (raise-io (TE "Test Error"))
-;;    handle-te2)))
-
-;; (coalton
-;;  (the (Optional TestException)
-;;       (cast (to-dynamic (TE "Test Error")))))
-
 (define-test test-handle-actual-type ()
   (let result =
     (run-io!

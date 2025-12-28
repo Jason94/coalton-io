@@ -9,6 +9,7 @@
   (:local-nicknames
    (:b #:coalton-library/bits))
   (:export
+   #:cl-maptree
    #:Word
    #:build-str
    #:IoError
@@ -45,6 +46,13 @@
 (cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 0)))
 
 (named-readtables:in-readtable coalton:coalton)
+
+(cl:defun cl-maptree (fn tree)
+  "Recursively applies FN to all non-cons elements (atoms) in a tree structure."
+  (cl:if (cl:atom tree)
+         (cl:funcall fn tree)
+         (cl:cons (cl-maptree fn (cl:car tree))
+                  (cl-maptree fn (cl:cdr tree)))))
 
 (defmacro build-str (cl:&rest str-parts)
   "Concatenate all STR-PARTS."

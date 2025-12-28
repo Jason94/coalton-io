@@ -216,7 +216,9 @@ faster!"
              ((Some initial-val)
               (let c = (c:new initial-val))
               (let monad-op = (run (a->mb c)))
+              (run! monad-op)
               (for a in itr
+                (c:write! c a)
                 (run! monad-op)))))))))
 
   (declare times-io ((UnliftIo :r :io) (LiftTo :r :m) => UFix -> :r :b -> :m Unit))
@@ -249,9 +251,12 @@ be run in simple-io/IO, the version in that package will be faster!"
   (cl:let ((cell-sym (cl:gensym "iteration-val")))
     `(foreach-io ,into-itr
       (fn (,cell-sym)
-        (let ,var-sym = (c:read ,cell-sym))
         (do
-         ,@body)))))
+         ,@(cl-maptree (cl:lambda (sym)
+                         (cl:if (cl:eq sym var-sym)
+                            `(c:read ,cell-sym)
+                            sym))
+                       body))))))
 
 (defmacro do-times-io (n cl:&body body)
   "Efficiently perform an IO operation N times. If the effect can be run in
