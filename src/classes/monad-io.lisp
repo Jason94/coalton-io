@@ -195,17 +195,26 @@ and return the results. If you're having inference issues, try map-into-io_"
              (reverse (c:read results)))))))
 
   (declare foreach-io ((UnliftIo :r :io) (LiftTo :r :m) (it:IntoIterator :i :a)
-                       => :i -> (:a -> :r :b) -> :m Unit))
-  (define (foreach-io itr a->mb)
+                       => :i -> (c:Cell :a -> :r :b) -> :m Unit))
+  (define (foreach-io coll a->mb)
     "Efficiently perform a monadic operation for each element of an iterator.
-If you're having inference issues, try foreach-io_."
+The next element of the iterator is passed into the operation via a cell.
+If your effect can be run in simple-io/IO, the version in that package will be
+faster!"
     (lift-to
      (with-run-in-io
        (fn (run)
          (wrap-io
-           (for a in (it:into-iter itr)
-             (run! (run (a->mb a))))
-           Unit)))))
+           (let itr = (it:into-iter coll))
+           (let fst = (it:next! itr))
+           (match fst
+             ((None)
+              Unit)
+             ((Some initial-val)
+              (let c = (c:new initial-val))
+              (let monad-op = (run (a->mb c)))
+              (for a in itr
+                (run! monad-op)))))))))
   )
 
 ;;
@@ -218,8 +227,13 @@ If you're having inference issues, try foreach-io_."
        (do
         ,@body))))
 
-(defmacro do-foreach-io ((var into-itr) cl:&body body)
-  `(foreach-io ,into-itr
-     (fn (,var)
-       (do
-        ,@body))))
+(defmacro do-foreach-io ((var-sym into-itr) cl:&body body)
+  "Efficiently perform a monadic operation for each element of an iterator.
+VAR-SYM is bound to the value of the element in the iterator. If your effect can
+be run in simple-io/IO, the version in that package will be faster!"
+  (cl:let ((cell-sym (cl:gensym "iteration-val")))
+    `(foreach-io ,into-itr
+      (fn (,cell-sym)
+        (let ,var-sym = (c:read ,cell-sym))
+        (do
+         ,@body)))))
