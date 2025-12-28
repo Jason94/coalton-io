@@ -234,7 +234,7 @@ Example:
     (define raise-dynamic (compose lift raise-dynamic))
     (define reraise reraise-stateT)
     (define handle handle-stateT)
-    (define handle-all handle-all-statet)
+    (define handle-all handle-all-stateT)
     (define try-dynamic try-dynamic-stateT))
 
   (inline)
