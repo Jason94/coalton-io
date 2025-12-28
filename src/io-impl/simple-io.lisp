@@ -62,6 +62,7 @@
 See >>="
   (cl:if (cl:equalp (uiop:getenv "SIMPLE_IO_DEBUG_SLEEP") "y")
          `(lisp Void ()
+            (cl:format cl:t "~%Entering compile debug sleep~%")
             (cl:sleep ,(cl:/ sleep-ms 1000.0)))
          `Unit))
 
@@ -158,8 +159,9 @@ implement MonadException and handle asynchronous exception signals."
          ;; guaranteed to be outside of wrap-io.
          ;;
          ;; To trigger this, set SIMPLE_IO_DEBUG_SLEEP = 'y' and compile simple-io.lisp
+         (let a = (f->a))
          (compile-debug-sleep 5)
-         (run-io-unhandled! (fa->io-b (f->a)))))))
+         (run-io-unhandled! (fa->io-b a))))))
 
   (inline)
   (declare raise-io ((RuntimeRepr :e) (Signalable :e) => :e -> IO :a))
