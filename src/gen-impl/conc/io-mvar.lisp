@@ -94,6 +94,9 @@ deadlocks and other race conditions."
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
     ;; - On the post-wakeup success path, does not unmask and leaves the applied mask
     ;;   to the caller to handle.
+    ;; - If the thread is stopped in unmask-and-await-safely-finally% after waking
+    ;;   but before masking (very unlikely), notifies the next waiting read-consumer
+    ;;   to prevent lost handoff.
     (mask-current! rt-prx)
     (lk:acquire (.lock mvar))
     (let ((lp (fn ()
@@ -104,7 +107,12 @@ deadlocks and other race conditions."
                    (cv:notify (.notify-empty mvar))
                    val)
                   ((None)
-                   (unmask-and-await-safely% rt-prx (.notify-full mvar) (.lock mvar))
+                   (unmask-and-await-safely-finally%
+                    rt-prx
+                    (.notify-full mvar)
+                    (.lock mvar)
+                    (fn ()
+                      (cv:notify (.notify-full mvar))))
                    (lp))))))
       (lp)))
 
@@ -162,6 +170,9 @@ Concurrent:
     ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
     ;;   condition and interpose lock acquisition before waiting/notifying.
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
+    ;; - If the thread is stopped in unmask-and-await-safely-finally% after waking
+    ;;   but before masking (very unlikely), notifies the next waiting write-consumer
+    ;;   to prevent lost handoff.
     (wrap-io-with-runtime (rt-prx)
       (let lock = (.lock mvar))
       (let data = (.data mvar))
@@ -177,7 +188,12 @@ Concurrent:
                      (unmask-current! rt-prx)
                      Unit)
                     ((Some _)
-                     (unmask-and-await-safely% rt-prx (.notify-empty mvar) lock)
+                     (unmask-and-await-safely-finally%
+                      rt-prx
+                      (.notify-empty mvar)
+                      lock
+                      (fn ()
+                        (cv:notify (.notify-empty mvar))))
                      (lp))))))
         (lp))))
 
