@@ -53,6 +53,7 @@
                                (:file "conc/io-atomic")
                                (:file "conc/concurrent-group")
                                (:file "conc/stm")
+                               (:file "conc/worker-pool")
                                (:file "io-thread")
                                (:file "io-file")
                                (:file "io-random")
@@ -64,7 +65,8 @@
                                (:file "io-thread")
                                (:file "io-mvar")
                                (:file "io-future")
-                               (:file "io-file")))
+                               (:file "io-file")
+                               (:file "conc/worker-pool")))
                  ;;;
                  ;;; Library Public Packages (Re-Export)
                  ;;;
@@ -87,6 +89,7 @@
                                (:file "io-mvar")
                                (:file "concurrent-group")
                                (:file "stm")
+                               (:file "worker-pool")
                                ))
 
                  (:file "stubs/term")
@@ -124,6 +127,7 @@ mutable variables, multithreading, and several data structures to safely share s
                   :serial t
                   :components ((:file "concurrent-group")
                                (:file "stm")
+                               (:file "worker-pool")
                                ))
                  (:file "package"))))
   :description "Test system for coalton-io"

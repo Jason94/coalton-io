@@ -29,6 +29,7 @@
                                  'io/conc/mvar
                                  'io/conc/group
                                  'io/conc/stm
+                                 'io/conc/worker-pool
                                  'io/io-all
                                  'io/stubs/term
                                  ))))
