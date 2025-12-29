@@ -9,7 +9,9 @@
    #:new-tvar
    #:read-tvar
    #:write-tvar
+   #:swap-tvar
    #:modify-tvar
+   #:modify-swap-tvar
    #:retry
    #:or-else
    #:run-tx

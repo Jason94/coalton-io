@@ -27,7 +27,9 @@
    #:new-tvar
    #:read-tvar
    #:write-tvar
+   #:swap-tvar
    #:modify-tvar
+   #:modify-swap-tvar
    #:retry
    #:or-else
    #:run-tx
@@ -396,11 +398,15 @@ For safety, disconnects the transactions when done."
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
   (inline)
+  (declare new-tvar% (:a -> TVar :a))
+  (define (new-tvar% val)
+    (TVar% (c:new val)))
+
+  (inline)
   (declare new-tvar (MonadIo :m => :a -> :m (TVar :a)))
   (define (new-tvar val)
     "Create a mutable variable that can be used inside an atomic transaction."
-    (wrap-io
-      (TVar% (c:new val))))
+    (wrap-io (new-tvar% val)))
 
   ;; NOTE: For now, using the coalton-threads Atomic Integer instead of
   ;; our atomics, because it's probably faster, since our atomic type doesn't
@@ -547,9 +553,26 @@ For safety, disconnects the transactions when done."
      (fn (tx-data)
        (wrap-io (inner-write-tvar% tvar val tx-data)))))
 
+  (declare swap-tvar (MonadIo :m => TVar :a -> :a -> STM :m :a))
+  (define (swap-tvar tvar new-val)
+    "Swap the value of a mutable variable inside an atomic transaction. Returns the old
+value."
+    (STM%
+     (fn (tx-data)
+       (wrap-io
+         (match (inner-read-tvar% tvar tx-data)
+           ((TxRetryAfterWrite)
+            TxRetryAfterWrite)
+           ((TxFailed)
+            TxFailed)
+           ((TxSuccess val)
+            ;; Respect non success status out of the write
+            (map (const val)
+                 (inner-write-tvar% tvar new-val tx-data))))))))
+
   (declare modify-tvar (MonadIo :m => TVar :a -> (:a -> :a) -> STM :m :a))
   (define (modify-tvar tvar f)
-    "Modify a mutable variable inside an atomic transaction."
+    "Modify a mutable variable inside an atomic transaction. Returns the new value."
     (STM%
      (fn (tx-data)
        (wrap-io
@@ -562,6 +585,23 @@ For safety, disconnects the transactions when done."
             (let result = (f val))
             ;; Respect non success status out of the write
             (map (const result)
+                 (inner-write-tvar% tvar result tx-data))))))))
+
+  (declare modify-swap-tvar (MonadIo :m => TVar :a -> (:a -> :a) -> STM :m :a))
+  (define (modify-swap-tvar tvar f)
+    "Modify a mutable variable inside an atomic transaction. Returns the old value."
+    (STM%
+     (fn (tx-data)
+       (wrap-io
+         (match (inner-read-tvar% tvar tx-data)
+           ((TxRetryAfterWrite)
+            TxRetryAfterWrite)
+           ((TxFailed)
+            TxFailed)
+           ((TxSuccess val)
+            (let result = (f val))
+            ;; Respect non success status out of the write
+            (map (const val)
                  (inner-write-tvar% tvar result tx-data))))))))
 
   (declare tx-commit-io% (MonadIoThread :rt :t :m => TxData% -> :m Boolean))
