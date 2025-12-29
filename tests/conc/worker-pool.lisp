@@ -17,7 +17,7 @@
 (fiasco:define-test-package #:coalton-io/tests/conc/worker-pool-fiasco)
 (coalton-fiasco-init #:coalton-io/tests/conc/worker-pool-fiasco)
 
-(define-test test-submit-one-job ()
+(define-test test-submit-one-job-and-shutdown ()
   (let result =
     (run-io!
      (do

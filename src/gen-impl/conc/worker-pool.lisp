@@ -19,8 +19,8 @@
   (:export
    #:WorkerPool
    #:new-worker-pool
-   #:submit-job
    #:request-shutdown
+   #:submit-job
    #:do-submit-job
    ))
 (in-package :io/gen-impl/conc/worker-pool)
@@ -30,6 +30,7 @@
 (coalton-toplevel
     
   (define-struct (WorkerPool :i :t)
+    "A pool of worker threads that execute jobs submitted to the pool."
     (n-threads UFix)
     (threads (ConcurrentGroup :t Unit))
     (queue (MChan (Optional (:i Unit)))))
@@ -54,6 +55,13 @@
                             (MonadException :m) (Concurrent :t Unit) (LiftIo :i :m)
                             => UFix -> :m (WorkerPool :i :t)))
   (define (new-worker-pool n-threads)
+    "Create a new worker pool. Automatically forks N-THREADS worker threads."
+    ;; CONCURRENT:
+    ;; - Concurrent concerns are managed by the thread group.
+    ;; - If the thread is stopped after the fork completes but before the return, then the
+    ;;   threads will be orphaned. There's no solution to that now (masking wouldn't help
+    ;;   the fundamental problem), but it will be solved once structured concurrency is
+    ;;   implemented.
     (do
      (do-when (zero? n-threads)
        (raise "Worker pool must be initialized with non-zero threads."))
@@ -65,6 +73,8 @@
                        (MonadException :i)
                        => WorkerPool :i :t -> :r Unit -> :m Unit))
   (define (submit-job pool job)
+    "Submit a job to the worker pool. Any jobs submitted after a shutdown request will
+be ignored."
     (lift-to
      (with-run-in-io
        (fn (run)
@@ -73,13 +83,12 @@
   (declare request-shutdown ((MonadIoThread :rt :t :m) (MonadException :m)
                              => WorkerPool :i :t -> :m Unit))
   (define (request-shutdown pool)
+    "Request a shutdown. The threads in the pool will shutdown when all of the jobs already
+in the queue are completed.
+
+To immediately stop the threads, use `stop`."
     (do-loop-times (_ (.n-threads pool))
       (push-chan (.queue pool) None)))
-
-  (declare stop% ((Concurrent (ConcurrentGroup :t Unit) (List Unit)) (MonadException :m) (MonadIoThread :rt :t :m)
-                  => WorkerPool :i :t -> :m Unit))
-  (define (stop% pool)
-    (stop (.threads pool)))
   )
 
 (coalton-toplevel
