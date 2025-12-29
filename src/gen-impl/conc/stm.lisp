@@ -59,6 +59,7 @@
   (derive Eq)
   (repr :transparent)
   (define-type (TVar :a)
+    "A Transaction Variable that can be read and modified inside an STM transaction."
     (TVar% (c:Cell :a)))
 
   (inline)
@@ -107,6 +108,7 @@
 
   (repr :transparent)
   (define-type (STM :io :a)
+    "A transaction that can be run using `run-tx`."
     (STM% (TxData% -> :io (TxResult% :a))))
 
   (inline)
