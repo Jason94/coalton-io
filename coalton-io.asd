@@ -131,7 +131,20 @@ mutable variables, multithreading, and several data structures to safely share s
                                ))
                  (:file "package"))))
   :description "Test system for coalton-io"
-  :perform (test-op (op c) (symbol-call '#:coalton-io/tests '#:run-tests)))
+  :perform (test-op (op c)
+            (uiop:with-current-directory ((asdf:system-source-directory c))
+              (uiop:symbol-call '#:coalton-io/tests '#:run-tests))))
+
+(defsystem "coalton-io/docs"
+  :author "Jason Walker"
+  :license "MIT"
+  :depends-on ("coalton-io" "coalton/doc")
+  :pathname "pkg"
+  :components ((:file "gen-docs"))
+  :description "Generate HTML documentation for coalton-io."
+  :perform (load-op (op c)
+            (uiop:with-current-directory ((asdf:system-source-directory c))
+              (uiop:symbol-call '#:coalton-io/docs '#:write-docs))))
 
 (defsystem "coalton-io/examples"
   :author "Jason Walker"

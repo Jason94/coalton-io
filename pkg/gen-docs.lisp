@@ -1,17 +1,17 @@
-(cl:in-package :cl-user)
+(defpackage #:coalton-io/docs
+  (:use #:cl)
+  (:export #:write-docs))
 
-(ql:quickload "coalton/doc")
-(ql:quickload "coalton-io")
-(defpackage :io.doc
-  (:use :cl))
-(in-package :io.doc)
+(in-package #:coalton-io/docs)
 
 (defun write-docs (&key
-                     (pathname "../docs/index.html")
+                     (pathname (merge-pathnames #p"docs/index.html"
+                                               (asdf:system-source-directory "coalton-io")))
                      (packages (mapcar
                                 (lambda (p)
-                                  (coalton/doc/model::make-coalton-package (find-package p)
-                                                                           :reexported-symbols t))
+                                  (coalton/doc/model::make-coalton-package
+                                   (find-package p)
+                                   :reexported-symbols t))
                                 (list
                                  'io/thread-exceptions
                                  'io/exception
@@ -32,13 +32,11 @@
                                  'io/conc/worker-pool
                                  'io/io-all
                                  'io/stubs/term
-                                 ))))
-
+                                 )))
+                     (remote-path "https://github.com/Jason94/coalton-io/tree/master"))
   (coalton/doc:write-documentation
-    pathname
-    packages
-    :local-path (namestring (asdf:system-source-directory "coalton-io"))
-    :remote-path "https://github.com/Jason94/coalton-io/tree/master"
-    :backend :html))
-
-(write-docs)
+   pathname
+   packages
+   :local-path (namestring (asdf:system-source-directory "coalton-io"))
+   :remote-path remote-path
+   :backend :html))

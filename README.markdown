@@ -256,8 +256,6 @@ Contributions to the concurrent codebase are welcome. However, because asynchron
 
 ### Running the tests
 
-One of the tests requires the working directory to be at the repository root. To change in Sly/Slime, type `,cd` in the REPL and navigate to the root directory.
-
 Run the tests in the REPL with:
 ```lisp
 (asdf:test-system "coalton-io")
