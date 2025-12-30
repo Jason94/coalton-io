@@ -44,10 +44,24 @@ _coalton-io_ also allows you to extend all of this functionality for free if you
      (pure sum)))
 ```
 
-## Installation
+## Getting Started & Installation
 
+The [coalton-io-template](https://github.com/Jason94/coalton-io-template) is a ready-made project to get started writing code with `coalton-io`. It uses [Qlot](https://github.com/fukamachi/qlot) to manage the project's dependencies.
 
-`coalton-io` depends on a later version of Coalton than the current Quicklisp release (as of 11/13/2025). You can easily install it by checking it out to your `local-projects` directory:
+Install Qlot, checkout the template, and download the dependencies by running:
+
+```sh
+curl -L https://qlot.tech/installer | sh
+git clone https://github.com/Jason94/coalton-io-template.git coalton-io-project
+cd coalton-io-project
+qlot install
+```
+
+See [the coalton-io-template Readme](https://github.com/Jason94/coalton-io-template) for more instructions on how to run the program and its tests.
+
+### Installing Manually
+
+`coalton-io` depends on a later version of Coalton than the current Quicklisp release. You can easily install it by checking it out to your `local-projects` directory:
 
 ```bash
 git clone https://github.com/coalton-lang/coalton.git ~/quicklisp/local-projects/coalton
