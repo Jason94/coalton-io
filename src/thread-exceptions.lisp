@@ -25,6 +25,8 @@
    ))
 (in-package :io/thread-exceptions)
 
+(named-readtables:in-readtable coalton:coalton)
+
 (coalton-toplevel
   (define-exception ThreadingException
     "Thread exception sent asynchronously between threads.
