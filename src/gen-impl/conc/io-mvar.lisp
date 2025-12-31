@@ -6,6 +6,7 @@
    #:coalton-library/functions
    #:coalton-library/types
    #:coalton-library/monad/classes
+   #:coalton-library/experimental/do-control-core
    #:io/utils
    #:io/thread-exceptions
    #:io/classes/monad-io
@@ -30,6 +31,7 @@
    #:take-mvar
    #:put-mvar
    #:try-take-mvar
+   #:try-take-mvar-masked
    #:try-put-mvar
    #:read-mvar
    #:try-read-mvar
@@ -41,6 +43,7 @@
    #:new-empty-chan
    #:push-chan
    #:pop-chan
+   #:try-pop-chan
    ))
 (in-package :io/gen-impl/conc/mvar)
 
@@ -197,13 +200,9 @@ Concurrent:
                      (lp))))))
         (lp))))
 
-  (declare try-take-mvar (MonadIoThread :rt :t :m => MVar :a -> :m (Optional :a)))
-  (define (try-take-mvar mvar)
-    "Attempt to immediately take a value from an MVar. Returns None if empty.
-
-Concurrent:
-  - Can briefly block while waiting to empty the MVar, if contended
-  - On succesful take, one blocking writer is woken in order of acquisition"
+  (declare try-take-mvar-masked-inner% (Runtime :rt :t => MVar :a -> Proxy :rt -> Optional :a))
+  (define (try-take-mvar-masked-inner% mvar rt-prx)
+    "Concurrent: Leaves the thread masked once."
     ;; CONCURRENT:
     ;; - Does not need to mask until acquiring lock, because atomic read and function
     ;;   return can't leave MVar in inconsistent state.
@@ -213,24 +212,49 @@ Concurrent:
     ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
     ;;   condition and interpose lock acquisition before waiting/notifying.
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
+    (mask-current! rt-prx)
+    (match (at:read (.data mvar))
+      ((None)
+       None)
+      ((Some _)
+       (lk:acquire (.lock mvar))
+       (match (at:read (.data mvar))
+         ((Some x)
+          (at:atomic-write (.data mvar) None)
+          (lk:release (.lock mvar))
+          (cv:notify (.notify-empty mvar))
+          (Some x))
+         ((None)
+          (lk:release (.lock mvar))
+          None)))))
+
+  (declare try-take-mvar (MonadIoThread :rt :t :m => MVar :a -> :m (Optional :a)))
+  (define (try-take-mvar mvar)
+    "Attempt to immediately take a value from an MVar. Returns None if empty.
+
+Concurrent:
+  - Can briefly block while waiting to empty the MVar, if contended
+  - On succesful take, one blocking writer is woken in order of acquisition"
+    ;; CONCURRENT:
+    ;; Inherits CONCURRENT semantics from try-take-mvar-masked-inner%.
+    ;; unmasks from try-take-mvar-masked-inner% before returning to caller.
     (wrap-io-with-runtime (rt-prx)
-      (match (at:read (.data mvar))
-        ((None)
-         None)
-        ((Some _)
-         (mask-current! rt-prx)
-         (lk:acquire (.lock mvar))
-         (match (at:read (.data mvar))
-           ((Some x)
-            (at:atomic-write (.data mvar) None)
-            (lk:release (.lock mvar))
-            (cv:notify (.notify-empty mvar))
-            (unmask-current! rt-prx)
-            (Some x))
-           ((None)
-            (lk:release (.lock mvar))
-            (unmask-current! rt-prx)
-            None))))))
+      (let result = (try-take-mvar-masked-inner% mvar rt-prx))
+      (unmask-current! rt-prx)
+      result))
+
+  (declare try-take-mvar-masked (MonadIoThread :rt :t :m => MVar :a -> :m (Optional :a)))
+  (define (try-take-mvar-masked mvar)
+    "Attempt to immediately take a value from an MVar. Returns None if empty.
+
+Concurrent:
+  - WARNING: Leaves the thread masked when returns to protect caller's critical regions
+    based on consuming and restoring MVar to a valid state. See MChan for an example.
+  - Can briefly block while waiting to empty the MVar, if contended
+  - On succesful take, one blocking writer is woken in order of acquisition"
+    ;; CONCURRENT: Inherits CONCURRENT semantics from try-take-mvar-masked-inner%
+    (wrap-io-with-runtime (rt-prx)
+      (try-take-mvar-masked-inner% mvar rt-prx)))
 
   (declare try-put-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m Boolean))
   (define (try-put-mvar mvar val)
@@ -434,4 +458,17 @@ Concurrent:
      (put-mvar (.head-var chan) new-head-var)
      unmask-current-thread ;; Cleanup after take-mvar-masked
      (pure val)))
+
+  (declare try-pop-chan (MonadIoThread :rt :t :m => MChan :a -> :m (Optional :a)))
+  (define (try-pop-chan chan)
+    "Attempt to pop the front value in CHAN. Does not block."
+    (do-matchM (try-take-mvar-masked (.head-var chan)) ;; Masks the thread after this returns
+      ((None)
+       (pure None))
+      ((Some old-head-var)
+       ((ChanNode% val new-head-var) <- (take-mvar old-head-var))
+       (put-mvar (.head-var chan) new-head-var)
+       unmask-current-thread ;; Cleanup after take-mvar-masked
+       (pure (Some val)))))
+    
   )

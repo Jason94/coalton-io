@@ -13,6 +13,7 @@
    #:take-mvar
    #:put-mvar
    #:try-take-mvar
+   #:try-take-mvar-masked
    #:try-put-mvar
    #:read-mvar
    #:try-read-mvar
@@ -24,6 +25,7 @@
    #:new-empty-chan
    #:push-chan
    #:pop-chan
+   #:try-pop-chan
 
    #:with-mvar
 

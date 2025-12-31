@@ -24,11 +24,13 @@
                                  'io/thread
                                  'io/file
                                  'io/unique
+                                 'io/conc/scheduler
                                  'io/conc/future
                                  'io/conc/atomic
                                  'io/conc/mvar
                                  'io/conc/group
                                  'io/conc/stm
+                                 'io/conc/mchan-scheduler
                                  'io/conc/worker-pool
                                  'io/io-all
                                  'io/stubs/term

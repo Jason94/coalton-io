@@ -26,6 +26,7 @@
                                (:file "monad-io-random")
                                (:file "monad-io-var")
                                (:file "runtime-utils")
+                               (:file "conc/scheduler")
                                ))
                  (:module "thread-impl"
                   :serial t
@@ -49,6 +50,7 @@
                   :components ((:file "io-term")
                                (:file "io-mut")
                                (:file "conc/io-mvar")
+                               (:file "conc/mchan-scheduler")
                                (:file "conc/io-future")
                                (:file "conc/io-atomic")
                                (:file "conc/concurrent-group")
@@ -84,7 +86,9 @@
 
                  (:module "conc"
                   :serial t
-                  :components ((:file "io-future")
+                  :components ((:file "scheduler")
+                               (:file "mchan-scheduler")
+                               (:file "io-future")
                                (:file "io-atomic")
                                (:file "io-mvar")
                                (:file "concurrent-group")

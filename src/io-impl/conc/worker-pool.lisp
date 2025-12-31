@@ -7,6 +7,7 @@
    #:io/classes/monad-io
    #:io/classes/monad-exception
    #:io/classes/monad-io-thread
+   #:io/classes/conc/scheduler
    #:io/thread-impl/runtime
    #:io/gen-impl/conc/worker-pool
    #:io/io-impl/runtime
@@ -24,13 +25,13 @@
 (coalton-toplevel
 
   (declare new-worker-pool_ ((MonadIoThread IoRuntime IoThread :m) (MonadException :m)
-                             (LiftIo IO :m)
-                             => UFix -> :m (WorkerPool IO IoThread)))
+                             (LiftIo IO :m) (Scheduler :s)
+                             => UFix -> :s (Optional (IO Unit)) -> :m (WorkerPool :s IO IoThread)))
   (define new-worker-pool_ new-worker-pool)
 
   (declare submit-job_ ((MonadIoThread IoRuntime IoThread :m)
-                        (LiftTo IO :m)
-                        => WorkerPool IO IoThread -> IO Unit -> :m Unit))
+                        (LiftTo IO :m) (Scheduler :s)
+                        => WorkerPool :s IO IoThread -> IO Unit -> :m Unit))
   (define submit-job_ submit-job)
   )
 
