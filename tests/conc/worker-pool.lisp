@@ -8,6 +8,7 @@
      #:io/conc/mvar
      #:io/thread
      #:io/conc/future
+     #:io/conc/mchan-scheduler
      #:io/conc/worker-pool)
   )
 (in-package :coalton-io/tests/conc/worker-pool)
@@ -22,7 +23,8 @@
     (run-io!
      (do
       (result <- new-empty-mvar)
-      (pool <- (new-worker-pool_ 2))
+      (scheduler <- new-mchan-scheduler)
+      (pool <- (new-worker-pool_ 2 scheduler))
       (do-submit-job_ pool
         (put-mvar result True))
       (request-shutdown pool)
