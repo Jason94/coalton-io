@@ -74,14 +74,15 @@
 
   (declare submit-job ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :i)
                        (MonadException :i) (Scheduler :s)
-                       => WorkerPool :s :i :t -> :r Unit -> :m Unit))
+                       => WorkerPool :s :i :t -> :r :a -> :m Unit))
   (define (submit-job pool job)
     "Submit a job to the worker pool. Any jobs submitted after a shutdown request will
 be ignored."
     (lift-to
      (with-run-in-io
        (fn (run)
-         (submit (Some (run job)) (.scheduler pool))))))
+         (submit (Some (map (const Unit) (run job)))
+                 (.scheduler pool))))))
 
   (declare request-shutdown ((MonadIoThread :rt :t :m) (MonadException :m) (Scheduler :s)
                              => WorkerPool :s :i :t -> :m Unit))

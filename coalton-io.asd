@@ -167,7 +167,9 @@ mutable variables, multithreading, and several data structures to safely share s
   :depends-on ("coalton-io" "trivial-benchmark" "yason")
   :components ((:module "benchmarks"
                 :components
-                ((:file "benchmarks")
+                ((:file "benchmark-utils")
+                 (:file "benchmarks")
                  (:file "simple-io")
+                 (:file "schedulers")
                  )))
   :description "Benchmarks for coalton-io.")

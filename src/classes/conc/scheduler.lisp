@@ -17,6 +17,9 @@
 
 (coalton-toplevel
 
+ ;; TODO: The definition here is simple, but the WorkerPool has to use
+ ;; (Scheduler (Optional (:i Unit))). Specialize the functions on the class more so that
+ ;; the type signature elsewhere is more simplified.
  (define-class (Scheduler :s)
    "A Scheduler distributes work from producer threads to worker threads. Generally, the
 Scheduler is allowed to completely control the worker threads: it can sleep, block, spin,

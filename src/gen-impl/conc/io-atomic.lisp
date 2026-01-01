@@ -28,6 +28,11 @@
 
 (named-readtables:in-readtable coalton:coalton)
 
+;; TODO: AtomicInteger might be more performant than using AtVar Integer because of
+;; using more direct CPU codes or something. Check that, and if it is then add that.
+;; TODO: Optimize CAS loops. Add SBCL pause instructions (portably) and optional
+;; backoff strategies.
+
 (coalton-toplevel
 
   (repr :transparent)

@@ -31,7 +31,7 @@
 
   (declare submit-job_ ((MonadIoThread IoRuntime IoThread :m)
                         (LiftTo IO :m) (Scheduler :s)
-                        => WorkerPool :s IO IoThread -> IO Unit -> :m Unit))
+                        => WorkerPool :s IO IoThread -> IO :a -> :m Unit))
   (define submit-job_ submit-job)
   )
 
