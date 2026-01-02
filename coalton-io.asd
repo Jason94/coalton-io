@@ -56,6 +56,8 @@
                                (:file "conc/concurrent-group")
                                (:file "conc/stm")
                                (:file "conc/worker-pool")
+                               (:file "conc/ring-buffer")
+                               (:file "conc/ring-buffer-scheduler")
                                (:file "io-thread")
                                (:file "io-file")
                                (:file "io-random")
@@ -88,6 +90,7 @@
                   :serial t
                   :components ((:file "scheduler")
                                (:file "mchan-scheduler")
+                               (:file "ring-buffer")
                                (:file "io-future")
                                (:file "io-atomic")
                                (:file "io-mvar")
@@ -132,6 +135,7 @@ mutable variables, multithreading, and several data structures to safely share s
                   :components ((:file "concurrent-group")
                                (:file "stm")
                                (:file "worker-pool")
+                               (:file "ring-buffer")
                                ))
                  (:file "package"))))
   :description "Test system for coalton-io"
