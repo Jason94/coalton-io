@@ -65,7 +65,7 @@
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
-      (stop pool)
+      (request-shutdown pool)
       (await pool)
       )))
   )
@@ -107,21 +107,17 @@
            ))))
       ;; Wait for everything to start
       (sleep 15)
-      (write-line "DEBUG Starting timer")
       (wrap-io (b:start (b:current-timer)))
       (at:write ready-to-start True)
-      (write-line "DEBUG Looping")
       (do-loop-while
         (val <- (at:read completed-count))
         ;; This looks backwards, but it's correct as of 12/31/2025.
         ;; See https://github.com/coalton-lang/coalton/issues/1742
-        (write-line (<> "DEBUG Current completed: " (as String val)))
         (pure (>= val n-tasks)))
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
-      (write-line "DEBUG Stopping pool")
-      (stop pool)
+      (request-shutdown pool)
       (await pool)
       (await producers)
       (pure Unit)
@@ -136,102 +132,102 @@
 
 (coalton:coalton-toplevel
   (coalton:declare *tasks* coalton:UFix)
-  (coalton:define *tasks* 12) ;100000)
+  (coalton:define *tasks* 100000)
 
   (coalton:declare *bounded-capacity* coalton:UFix)
   (coalton:define *bounded-capacity* 128))
 
-;; (define-benchmark single-producer-1-consumer-x-tasks-mchan-scheduler ()
-;;   (declare (optimize speed))
-;;   (loop :repeat *count*
-;;         :do
-;;            (coalton:coalton
-;;             (benchmark-schedulers/native::benchmark-x-receives
-;;              *tasks*
-;;              1
-;;              io/conc/mchan-scheduler:new-mchan-scheduler)))
-;;   (report trivial-benchmark::*current-timer*))
+(define-benchmark single-producer-1-consumer-x-tasks-mchan-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-x-receives
+             *tasks*
+             1
+             io/conc/mchan-scheduler:new-mchan-scheduler)))
+  (report trivial-benchmark::*current-timer*))
 
-;; (define-benchmark single-producer-2-consumer-x-tasks-mchan-scheduler ()
-;;   (declare (optimize speed))
-;;   (loop :repeat *count*
-;;         :do
-;;            (coalton:coalton
-;;             (benchmark-schedulers/native::benchmark-x-receives
-;;              *tasks*
-;;              2
-;;              io/conc/mchan-scheduler:new-mchan-scheduler)))
-;;   (report trivial-benchmark::*current-timer*))
+(define-benchmark single-producer-2-consumer-x-tasks-mchan-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-x-receives
+             *tasks*
+             2
+             io/conc/mchan-scheduler:new-mchan-scheduler)))
+  (report trivial-benchmark::*current-timer*))
 
-;; (define-benchmark single-producer-4-consumer-x-tasks-mchan-scheduler ()
-;;   (declare (optimize speed))
-;;   (loop :repeat *count*
-;;         :do
-;;            (coalton:coalton
-;;             (benchmark-schedulers/native::benchmark-x-receives
-;;              *tasks*
-;;              4
-;;              io/conc/mchan-scheduler:new-mchan-scheduler)))
-;;   (report trivial-benchmark::*current-timer*))
+(define-benchmark single-producer-4-consumer-x-tasks-mchan-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-x-receives
+             *tasks*
+             4
+             io/conc/mchan-scheduler:new-mchan-scheduler)))
+  (report trivial-benchmark::*current-timer*))
 
-;; (define-benchmark 2-producers-2-consumers-x-tasks-mchan-scheduler ()
-;;   (declare (optimize speed))
-;;   (loop :repeat *count*
-;;         :do
-;;            (coalton:coalton
-;;             (benchmark-schedulers/native::benchmark-multi-producer-x-receives
-;;              *tasks*
-;;              2
-;;              2
-;;              io/conc/mchan-scheduler:new-mchan-scheduler)))
-;;   (report trivial-benchmark::*current-timer*))
+(define-benchmark 2-producers-2-consumers-x-tasks-mchan-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             2
+             2
+             io/conc/mchan-scheduler:new-mchan-scheduler)))
+  (report trivial-benchmark::*current-timer*))
 
-;; (define-benchmark 4-producers-2-consumers-x-tasks-mchan-scheduler ()
-;;   (declare (optimize speed))
-;;   (loop :repeat *count*
-;;         :do
-;;            (coalton:coalton
-;;             (benchmark-schedulers/native::benchmark-multi-producer-x-receives
-;;              *tasks*
-;;              4
-;;              2
-;;              io/conc/mchan-scheduler:new-mchan-scheduler)))
-;;   (report trivial-benchmark::*current-timer*))
+(define-benchmark 4-producers-2-consumers-x-tasks-mchan-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             4
+             2
+             io/conc/mchan-scheduler:new-mchan-scheduler)))
+  (report trivial-benchmark::*current-timer*))
 
-;; (define-benchmark 2-producers-4-consumers-x-tasks-mchan-scheduler ()
-;;   (declare (optimize speed))
-;;   (loop :repeat *count*
-;;         :do
-;;            (coalton:coalton
-;;             (benchmark-schedulers/native::benchmark-multi-producer-x-receives
-;;              *tasks*
-;;              2
-;;              4
-;;              io/conc/mchan-scheduler:new-mchan-scheduler)))
-;;   (report trivial-benchmark::*current-timer*))
+(define-benchmark 2-producers-4-consumers-x-tasks-mchan-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             2
+             4
+             io/conc/mchan-scheduler:new-mchan-scheduler)))
+  (report trivial-benchmark::*current-timer*))
 
-;; (define-benchmark 4-producers-4-consumers-x-tasks-mchan-scheduler ()
-;;   (declare (optimize speed))
-;;   (loop :repeat *count*
-;;         :do
-;;            (coalton:coalton
-;;             (benchmark-schedulers/native::benchmark-multi-producer-x-receives
-;;              *tasks*
-;;              4
-;;              4
-;;              io/conc/mchan-scheduler:new-mchan-scheduler)))
-;;   (report trivial-benchmark::*current-timer*))
+(define-benchmark 4-producers-4-consumers-x-tasks-mchan-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             4
+             4
+             io/conc/mchan-scheduler:new-mchan-scheduler)))
+  (report trivial-benchmark::*current-timer*))
 
-;; (define-benchmark single-producer-1-consumer-x-tasks-ring-buffer-scheduler ()
-;;   (declare (optimize speed))
-;;   (loop :repeat *count*
-;;         :do
-;;            (coalton:coalton
-;;             (benchmark-schedulers/native::benchmark-x-receives
-;;              *tasks*
-;;              1
-;;              (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
-;;   (report trivial-benchmark::*current-timer*))
+(define-benchmark single-producer-1-consumer-x-tasks-ring-buffer-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-x-receives
+             *tasks*
+             1
+             (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
+  (report trivial-benchmark::*current-timer*))
 
 (define-benchmark single-producer-2-consumer-x-tasks-ring-buffer-scheduler ()
   (declare (optimize speed))
@@ -255,50 +251,50 @@
              (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
   (report trivial-benchmark::*current-timer*))
 
-;; (define-benchmark 2-producers-2-consumers-x-tasks-ring-buffer-scheduler ()
-;;   (declare (optimize speed))
-;;   (loop :repeat *count*
-;;         :do
-;;            (coalton:coalton
-;;             (benchmark-schedulers/native::benchmark-multi-producer-x-receives
-;;              *tasks*
-;;              2
-;;              2
-;;              (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
-;;   (report trivial-benchmark::*current-timer*))
+(define-benchmark 2-producers-2-consumers-x-tasks-ring-buffer-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             2
+             2
+             (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
+  (report trivial-benchmark::*current-timer*))
 
-;; (define-benchmark 4-producers-2-consumers-x-tasks-ring-buffer-scheduler ()
-;;   (declare (optimize speed))
-;;   (loop :repeat *count*
-;;         :do
-;;            (coalton:coalton
-;;             (benchmark-schedulers/native::benchmark-multi-producer-x-receives
-;;              *tasks*
-;;              4
-;;              2
-;;              (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
-;;   (report trivial-benchmark::*current-timer*))
+(define-benchmark 4-producers-2-consumers-x-tasks-ring-buffer-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             4
+             2
+             (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
+  (report trivial-benchmark::*current-timer*))
 
-;; (define-benchmark 2-producers-4-consumers-x-tasks-ring-buffer-scheduler ()
-;;   (declare (optimize speed))
-;;   (loop :repeat *count*
-;;         :do
-;;            (coalton:coalton
-;;             (benchmark-schedulers/native::benchmark-multi-producer-x-receives
-;;              *tasks*
-;;              2
-;;              4
-;;              (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
-;;   (report trivial-benchmark::*current-timer*))
+(define-benchmark 2-producers-4-consumers-x-tasks-ring-buffer-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             2
+             4
+             (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
+  (report trivial-benchmark::*current-timer*))
 
-;; (define-benchmark 4-producers-4-consumers-x-tasks-ring-buffer-scheduler ()
-;;   (declare (optimize speed))
-;;   (loop :repeat *count*
-;;         :do
-;;            (coalton:coalton
-;;             (benchmark-schedulers/native::benchmark-multi-producer-x-receives
-;;              *tasks*
-;;              4
-;;              4
-;;              (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
-;;   (report trivial-benchmark::*current-timer*))
+(define-benchmark 4-producers-4-consumers-x-tasks-ring-buffer-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             4
+             4
+             (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
+  (report trivial-benchmark::*current-timer*))

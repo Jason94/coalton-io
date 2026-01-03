@@ -46,6 +46,8 @@
    ))
 (in-package :io/thread-impl/runtime)
 
+(cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 1)))
+
 (named-readtables:in-readtable coalton:coalton)
 
 ;;; This package provides all of the "runtime" features for the canonical MonadIoThread

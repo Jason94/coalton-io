@@ -26,6 +26,8 @@
    ))
 (in-package :io/gen-impl/conc/ring-buffer)
 
+(cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 1)))
+
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
@@ -33,9 +35,12 @@
   (define-struct (RingBuffer :a)
     "A bounded FIFO queue implemented as a RingBuffer protected by a mutex."
     (capacity         UFix)
-    ;; NOTE: Allow clearing the data so the buffer doesn't hold onto it and keep stale
+    ;; Allow clearing the data so the buffer doesn't hold onto it and keep stale
     ;; data from being GC'd.
     (data             (Vector (Optional :a)))
+    ;; It's required to track the count b/c insert-ptr == read-ptr in both the
+    ;; empty and the full case
+    (count            (Cell UFix))
     (insert-ptr       (Cell UFix))
     (read-ptr         (Cell UFix))
     (lock             lk:Lock)
@@ -54,22 +59,13 @@
   (inline)
   (declare empty?% (RingBuffer :a -> Boolean))
   (define (empty?% buffer)
-    "Check if BUFFER is empty. A ring buffer is empty when the insert-ptr equals the
-read-ptr."
-    (== (read (.insert-ptr buffer)) (read (.read-ptr buffer))))
+    (zero? (read (.count buffer))))
 
-  ;; BUG: This is actually true if they're == as well... But obviously still need to differentiate.
-  ;; This probably requires either extra math comparison or extra tracking to differentiate full
-  ;; and empty. Currently, it works, but it always leaves one blank space in the buffer before
-  ;; thinking it's full.
   (inline)
   (declare full?% (RingBuffer :a -> Boolean))
   (define (full?% buffer)
-    "Check if BUFFER is full. A ring buffer is full when the insert-ptr is one behind
-the read-ptr."
-    (== (increment% buffer (read (.insert-ptr buffer)))
-        (read (.read-ptr buffer))))
-
+    (== (read (.count buffer)) (.capacity buffer)))
+  
   (inline)
   (declare new-ring-buffer% (UFix -> RingBuffer :a))
   (define (new-ring-buffer% capacity)
@@ -78,6 +74,7 @@ the read-ptr."
      capacity
      (lisp (Vector :a) (capacity)
        (cl:make-array capacity :element-type cl:t :adjustable cl:nil :fill-pointer cl:nil))
+     (new 0)
      (new 0)
      (new 0)
      (lk:new)
