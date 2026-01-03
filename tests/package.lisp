@@ -27,5 +27,6 @@
                #:coalton-io/tests/conc/group-fiasco
                #:coalton-io/tests/conc/stm-fiasco
                #:coalton-io/tests/conc/worker-pool-fiasco
+               #:coalton-io/tests/conc/ring-buffer-fiasco
                )
    :interactive cl:t))
