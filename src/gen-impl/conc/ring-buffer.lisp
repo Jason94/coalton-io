@@ -33,7 +33,7 @@
 (coalton-toplevel
 
   (define-struct (RingBuffer :a)
-    "A bounded FIFO queue implemented as a RingBuffer protected by a mutex."
+    "A bounded FIFO Multi-Producer, Multi-Consumer Queue implemented as a RingBuffer."
     (capacity         UFix)
     ;; Allow clearing the data so the buffer doesn't hold onto it and keep stale
     ;; data from being GC'd.
@@ -116,6 +116,7 @@ Concurrent:
             (v:set! (read (.insert-ptr buffer))
                     (Some elt)
                     (.data buffer))
+            (update! 1+ (.count buffer))
             (update! (increment% buffer) (.insert-ptr buffer))
             (lk:release (.lock buffer))
             (when should-notify
@@ -151,6 +152,7 @@ Concurrent: Can block acquiring lock on buffer."
           (v:set! (read (.insert-ptr buffer))
                   (Some elt)
                   (.data buffer))
+          (update! 1+ (.count buffer))
           (update! (increment% buffer) (.insert-ptr buffer))
           (lk:release (.lock buffer))
           (when should-notify
@@ -198,6 +200,7 @@ Concurrent:
             (v:set! read-i
                     None
                     (.data buffer))
+            (update! 1- (.count buffer))
             (update! (increment% buffer) (.read-ptr buffer))
             (lk:release (.lock buffer))
             (when should-notify

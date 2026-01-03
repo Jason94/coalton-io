@@ -128,7 +128,7 @@
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
-(defparameter *count* 10)
+(defparameter *count* 20)
 
 (coalton:coalton-toplevel
   (coalton:declare *tasks* coalton:UFix)
