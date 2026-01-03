@@ -58,6 +58,10 @@
 read-ptr."
     (== (read (.insert-ptr buffer)) (read (.read-ptr buffer))))
 
+  ;; BUG: This is actually true if they're == as well... But obviously still need to differentiate.
+  ;; This probably requires either extra math comparison or extra tracking to differentiate full
+  ;; and empty. Currently, it works, but it always leaves one blank space in the buffer before
+  ;; thinking it's full.
   (inline)
   (declare full?% (RingBuffer :a -> Boolean))
   (define (full?% buffer)
@@ -92,6 +96,14 @@ Concurrent:
     ;; - unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
     ;;   catch block guaranteeing lock release.
     ;; - Unmasks before exiting the function.
+    ;; - Broadcasts to wake all waiters, because can't guarantee there's only one
+    ;;   waiter. Because of the optimization to only notify on empty->not-empty
+    ;;   transition, if multiple enqueues race against the single woken dequeue,
+    ;;   then subsequent dequeues can fail to get notified even if the buffer is
+    ;;   non-empty.
+    ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;;   condition and interpose lock acquisition before waiting/notifying.
+    ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
     (mask-current! rt-prx)
     (lk:acquire (.lock buffer))
     (rec % ()
@@ -110,7 +122,7 @@ Concurrent:
             (update! (increment% buffer) (.insert-ptr buffer))
             (lk:release (.lock buffer))
             (when should-notify
-              (cv:notify (.notify-not-empty buffer)))
+              (cv:broadcast (.notify-not-empty buffer)))
             (unmask-current! rt-prx))
             )))
 
@@ -122,6 +134,14 @@ Concurrent: Can block acquiring lock on buffer."
     ;; CONCURRENT:
     ;; - Masks before entering the critical region
     ;; - Unmasks before exiting the function.
+    ;; - Broadcasts to wake all waiters, because can't guarantee there's only one
+    ;;   waiter. Because of the optimization to only notify on empty->not-empty
+    ;;   transition, if multiple enqueues race against the single woken dequeue,
+    ;;   then subsequent dequeues can fail to get notified even if the buffer is
+    ;;   non-empty.
+    ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;;   condition and interpose lock acquisition before waiting/notifying.
+    ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
     (mask-current! rt-prx)
     (lk:acquire (.lock buffer))
     (if (full?% buffer)
@@ -137,7 +157,7 @@ Concurrent: Can block acquiring lock on buffer."
           (update! (increment% buffer) (.insert-ptr buffer))
           (lk:release (.lock buffer))
           (when should-notify
-            (cv:notify (.notify-not-empty buffer)))
+            (cv:broadcast (.notify-not-empty buffer)))
           (unmask-current! rt-prx)
           True)
         ))
@@ -154,6 +174,14 @@ Concurrent:
     ;; - unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
     ;;   catch block guaranteeing lock release.
     ;; - Unmasks before exiting the function.
+    ;; - Broadcasts to wake all waiters, because can't guarantee there's only one
+    ;;   waiter. Because of the optimization to only notify on full->not-full
+    ;;   transition, if multiple dequeues race against the single woken equeue,
+    ;;   then subsequent enqueues can fail to get notified even if the buffer is
+    ;;   non-full.
+    ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;;   condition and interpose lock acquisition before waiting/notifying.
+    ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
     (mask-current! rt-prx)
     (lk:acquire (.lock buffer))
     (rec % ()
@@ -176,7 +204,7 @@ Concurrent:
             (update! (increment% buffer) (.read-ptr buffer))
             (lk:release (.lock buffer))
             (when should-notify
-              (cv:notify (.notify-not-full buffer)))
+              (cv:broadcast (.notify-not-full buffer)))
             (unmask-current! rt-prx)
             elt)
           )))

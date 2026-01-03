@@ -21,8 +21,8 @@
 (defparameter *all-benchmarks* '())
 
 (defmacro define-io-benchmark (name
-                                    benchmark-clauses
-                                    &rest native-clauses)
+                               benchmark-clauses
+                               &rest native-clauses)
   (let ((benchmark-package (intern (format nil "BENCHMARK-~S" name) 'keyword))
         (native-package (intern (format nil "BENCHMARK-~S/NATIVE" name) 'keyword)))
     `(progn
