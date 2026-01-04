@@ -114,8 +114,7 @@
 
   (define-instance (Eq IoThread)
     (define (== a b)
-      (and (unsafe-pointer-eq? (.handle a) (.handle b))
-           (== (at:read (.flags a)) (at:read (.flags b))))))
+      (unsafe-pointer-eq? (.handle a) (.handle b))))
 
   (declare CLEAN Word)
   (define CLEAN 0)
