@@ -45,7 +45,7 @@
    #:unmask-current-thread-finally%
    #:unmask-current-thread!%
 
-   #:park-thread-if!%
+   #:park-current-thread-if!%
    #:unpark-thread!%
 
    #:write-line-sync%
@@ -115,7 +115,7 @@
   ;; Pending Kill - (shift 0 1) - 0000 0001
   ;;
   ;; Parking Mechanism - IoThread uses a generational scheme to park/unpark. When a
-  ;; function wants to park an IoThread, it calls (park-thread-if! WITH-GEN THREAD)
+  ;; function wants to park an IoThread, it calls (park-current-thread-if! WITH-GEN THREAD)
   ;; This:
   ;; - Increments the generation of the thread
   ;; - Calls WITH-GEN with the new generation. WITH-GEN is responsible for saving the
@@ -221,10 +221,20 @@ thread is alive before interrupting."
 ;; in a dynamic variable. Here be dragons. Tread carefully, you have been warned.
 ;; (The alternative is doing something even worse, like passing it around in the
 ;; IO monad.)
+
+(coalton-toplevel
+  (declare construct-toplevel-current-thread (Unit -> IoThread))
+  (define (construct-toplevel-current-thread)
+    (IoThread
+     (c:new (Some (current-native-thread%)))
+     (at:new CLEAN)
+     (at:new 0)
+     (at:new 0)
+     (lk:new)
+     (cv:new))))
+
 (cl:defvar *current-thread*
-  (coalton (IoThread
-            (c:new (Some (current-native-thread%)))
-            (at:new CLEAN))))
+  (call-coalton-function construct-toplevel-current-thread))
 
 (coalton-toplevel
 
@@ -490,13 +500,12 @@ just be limited to implementing only solutions #2 or #3.
   ;;;
 
   ;; For full discussion of the park algorithm, see top of the file and docs/runtime.md
-  (declare park-thread-if!% (Runtime :rt IoThread
+  (declare park-current-thread-if!% (Runtime :rt IoThread
                              => Proxy :rt
                              -> (Generation -> Unit)
                              -> (Unit -> Boolean)
-                             -> IoThread
                              -> Unit))
-  (define (park-thread-if!% rt-prx with-gen should-park? thread)
+  (define (park-current-thread-if!% rt-prx with-gen should-park?)
     ;; CONCURRENT:
     ;; - Masks before acquiring the lock and unmasks after releasing the lock,
     ;;   so the thread can't be stopped while the lock is held
@@ -510,6 +519,7 @@ just be limited to implementing only solutions #2 or #3.
     ;;   thread stopped
     ;; - (C) unmask the mask from unmask-and-await-safely%
     (mask-current-thread!%)
+    (let thread = (current-thread!%))
     ;; Checkout a new generation for the thread
     (let new-gen = (at:incf! (.generation thread) 1))
     ;; Run any subscriptions with the new generation
@@ -524,7 +534,7 @@ just be limited to implementing only solutions #2 or #3.
                 (lk:release (.park-lock thread))
                 (unmask-current-thread!%) ;; (A)
                 (when (should-park?)
-                  (park-thread-if!% rt-prx with-gen should-park? thread)))
+                  (park-current-thread-if!% rt-prx with-gen should-park?)))
               ;; If another thread did not beat us to parking, wait on the CV
               (rec wait-loop ()
                 (unmask-and-await-safely% ;; (B)

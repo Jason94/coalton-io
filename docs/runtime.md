@@ -104,7 +104,9 @@ This code is unsafe because the `unmask!` call on line four could stop the threa
 
 ### Parking & Unparking a Thread
 
-Parking Mechanism - Threads use a generational scheme to park/unpark. When a function wants to park a thread, it calls (park-thread-if! WITH-GEN SHOULD-PARK? THREAD)
+The parking mechanism solves the opposite problem as condition variables. Condition variables allow multiple threads to all wait on one condition. But, each waiting thread can only wait on one condition. Parking allows one thread to safely wait on multiple conditions.
+
+Parking Mechanism - Threads use a generational scheme to park/unpark. When a function wants to park a thread, it calls (park-current-thread-if! WITH-GEN SHOULD-PARK? THREAD)
 This:
 - Increments the generation of the thread
 - Calls WITH-GEN with the new generation. WITH-GEN is responsible for saving the generation so that it can be used to later unpark the thread. 
@@ -118,7 +120,7 @@ The purpose of the parking mechanism is to support waiting on multiple condition
 
 The generation mechanism supports this use-case, because in this scenario, processes A, B, and C will be sent the same generation to unparked the thread. When the thread is unparked by process A, any further parks will increment the generation of the thread. Therefore, if B or C attempt to unpark the thread after A unparks the thread, then the unpark will fail because the thread will either: (1) be on the same generation, but not parked; or (2) have re-parked since being unparked, but ignores the unpark signal from B or C because they signal with a stale generation.
 
-The purpose of SHOULD-PARK? in `park-thread-if!` is to guard against race conditions where (1) SHOULD-PARK? returns true, so THREAD decides to park, (2) another thread changes the program state such that SHOULD-PARK? now returns false, but (3) THREAD already checked SHOULD-PARK?, so it parks anyway, and will never be un-parked. To solve this, the runtime must check SHOULD-PARK? one last time after WITH-GEN is called. This prevents lost-wakeups because: (1) WITH-GEN is responsible for subscribing THREAD to any signallers, and (2) the runtime tracks if the current generation has been signaled. After the thread is parked, SHOULD-PARK? is *not* checked again. This is distinct from most wakeup algorithms, because in this case, merely checking if the current generation has been signaled suffices to prevent spurious wakeups. The SHOULD-PARK? predicate must not block, as this can leave the thread stopped while masked inside the park function.
+The purpose of SHOULD-PARK? in `park-current-thread-if!` is to guard against race conditions where (1) SHOULD-PARK? returns true, so THREAD decides to park, (2) another thread changes the program state such that SHOULD-PARK? now returns false, but (3) THREAD already checked SHOULD-PARK?, so it parks anyway, and will never be un-parked. To solve this, the runtime must check SHOULD-PARK? one last time after WITH-GEN is called. This prevents lost-wakeups because: (1) WITH-GEN is responsible for subscribing THREAD to any signallers, and (2) the runtime tracks if the current generation has been signaled. After the thread is parked, SHOULD-PARK? is *not* checked again. This is distinct from most wakeup algorithms, because in this case, merely checking if the current generation has been signaled suffices to prevent spurious wakeups. The SHOULD-PARK? predicate must not block, as this can leave the thread stopped while masked inside the park function.
 
 The implementation of parking is runtime dependent. Parking could mean waiting on an internal ConditionVariable, put in a park-queue in a green thread scheduler, etc.
 

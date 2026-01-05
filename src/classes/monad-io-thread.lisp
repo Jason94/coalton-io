@@ -35,7 +35,7 @@
    #:unmask-finally!
    #:mask-current!
    #:unmask-current!
-   #:park-thread-if!
+   #:park-current-thread-if!
    #:unpark-thread!
 
    #:Concurrent
@@ -165,8 +165,8 @@ callback should leave any resources in a valid state. An example of a valid call
 file if the thread is stopped, or closing the log file with a final message if the thread is
 continuing."
       (Proxy :r -> :t -> (UnmaskFinallyMode -> :a) -> Unit))
-    (park-thread-if!
-     "Parks the thread if SHOULD-PARK? returns True. Will park the thread until it is
+    (park-current-thread-if!
+     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
 SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
 park, *not* if it should resume.
@@ -175,7 +175,7 @@ Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
   - Can briefly block while trying to park the thread, if contended."
-     (Proxy :r -> (Generation -> Unit) -> (Unit -> Boolean) -> :t -> Unit))
+     (Proxy :r -> (Generation -> Unit) -> (Unit -> Boolean) -> Unit))
     (unpark-thread!
      "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread
