@@ -36,6 +36,7 @@
    #:mask-current!
    #:unmask-current!
    #:park-thread-if!
+   #:unpark-thread!
 
    #:Concurrent
    #:stop
@@ -71,6 +72,7 @@
    #:prxs-same-runtime
    #:concurrent-value-prx
    #:value-concurrent-prx
+   #:atomic-set-generation%!
    )
   (:local-nicknames
    (:at #:coalton-threads/atomic)
@@ -91,6 +93,16 @@
     (inline)
     (define (<=> (Generation a) (Generation b))
       (<=> a b)))
+
+  ;; TODO: Convert the generation stuff to use my own AtomicInteger, not coalton-thread's,
+  ;; so I can use the same CAS loop algorithms.
+  (declare atomic-set-generation%! (Generation -> at:AtomicInteger -> Unit))
+  (define (atomic-set-generation%! (Generation gen) atm)
+    "Set the value of ATM to GEN."
+    (rec % ()
+      (if (at:cas! atm (at:read atm) gen)
+          Unit
+          (%))))
 
   (define-class (Runtime :r :t (:r -> :t))
     "This class doesn't represent data, but the type tells a Concurrent and
@@ -164,6 +176,14 @@ Concurrent:
     state.
   - Can briefly block while trying to park the thread, if contended."
      (Proxy :r -> (Generation -> Unit) -> (Unit -> Boolean) -> :t -> Unit))
+    (unpark-thread!
+     "Unparks the thread if it is still waiting on the generation. Attempting to unpark
+the thread with a stale generation has no effect. A generation will be stale if the thread
+has unparked and re-parked since the initial park.
+
+Concurrent:
+  - Can briefly block while trying to unpark the thread, if contended."
+     (Proxy :r -> Generation -> :t -> Unit))
      )
 
   (inline)

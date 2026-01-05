@@ -46,6 +46,7 @@
    #:unmask-current-thread!%
 
    #:park-thread-if!%
+   #:unpark-thread!%
 
    #:write-line-sync%
    ))
@@ -499,6 +500,8 @@ just be limited to implementing only solutions #2 or #3.
     ;; CONCURRENT:
     ;; - Masks before acquiring the lock and unmasks after releasing the lock,
     ;;   so the thread can't be stopped while the lock is held
+    ;; - Parking lock doesn't need to be held when running with-gen thunk, because
+    ;;   that mutates external subscriber data, not internal thread metadata.
     ;; - (A) unmasking before checking if it should re-attempt parking is valid,
     ;;   because it does not create a race-condition boundary, because the thread
     ;;   can be stopped while the function is waiting on the CV anyway.
@@ -506,7 +509,7 @@ just be limited to implementing only solutions #2 or #3.
     ;;   the lock and CV operations are performed such that the lock is held and the
     ;;   thread stopped
     ;; - (C) unmask the mask from unmask-and-await-safely%
-    (mask!% thread)
+    (mask-current-thread!%)
     ;; Checkout a new generation for the thread
     (let new-gen = (at:incf! (.generation thread) 1))
     ;; Run any subscriptions with the new generation
@@ -519,7 +522,7 @@ just be limited to implementing only solutions #2 or #3.
           (if (>= (at:read (.fired-gen thread)) new-gen)
               (progn
                 (lk:release (.park-lock thread))
-                (unmask!% thread) ;; (A)
+                (unmask-current-thread!%) ;; (A)
                 (when (should-park?)
                   (park-thread-if!% rt-prx with-gen should-park? thread)))
               ;; If another thread did not beat us to parking, wait on the CV
@@ -532,10 +535,31 @@ just be limited to implementing only solutions #2 or #3.
                 (if (>= (at:read (.fired-gen thread)) new-gen)
                     (progn
                       (lk:release (.park-lock thread))
-                      (unmask!% thread)) ;; (C)
+                      (unmask-current-thread!%)) ;; (C)
                     ;; Otherwise, re-loop
                     (wait-loop)))))
-        (unmask!% thread)))
+        (unmask-current-thread!%)))
+
+  (declare unpark-thread!% (Generation -> IoThread -> Unit))
+  (define (unpark-thread!% gen thread)
+    ;; CONCURRENT:
+    ;; - Masks around the critical region
+    ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;;   condition and interpose lock acquisition before waiting/notifying.
+    ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
+    (when (< gen (Generation (at:read (.fired-gen thread))))
+      (mask-current-thread!%)
+      (lk:acquire (.park-lock thread))
+      (if (< gen (Generation (at:read (.fired-gen thread))))
+          (progn
+            (atomic-set-generation%! gen (.fired-gen thread))
+            (lk:release (.park-lock thread))
+            (cv:notify (.park-cv thread))
+            (unmask-current-thread!%))
+          (progn
+            (lk:release (.park-lock thread))
+            (unmask-current-thread!%)))))
+    
   )
 
 ;;;

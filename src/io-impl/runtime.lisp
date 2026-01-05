@@ -40,6 +40,8 @@
     (inline)
     (define (park-thread-if! prx)
       (park-thread-if!% prx))
+    (inline)
+    (define (unpark-thread! _) unpark-thread!%)
     )
 
   )
