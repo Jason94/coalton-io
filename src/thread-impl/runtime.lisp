@@ -10,6 +10,7 @@
    #:io/classes/monad-io
    #:io/classes/monad-exception
    #:io/classes/monad-io-thread
+   #:io/classes/runtime-utils
    )
   (:local-nicknames
    (:opt #:coalton-library/optional)
@@ -20,6 +21,8 @@
    (:t/l #:coalton-threads/lock)
    (:at #:coalton-threads/atomic)
    (:bt #:bordeaux-threads-2)
+   (:lk #:coalton-threads/lock)
+   (:cv #:coalton-threads/condition-variable)
    )
   (:export
    ;; Library Public
@@ -42,11 +45,13 @@
    #:unmask-current-thread-finally%
    #:unmask-current-thread!%
 
+   #:park-thread-if!%
+
    #:write-line-sync%
    ))
 (in-package :io/thread-impl/runtime)
 
-(cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 1)))
+;; (cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 1)))
 
 (named-readtables:in-readtable coalton:coalton)
 
@@ -108,16 +113,63 @@
   ;; Clean        - 0           - 0000 0000
   ;; Pending Kill - (shift 0 1) - 0000 0001
   ;;
+  ;; Parking Mechanism - IoThread uses a generational scheme to park/unpark. When a
+  ;; function wants to park an IoThread, it calls (park-thread-if! WITH-GEN THREAD)
+  ;; This:
+  ;; - Increments the generation of the thread
+  ;; - Calls WITH-GEN with the new generation. WITH-GEN is responsible for saving the
+  ;;   generation so that it can be used to later unpark the thread.
+  ;;   internal CV is notified).
+  ;;
+  ;; To unpark a thread, the waking thread must call (signal-unpark-thread! GEN THREAD).
+  ;; If the generation used to park == the generation used to signal, then the thread
+  ;; will unpark.
+  ;; 
+  ;; The purpose of the parking mechanism is to support waiting on multiple conditions.
+  ;; If a thread wants to wait on conditions A, B, and C, and it is woken by the process
+  ;; concerning condition A, then it would need to unsubscribe from conditions B & C.
+  ;; Sometimes unsubscribing can be less efficient than letting the B & C processes
+  ;; hold on to a stale reference to the thread in a waiting queue, and then fail to
+  ;; unpark the thread when the B & C processes signal their waiting queue. Failure to
+  ;; accomodate this scenario can lead to a situation where the thread parks, subscribed
+  ;; to conditions D & E, but then process B or C erroneously unparks the thread that
+  ;; is expecting to be unparked by only D or E.
+  ;;
+  ;; The generation mechanism supports this use-case, because in this scenario, processes
+  ;; A, B, and C will be sent the same generation to unparked the thread. When the thread
+  ;; is unparked by process A, any further parks will increment the generation of the thread.
+  ;; Therefore, if B or C attempt to unpark the thread after A unparks the thread, then
+  ;; the unpark will fail because the thread will either: (1) be on the same generation,
+  ;; but not parked; or (2) have re-parked since being unparked, but ignores the unpark
+  ;; signal from B or C because they signal with a stale generation.
   (define-struct IoThread
-    (handle (c:Cell (Optional (t:Thread (Result Dynamic Unit)))))
-    (flags  at:AtomicInteger))
+    (handle     (c:Cell (Optional (t:Thread (Result Dynamic Unit)))))
+    ;; Masking/Unmasking
+    (flags      at:AtomicInteger)
+    ;; Parking/Unparking
+    (generation at:AtomicInteger)
+    (fired-gen  at:AtomicInteger)
+    (park-lock  lk:Lock)
+    (park-cv    cv:ConditionVariable))
 
   (define-instance (Eq IoThread)
     (define (== a b)
-      (unsafe-pointer-eq? (.handle a) (.handle b))))
+      (and (unsafe-pointer-eq? (.handle a) (.handle b))
+           (unsafe-pointer-eq? (c:read (.handle a)) (c:read (.handle b))))))
 
   (declare CLEAN Word)
   (define CLEAN 0)
+
+  (inline)
+  (declare new-io-thread (Unit -> IoThread))
+  (define (new-io-thread)
+    (IoThread
+     (c:new None)
+     (at:new CLEAN)
+     (at:new 0)
+     (at:new 0)
+     (lk:new)
+     (cv:new)))
 
   (declare PENDING-KILL Word)
   (define PENDING-KILL (b:shift 0 1))
@@ -144,7 +196,6 @@
   (define (unmasked? word)
     (zero? (lisp Word (word)
              (cl:ash word -1))))
-
   )
 
 (coalton-toplevel
@@ -207,7 +258,7 @@ thread is alive before interrupting."
     ;; native thread reference separately before they do any work. This guarantees
     ;; it will be available in either thread before subsequent code could reference it,
     ;; regardless of race conditions.
-    (let thread-container = (IoThread (c:new None) (at:new CLEAN)))
+    (let thread-container = (new-io-thread))
     (let native-thread =
       ;; TODO: Could we use bt:make-threads's initial-bindings param to replace this
       ;; dynamic binding nonsense?? That would involve wrapping bt directly but honestly
@@ -432,6 +483,59 @@ just be limited to implementing only solutions #2 or #3.
     (let flag-state = (atomic-fetch-or (.flags thread) PENDING-KILL))
     (when (unmasked? flag-state)
       (interrupt-iothread% thread)))
+
+  ;;;
+  ;;; Parking & Unparking Threads
+  ;;;
+
+  ;; For full discussion of the park algorithm, see top of the file and docs/runtime.md
+  (declare park-thread-if!% (Runtime :rt IoThread
+                             => Proxy :rt
+                             -> (Generation -> Unit)
+                             -> (Unit -> Boolean)
+                             -> IoThread
+                             -> Unit))
+  (define (park-thread-if!% rt-prx with-gen should-park? thread)
+    ;; CONCURRENT:
+    ;; - Masks before acquiring the lock and unmasks after releasing the lock,
+    ;;   so the thread can't be stopped while the lock is held
+    ;; - (A) unmasking before checking if it should re-attempt parking is valid,
+    ;;   because it does not create a race-condition boundary, because the thread
+    ;;   can be stopped while the function is waiting on the CV anyway.
+    ;; - (B) unmask-and-await-safely% guarantees that the thread can't be stopped while
+    ;;   the lock and CV operations are performed such that the lock is held and the
+    ;;   thread stopped
+    ;; - (C) unmask the mask from unmask-and-await-safely%
+    (mask!% thread)
+    ;; Checkout a new generation for the thread
+    (let new-gen = (at:incf! (.generation thread) 1))
+    ;; Run any subscriptions with the new generation
+    (with-gen (Generation new-gen))
+    ;; (Re)check the "should I park?" pred now that the subscriptions have processed
+    (if (should-park?)
+        (progn
+          (lk:acquire (.park-lock thread))
+          ;; If another thread beat us to parking, re-attempt if SHOULD-PARK?
+          (if (>= (at:read (.fired-gen thread)) new-gen)
+              (progn
+                (lk:release (.park-lock thread))
+                (unmask!% thread) ;; (A)
+                (when (should-park?)
+                  (park-thread-if!% rt-prx with-gen should-park? thread)))
+              ;; If another thread did not beat us to parking, wait on the CV
+              (rec wait-loop ()
+                (unmask-and-await-safely% ;; (B)
+                 rt-prx
+                 (.park-cv thread)
+                 (.park-lock thread))
+                ;; If we've been woken up, unmask, release, and return
+                (if (>= (at:read (.fired-gen thread)) new-gen)
+                    (progn
+                      (lk:release (.park-lock thread))
+                      (unmask!% thread)) ;; (C)
+                    ;; Otherwise, re-loop
+                    (wait-loop)))))
+        (unmask!% thread)))
   )
 
 ;;;

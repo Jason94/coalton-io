@@ -21,6 +21,8 @@
    )
   (:export
    ;; Library Public
+   #:Generation
+
    #:Runtime
    #:current-thread!
    #:sleep!
@@ -33,6 +35,7 @@
    #:unmask-finally!
    #:mask-current!
    #:unmask-current!
+   #:park-thread-if!
 
    #:Concurrent
    #:stop
@@ -68,12 +71,26 @@
    #:prxs-same-runtime
    #:concurrent-value-prx
    #:value-concurrent-prx
-   ))
+   )
+  (:local-nicknames
+   (:at #:coalton-threads/atomic)
+   )
+  )
 (in-package :io/classes/monad-io-thread)
 
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
+
+  (derive Eq)
+  (repr :transparent)
+  (define-type Generation
+    (Generation at::Word))
+
+  (define-instance (Ord Generation)
+    (inline)
+    (define (<=> (Generation a) (Generation b))
+      (<=> a b)))
 
   (define-class (Runtime :r :t (:r -> :t))
     "This class doesn't represent data, but the type tells a Concurrent and
@@ -135,7 +152,19 @@ inconsistent with whether the Concurrent is ultimately stopped. Regardless of th
 callback should leave any resources in a valid state. An example of a valid callback: closing a log
 file if the thread is stopped, or closing the log file with a final message if the thread is
 continuing."
-      (Proxy :r -> :t -> (UnmaskFinallyMode -> :a) -> Unit)))
+      (Proxy :r -> :t -> (UnmaskFinallyMode -> :a) -> Unit))
+    (park-thread-if!
+     "Parks the thread if SHOULD-PARK? returns True. Will park the thread until it is
+woken by an unpark from another thread. Upon an unpark, the thread will resume even if
+SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
+park, *not* if it should resume.
+
+Concurrent:
+  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
+    state.
+  - Can briefly block while trying to park the thread, if contended."
+     (Proxy :r -> (Generation -> Unit) -> (Unit -> Boolean) -> :t -> Unit))
+     )
 
   (inline)
   (declare mask-current! (Runtime :rt :t => Proxy :rt -> Unit))

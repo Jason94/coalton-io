@@ -102,6 +102,26 @@ It's worth noting that the potential for `unmask!` to stop the thread doesn't ac
 
 This code is unsafe because the `unmask!` call on line four could stop the thread before `release-resource` has a chance to run on line five. However, even if `unmask!` did not honor pending stops and never stopped the thread, this code would still be unsafe because the current thread could receive an asynchronous stop after line four but before line five.
 
+### Parking & Unparking a Thread
+
+Parking Mechanism - Threads use a generational scheme to park/unpark. When a function wants to park a thread, it calls (park-thread-if! WITH-GEN SHOULD-PARK? THREAD)
+This:
+- Increments the generation of the thread
+- Calls WITH-GEN with the new generation. WITH-GEN is responsible for saving the generation so that it can be used to later unpark the thread. 
+- Checks SHOULD-PARK? before parking, and aborts if SHOULD-PARK? == False
+- Checks that the current generation has not been signaled, and aborts if it has
+- Parks
+
+To unpark a thread, the waking thread must call (signal-unpark-thread! GEN THREAD). If the generation used to park == the generation used to signal, then the thread will unpark and store that the current generation has been signaled.
+
+The purpose of the parking mechanism is to support waiting on multiple conditions. If a thread wants to wait on conditions A, B, and C, and it is woken by the process concerning condition A, then it would need to unsubscribe from conditions B & C. Sometimes unsubscribing can be less efficient than letting the B & C processes hold on to a stale reference to the thread in a waiting queue, and then fail to unpark the thread when the B & C processes signal their waiting queue. Failure to accomodate this scenario can lead to a situation where the thread parks, subscribed to conditions D & E, but then process B or C erroneously unparks the thread that is expecting to be unparked by only D or E.
+
+The generation mechanism supports this use-case, because in this scenario, processes A, B, and C will be sent the same generation to unparked the thread. When the thread is unparked by process A, any further parks will increment the generation of the thread. Therefore, if B or C attempt to unpark the thread after A unparks the thread, then the unpark will fail because the thread will either: (1) be on the same generation, but not parked; or (2) have re-parked since being unparked, but ignores the unpark signal from B or C because they signal with a stale generation.
+
+The purpose of SHOULD-PARK? in `park-thread-if!` is to guard against race conditions where (1) SHOULD-PARK? returns true, so THREAD decides to park, (2) another thread changes the program state such that SHOULD-PARK? now returns false, but (3) THREAD already checked SHOULD-PARK?, so it parks anyway, and will never be un-parked. To solve this, the runtime must check SHOULD-PARK? one last time after WITH-GEN is called. This prevents lost-wakeups because: (1) WITH-GEN is responsible for subscribing THREAD to any signallers, and (2) the runtime tracks if the current generation has been signaled. After the thread is parked, SHOULD-PARK? is *not* checked again. This is distinct from most wakeup algorithms, because in this case, merely checking if the current generation has been signaled suffices to prevent spurious wakeups. The SHOULD-PARK? predicate must not block, as this can leave the thread stopped while masked inside the park function.
+
+The implementation of parking is runtime dependent. Parking could mean waiting on an internal ConditionVariable, put in a park-queue in a green thread scheduler, etc.
+
 ## Concurrent Function Documentation
 
 `coalton-io` follows the following user-facing and internal documentation practices for any functions that run safely in a concurrent environment.

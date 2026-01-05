@@ -17,6 +17,7 @@
 
    ;; Re-exports from io/classes/monad-io-thread
    #:Runtime
+   #:Generation
    #:current-thread!
    #:sleep!
    #:fork!
