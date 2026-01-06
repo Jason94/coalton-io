@@ -49,6 +49,7 @@
                   :serial t
                   :components ((:file "io-term")
                                (:file "io-mut")
+                               (:file "conc/parking")
                                (:file "conc/io-mvar")
                                (:file "conc/mchan-scheduler")
                                (:file "conc/io-future")
@@ -88,7 +89,8 @@
 
                  (:module "conc"
                   :serial t
-                  :components ((:file "scheduler")
+                  :components ((:file "parking")
+                               (:file "scheduler")
                                (:file "mchan-scheduler")
                                (:file "ring-buffer")
                                (:file "io-future")

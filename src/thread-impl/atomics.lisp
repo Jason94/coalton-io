@@ -14,6 +14,7 @@
    #:compare-and-swap
    #:atomic-pop
    #:atomic-push
+   #:atomic-swap
    #:atomic-update
    #:atomic-update-swap
    #:atomic-write
@@ -110,6 +111,20 @@ and return the popped value. Returns None if the list was empty."
 Returns the new list, with the element included."
     (lisp (List :a) (atm elt)
       (at:atomic-push elt (atomic-internal-inner atm))))
+
+  (inline)
+  (declare atomic-swap (Atomic :a -> :a -> :a))
+  (define (atomic-swap atm new-val)
+    "Atomically swap the value in ATM with NEW-VAL. Returns the old value."
+    (lisp :a (atm new-val)
+      (cl:labels ((lp ()
+                    (cl:let ((old-val (atomic-internal-inner atm)))
+                      (cl:if (at:cas (atomic-internal-inner atm)
+                                     old-val
+                                     new-val)
+                             old-val
+                             (lp)))))
+        (lp))))
 
   (declare atomic-update (Atomic :a -> (:a -> :a) -> :a))
   (define (atomic-update atm f)
