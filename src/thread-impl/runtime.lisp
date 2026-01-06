@@ -52,7 +52,7 @@
    ))
 (in-package :io/thread-impl/runtime)
 
-;; (cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 1)))
+(cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 1)))
 
 (named-readtables:in-readtable coalton:coalton)
 
