@@ -21,6 +21,8 @@
    )
   (:export
    ;; Library Public
+   #:Generation
+
    #:Runtime
    #:current-thread!
    #:sleep!
@@ -33,6 +35,8 @@
    #:unmask-finally!
    #:mask-current!
    #:unmask-current!
+   #:park-current-thread-if!
+   #:unpark-thread!
 
    #:Concurrent
    #:stop
@@ -57,6 +61,8 @@
    #:stop-thread
    #:do-fork-thread
    #:do-fork-thread-throw
+   #:park-current-thread-if
+   #:unpark-thread
 
    #:runtime-for
    #:as-runtime-prx
@@ -68,12 +74,37 @@
    #:prxs-same-runtime
    #:concurrent-value-prx
    #:value-concurrent-prx
-   ))
+   #:atomic-set-generation%!
+   )
+  (:local-nicknames
+   (:at #:coalton-threads/atomic)
+   )
+  )
 (in-package :io/classes/monad-io-thread)
 
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
+
+  (derive Eq)
+  (repr :transparent)
+  (define-type Generation
+    (Generation at::Word))
+
+  (define-instance (Ord Generation)
+    (inline)
+    (define (<=> (Generation a) (Generation b))
+      (<=> a b)))
+
+  ;; TODO: Convert the generation stuff to use my own AtomicInteger, not coalton-thread's,
+  ;; so I can use the same CAS loop algorithms.
+  (declare atomic-set-generation%! (Generation -> at:AtomicInteger -> Unit))
+  (define (atomic-set-generation%! (Generation gen) atm)
+    "Set the value of ATM to GEN."
+    (rec % ()
+      (if (at:cas! atm (at:read atm) gen)
+          Unit
+          (%))))
 
   (define-class (Runtime :r :t (:r -> :t))
     "This class doesn't represent data, but the type tells a Concurrent and
@@ -135,7 +166,27 @@ inconsistent with whether the Concurrent is ultimately stopped. Regardless of th
 callback should leave any resources in a valid state. An example of a valid callback: closing a log
 file if the thread is stopped, or closing the log file with a final message if the thread is
 continuing."
-      (Proxy :r -> :t -> (UnmaskFinallyMode -> :a) -> Unit)))
+      (Proxy :r -> :t -> (UnmaskFinallyMode -> :a) -> Unit))
+    (park-current-thread-if!
+     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
+woken by an unpark from another thread. Upon an unpark, the thread will resume even if
+SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
+park, *not* if it should resume.
+
+Concurrent:
+  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
+    state.
+  - Can briefly block while trying to park the thread, if contended."
+     (Proxy :r -> (Generation -> Unit) -> (Unit -> Boolean) -> Unit))
+    (unpark-thread!
+     "Unparks the thread if it is still waiting on the generation. Attempting to unpark
+the thread with a stale generation has no effect. A generation will be stale if the thread
+has unparked and re-parked since the initial park.
+
+Concurrent:
+  - Can briefly block while trying to unpark the thread, if contended."
+     (Proxy :r -> Generation -> :t -> Unit))
+     )
 
   (inline)
   (declare mask-current! (Runtime :rt :t => Proxy :rt -> Unit))
@@ -392,18 +443,21 @@ continuing."
                                      thread
                                      (fn (m) (run! (run (op-finally m))))))))))
 
+  ;; BUG: These kinds of inner wrap-io nested run! calls may not propogate errors
+  ;; correctly, or might have other problems.
   (inline)
   (declare unmask-current-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r)
                                           => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-current-thread-finally op-finally)
-    "Unmask the current thread, run the provided action, and then honor any
- pending stop for that thread after the action finishes.
+    "Unmask the current thread, run the provided action, and then honor any pending stop
+for that thread after the action finishes.
 
-Warning: There is a very small chance that the UnmaskFinallyMode passed to the callback could be
-inconsistent with whether the Concurrent is ultimately stopped. Regardless of the input, the
-callback should leave any resources in a valid state. An example of a valid callback: closing a log
-file if the thread is stopped, or closing the log file with a final message if the thread is
-continuing."
+Warning: There is a very small chance that the UnmaskFinallyMode passed to the callback
+could be inconsistent with whether the Concurrent is ultimately stopped. Regardless of the
+input, the callback should leave any resources in a valid state.
+
+An example of a valid callback: closing a log file if the thread is stopped, or closing
+the log file with a final message if the thread is continuing."
     (lift-to
      (with-run-in-io
        (fn (run)
@@ -413,6 +467,38 @@ continuing."
                             (current-thread! runtime-prx)
                             (fn (m) (run! (run (op-finally m))))))))))
 
+  ;; TODO: Currently unlifting :r :a with different :a's is difficult, maybe impossible
+  ;; without existential qualifiers for the with-run-in-io type. Figure that out and
+  ;; replace BaseIo here.
+  (inline)
+  (declare park-current-thread-if ((BaseIo :io) (MonadIoThread :rt :t :io) (MonadIo :m)
+                                   => (Generation -> :io Unit) -> :io Boolean -> :m Unit))
+  (define (park-current-thread-if with-gen should-park?)
+    "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
+woken by an unpark from another thread. Upon an unpark, the thread will resume even if
+SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
+park, *not* if it should resume.
+
+Concurrent:
+  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
+    state.
+  - Can briefly block while trying to park the thread, if contended."
+     (wrap-io
+      (let runtime-prx = (get-runtime-for should-park?))
+      (park-current-thread-if! runtime-prx
+                               (fn (gen) (run! (with-gen gen)))
+                               (fn () (run! should-park?)))))
+  
+  (inline)
+  (declare unpark-thread (MonadIoThread :rt :t :m => Generation -> :t -> :m Unit))
+  (define (unpark-thread gen thread)
+    "Unparks the thread if it is still waiting on the generation. Attempting to unpark
+the thread with a stale generation has no effect. A generation will be stale if the thread
+has unparked and re-parked since the initial park.
+
+Concurrent:
+  - Can briefly block while trying to unpark the thread, if contended."
+    (inject-runtime unpark-thread! gen thread))
   )
 
 (defmacro do-fork-thread (cl:&body body)

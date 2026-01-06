@@ -16,6 +16,8 @@
    #:IoThread
 
    ;; Re-exports from io/classes/monad-io-thread
+   #:Generation
+
    #:Runtime
    #:current-thread!
    #:sleep!
@@ -28,6 +30,8 @@
    #:unmask-finally!
    #:mask-current!
    #:unmask-current!
+   #:park-current-thread-if!
+   #:unpark-thread!
 
    #:Concurrent
    #:stop
@@ -52,6 +56,8 @@
    #:stop-thread
    #:do-fork-thread
    #:do-fork-thread-throw
+   #:park-current-thread-if
+   #:unpark-thread
 
    ;; Re-exports from io/io-impl/thread
    #:fork-thread_
@@ -60,6 +66,7 @@
    #:do-fork-thread-throw_
    #:unmask-thread-finally_
    #:unmask-finally_
+   #:park-current-thread-if_
 
    ;; Re-exports from io/gen-impl/thread
    #:write-line-sync

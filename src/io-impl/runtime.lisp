@@ -36,6 +36,12 @@
     (inline)
     (define (unmask! _) unmask!%)
     (inline)
-    (define (unmask-finally! _) unmask-finally!%))
+    (define (unmask-finally! _) unmask-finally!%)
+    (inline)
+    (define (park-current-thread-if! prx)
+      (park-current-thread-if!% prx))
+    (inline)
+    (define (unpark-thread! _) unpark-thread!%)
+    )
 
   )
