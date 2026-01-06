@@ -557,10 +557,12 @@ just be limited to implementing only solutions #2 or #3.
     ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
     ;;   condition and interpose lock acquisition before waiting/notifying.
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
-    (when (< gen (Generation (at:read (.fired-gen thread))))
+
+    ;; Only unpark if the targeted gen is more recent than the last fired gen
+    (when (> gen (Generation (at:read (.fired-gen thread))))
       (mask-current-thread!%)
       (lk:acquire (.park-lock thread))
-      (if (< gen (Generation (at:read (.fired-gen thread))))
+      (if (> gen (Generation (at:read (.fired-gen thread))))
           (progn
             (atomic-set-generation%! gen (.fired-gen thread))
             (lk:release (.park-lock thread))
@@ -569,7 +571,6 @@ just be limited to implementing only solutions #2 or #3.
           (progn
             (lk:release (.park-lock thread))
             (unmask-current-thread!%)))))
-    
   )
 
 ;;;

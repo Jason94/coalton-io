@@ -11,6 +11,7 @@
         )
   (:local-nicknames
    (:tm #:io/term)
+   (:opt #:coalton-library/optional)
    (:lk #:coalton-threads/lock))
   )
 (in-package :coalton-io/tests/thread)
@@ -19,6 +20,11 @@
 
 (fiasco:define-test-package #:coalton-io/tests/thread-fiasco)
 (coalton-fiasco-init #:coalton-io/tests/thread-fiasco)
+
+;; NOTE: These are really tests for IoRuntime specifically. They probably
+;; shouldn't live here. Some of this might be testing the (small amount of)
+;; monad-io-thread generic machinery. But all of the IoRuntime specific tests
+;; should be moved into a runtime specific test suite.
 
 (coalton-toplevel
   (derive Eq)
@@ -367,3 +373,87 @@
       (hit-finally? <- (read hit-finally))
       (pure (Tuple val hit-finally?)))))
   (is (== (Tuple (Some 10) (Some Running)) result)))
+
+;;;
+;;; Parking tests
+;;;
+
+(define-test test-park-and-immediately-unpark ()
+  (let result =
+    (run-io!
+     (do
+      (generation-set-gate <- s-new)
+      (generation <- (new-var None))
+      (finished-gate <- s-new)
+      (finished? <- (new-var False))
+      (thread <-
+       (do-fork-thread_
+         (park-current-thread-if_
+          (fn (gen)
+            (do
+             (write generation (Some gen))
+             (s-signal generation-set-gate)))
+          (pure True))
+         (write finished? True)
+         (s-signal finished-gate)))
+      ;; Wait for the thread to set the generation and sleep 2ms to allow it to park
+      (s-await generation-set-gate)
+      (sleep 2)
+      (generation <- (read generation))
+      (unpark-thread (opt:from-some "Test execution failure" generation)
+                     thread)
+      (s-await finished-gate)
+      (read finished?)
+       )))
+  (is (== True result)))
+
+(define-test test-stale-unparks-are-ignored ()
+  (let result =
+    (run-io!
+     (do
+      (generation-set-gate <- s-new)
+      (generation <- (new-var None))
+      (2nd-generation <- (new-var None))
+      (finished-gate <- s-new)
+      (finished? <- (new-var False))
+      (thread <-
+       (do-fork-thread_
+         (park-current-thread-if_
+          (fn (gen)
+            (do
+             (write generation (Some gen))
+             (s-signal generation-set-gate)))
+          (pure True))
+         (park-current-thread-if_
+          (fn (gen)
+            (do
+             (write 2nd-generation (Some gen))
+             (s-signal generation-set-gate)))
+          (pure True))
+         (write finished? True)
+         (s-signal finished-gate)))
+      ;; Wait for the thread to set the generation and sleep 2ms to allow it to park
+      (s-await generation-set-gate)
+      (sleep 2)
+      (generation <- (read generation))
+      (unpark-thread (opt:from-some "Test execution failure" generation)
+                     thread)
+      ;; Wait for the thread to set the 2nd generation and sleep 2ms for it to park again
+      (s-await generation-set-gate)
+      (sleep 2)
+      ;; Attempt to wake it with the stale generation, wait for 2ms for it to wake, and
+      ;; check finished?
+      (unpark-thread (opt:from-some "Test execution failure" generation)
+                     thread)
+      (sleep 2)
+      (finished-after-stale <- (read finished?))
+      ;; Unpark with the fresh generation and wait for it to finish
+      (2nd-generation <- (read 2nd-generation))
+      (unpark-thread (opt:from-some "Test execution failure" 2nd-generation)
+                     thread)
+      (s-await finished-gate)
+      (finished-after-fresh <- (read finished?))
+      (pure (Tuple finished-after-stale finished-after-fresh)))))
+  (is (== (Tuple False True)
+          result)))
+
