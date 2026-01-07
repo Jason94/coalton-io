@@ -10,6 +10,7 @@
    #:io/classes/monad-io
    #:io/classes/monad-io-thread
    #:io/classes/runtime-utils
+   #:io/gen-impl/conc/parking
    )
   (:local-nicknames
    (:opt #:coalton-library/optional)
@@ -57,7 +58,6 @@
 (coalton-toplevel
 
   (derive Eq)
-  (repr :transparent)
   (define-type (TVar :a)
     "A Transaction Variable that can be read and modified inside an STM transaction."
     (TVar% (c:Cell :a)))
