@@ -219,8 +219,6 @@
   (is (== (Tuple 1 1)
           result)))
 
-(test-retry-only-after-write-to-read-tvars)
-
 (define-test test-write-interrupts-read ()
   (let (Tuple3 observed-as observed-bs result) =
     (run-io!

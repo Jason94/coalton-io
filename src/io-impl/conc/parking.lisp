@@ -19,7 +19,7 @@
 (coalton-toplevel
   (inline)
   (declare park-in-sets-if_ (MonadIo :m
-                               => IO Boolean -> List (ParkingSet IoThread) -> :m Unit))
+                               => IO Boolean -> List ParkingSet -> :m Unit))
   (define park-in-sets-if_
     "Parks the current thread in PSETS if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
@@ -33,7 +33,7 @@ Concurrent:
     park-in-sets-if)
 
   (inline)
-  (declare park-in-set-if_ (MonadIo :m => IO Boolean -> ParkingSet IoThread -> :m Unit))
+  (declare park-in-set-if_ (MonadIo :m => IO Boolean -> ParkingSet -> :m Unit))
   (define park-in-set-if_
     "Parks the current thread in PSET if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
