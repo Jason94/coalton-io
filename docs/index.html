@@ -713,22 +713,22 @@ for any two different Unique instances.</p></div>
 Example:
   (derive-monad-io-unique :m (st:StateT :s :m))</p></div>
       <hr><h1 id="io/conc/parking-package">Package <code>IO/CONC/PARKING</code></h1><div class=types-content>
-       <h3 class=types-header>Types</h3><h4 id=parkingqueue-type><a href="#parkingqueue-type"><code>ParkingQueue</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/conc/parking.lisp#L32-L44">src</a></sub></sup></sub></sup></h4><p class=docstring>ParkingQueue is a thread-safe list of parked threads. A parking thread can atomically
-subscibe and park on a Parking Queue, and a signalling thread can atomically unpark all
-parkers on a ParkingQueue.
+       <h3 class=types-header>Types</h3><h4 id=parkingset-type><a href="#parkingset-type"><code>ParkingSet</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/conc/parking.lisp#L34-L46">src</a></sub></sup></sub></sup></h4><p class=docstring>ParkingSet is a thread-safe list of parked threads. A parking thread can atomically
+subscibe and park on a Parking Set, and a signalling thread can atomically unpark all
+parkers on a ParkingSet.
 
-In general, ParkingQueue is the preferred way to park and unpark threads. The lower-level
+In general, ParkingSet is the preferred way to park and unpark threads. The lower-level
 parking functions exposed by the MonadIoThread and Runtime classes should only be used
-if ParkingQueue doesn&#39;t provide enough functionality for the algorithm.
+if ParkingSet doesn&#39;t provide enough functionality for the algorithm.
 
 Concurrent:
-  - ParkingQueue&#39;s algorithms are lock free, but individual threads can block for a very
-    short window if contention on the parking queue is very high.</p><details>
+  - ParkingSet&#39;s algorithms are lock free, but individual threads can block for a very
+    short window if contention on the parking set is very high.</p><details>
         <summary>Instances</summary>
         <ul class=instances-list>
-         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> (<a href="#parkingqueue-type">ParkingQueue</a> :A)</code></ul></details></div>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> (<a href="#parkingset-type">ParkingSet</a> :A)</code></ul></details></div>
       <hr><div class=values-content>
-       <h3 class=values-header>Values</h3><h4 id=new-parking-queue-value><a href="#new-parking-queue-value"><code>NEW-PARKING-QUEUE</code></a> <sup><sub>VALUE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/conc/parking.lisp#L53-L55">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. <a href="#monadiothread-class">MonadIoThread</a> :A :C :B &rArr; (:B (<a href="#parkingqueue-type">ParkingQueue</a> :C))</code><p class=docstring>Create a new ParkingQueue.</p><h4 id=park-in-queue-if-value><a href="#park-in-queue-if-value"><code>(PARK-IN-QUEUE-IF SHOULD-PARK? PQUEUE)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/conc/parking.lisp#L77-L93">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. (<a href="#baseio-class">BaseIo</a> :B) (<a href="#monadiothread-class">MonadIoThread</a> :A :C :B) (<a href="#monadio-class">MonadIo</a> :D) &rArr; ((:B <a href="#boolean-type">Boolean</a>) &rarr; (<a href="#parkingqueue-type">ParkingQueue</a> :C) &rarr; (:D <a href="#unit-type">Unit</a>))</code><p class=docstring>Parks the current thread in PQUEUE if SHOULD-PARK? returns True. Will park the thread
+       <h3 class=values-header>Values</h3><h4 id=park-in-sets-if-value><a href="#park-in-sets-if-value"><code>(PARK-IN-SETS-IF SHOULD-PARK? PSETS)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/conc/parking.lisp#L92-L109">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. (<a href="#baseio-class">BaseIo</a> :B) (<a href="#monadiothread-class">MonadIoThread</a> :A :C :B) (<a href="#monadio-class">MonadIo</a> :D) &rArr; ((:B <a href="#boolean-type">Boolean</a>) &rarr; (<a href="#list-type">List</a> (<a href="#parkingset-type">ParkingSet</a> :C)) &rarr; (:D <a href="#unit-type">Unit</a>))</code><p class=docstring>Parks the current thread in PSETS if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
 if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
 park, *not* if it should resume.
@@ -736,10 +736,26 @@ park, *not* if it should resume.
 Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
-  - Can briefly block while trying to park the thread, if contended.</p><h4 id=unpark-queue-value><a href="#unpark-queue-value"><code>(UNPARK-QUEUE PQUEUE)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/conc/parking.lisp#L105-L110">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. <a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; ((<a href="#parkingqueue-type">ParkingQueue</a> :B) &rarr; (:C <a href="#unit-type">Unit</a>))</code><p class=docstring>Atomically reset PQUEUE, then attempt to unpark all threads parked on the queue.
+  - Can briefly block while trying to park the thread, if contended.</p><h4 id=new-parking-set-value><a href="#new-parking-set-value"><code>NEW-PARKING-SET</code></a> <sup><sub>VALUE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/conc/parking.lisp#L55-L57">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. <a href="#monadiothread-class">MonadIoThread</a> :A :C :B &rArr; (:B (<a href="#parkingset-type">ParkingSet</a> :C))</code><p class=docstring>Create a new ParkingSet.</p><h4 id=park-in-set-if-value><a href="#park-in-set-if-value"><code>(PARK-IN-SET-IF SHOULD-PARK? PSET)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/conc/parking.lisp#L114-L130">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C :D. (<a href="#baseio-class">BaseIo</a> :B) (<a href="#monadiothread-class">MonadIoThread</a> :A :C :B) (<a href="#monadio-class">MonadIo</a> :D) &rArr; ((:B <a href="#boolean-type">Boolean</a>) &rarr; (<a href="#parkingset-type">ParkingSet</a> :C) &rarr; (:D <a href="#unit-type">Unit</a>))</code><p class=docstring>Parks the current thread in PSET if SHOULD-PARK? returns True. Will park the thread
+until woken by an unpark from another thread. Upon an unpark, the thread will resume even
+if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
+park, *not* if it should resume.
 
 Concurrent:
-  - Can briefly block while trying to reset the queue or unpark a parked thread</p><h4 id=park-in-queue-if_-value><a href="#park-in-queue-if_-value"><code>(PARK-IN-QUEUE-IF_)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/conc/parking.lisp#L21-L31">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#monadio-class">MonadIo</a> :A &rArr; ((<a href="#io-type">IO</a> <a href="#boolean-type">Boolean</a>) &rarr; (<a href="#parkingqueue-type">ParkingQueue</a> <a href="#iothread-type">IoThread</a>) &rarr; (:A <a href="#unit-type">Unit</a>))</code><p class=docstring>Parks the current thread in PQUEUE if SHOULD-PARK? returns True. Will park the thread
+  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
+    state.
+  - Can briefly block while trying to park the thread, if contended.</p><h4 id=unpark-set-value><a href="#unpark-set-value"><code>(UNPARK-SET PSET)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/conc/parking.lisp#L142-L147">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. <a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; ((<a href="#parkingset-type">ParkingSet</a> :B) &rarr; (:C <a href="#unit-type">Unit</a>))</code><p class=docstring>Atomically reset PSET, then attempt to unpark all threads parked on the set.
+
+Concurrent:
+  - Can briefly block while trying to reset the set or unpark a parked thread</p><h4 id=park-in-sets-if_-value><a href="#park-in-sets-if_-value"><code>(PARK-IN-SETS-IF_)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/conc/parking.lisp#L23-L33">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#monadio-class">MonadIo</a> :A &rArr; ((<a href="#io-type">IO</a> <a href="#boolean-type">Boolean</a>) &rarr; (<a href="#list-type">List</a> (<a href="#parkingset-type">ParkingSet</a> <a href="#iothread-type">IoThread</a>)) &rarr; (:A <a href="#unit-type">Unit</a>))</code><p class=docstring>Parks the current thread in PSETS if SHOULD-PARK? returns True. Will park the thread
+until woken by an unpark from another thread. Upon an unpark, the thread will resume even
+if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
+park, *not* if it should resume.
+
+Concurrent:
+  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
+    state.
+  - Can briefly block while trying to park the thread, if contended.</p><h4 id=park-in-set-if_-value><a href="#park-in-set-if_-value"><code>(PARK-IN-SET-IF_)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/conc/parking.lisp#L37-L47">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#monadio-class">MonadIo</a> :A &rArr; ((<a href="#io-type">IO</a> <a href="#boolean-type">Boolean</a>) &rarr; (<a href="#parkingset-type">ParkingSet</a> <a href="#iothread-type">IoThread</a>) &rarr; (:A <a href="#unit-type">Unit</a>))</code><p class=docstring>Parks the current thread in PSET if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
 if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
 park, *not* if it should resume.

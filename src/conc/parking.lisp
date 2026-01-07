@@ -6,14 +6,14 @@
    )
   (:export
    ;; Re-exports from io/gen-impl/conc/parking
-   #:ParkingQueue
-   #:new-parking-queue
-   #:park-in-queues-if
-   #:park-in-queue-if
-   #:unpark-queue
+   #:ParkingSet
+   #:new-parking-set
+   #:park-in-sets-if
+   #:park-in-set-if
+   #:unpark-set
 
    ;; Re-exports from io/io-impl/conc/parking
-   #:park-in-queues-if_
-   #:park-in-queue-if_
+   #:park-in-sets-if_
+   #:park-in-set-if_
    ))
 (in-package :io/conc/parking)

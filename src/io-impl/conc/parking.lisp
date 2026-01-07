@@ -9,8 +9,8 @@
    #:io/io-impl/simple-io
    )
   (:export
-   #:park-in-queues-if_
-   #:park-in-queue-if_
+   #:park-in-sets-if_
+   #:park-in-set-if_
    ))
 (in-package :io/io-impl/conc/parking)
 
@@ -18,10 +18,10 @@
 
 (coalton-toplevel
   (inline)
-  (declare park-in-queues-if_ (MonadIo :m
-                               => IO Boolean -> List (ParkingQueue IoThread) -> :m Unit))
-  (define park-in-queues-if_
-    "Parks the current thread in PQUEUES if SHOULD-PARK? returns True. Will park the thread
+  (declare park-in-sets-if_ (MonadIo :m
+                               => IO Boolean -> List (ParkingSet IoThread) -> :m Unit))
+  (define park-in-sets-if_
+    "Parks the current thread in PSETS if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
 if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
 park, *not* if it should resume.
@@ -30,12 +30,12 @@ Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
   - Can briefly block while trying to park the thread, if contended."
-    park-in-queues-if)
+    park-in-sets-if)
 
   (inline)
-  (declare park-in-queue-if_ (MonadIo :m => IO Boolean -> ParkingQueue IoThread -> :m Unit))
-  (define park-in-queue-if_
-    "Parks the current thread in PQUEUE if SHOULD-PARK? returns True. Will park the thread
+  (declare park-in-set-if_ (MonadIo :m => IO Boolean -> ParkingSet IoThread -> :m Unit))
+  (define park-in-set-if_
+    "Parks the current thread in PSET if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
 if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
 park, *not* if it should resume.
@@ -44,5 +44,5 @@ Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
   - Can briefly block while trying to park the thread, if contended."
-    park-in-queue-if)
+    park-in-set-if)
   )

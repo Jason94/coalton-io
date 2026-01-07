@@ -13,17 +13,17 @@
    )
   (:export
    ;; Library Public
-   #:ParkingQueue
-   #:new-parking-queue
-   #:park-in-queues-if
-   #:park-in-queue-if
-   #:unpark-queue
+   #:ParkingSet
+   #:new-parking-set
+   #:park-in-sets-if
+   #:park-in-set-if
+   #:unpark-set
 
    ;; Library Private
-   #:new-parking-queue%
-   #:park-in-queues-if%
-   #:park-in-queue-if%
-   #:unpark-queue%
+   #:new-parking-set%
+   #:park-in-sets-if%
+   #:park-in-set-if%
+   #:unpark-set%
    ))
 (in-package :io/gen-impl/conc/parking)
 
@@ -31,66 +31,66 @@
 
 (coalton-toplevel
   (repr :transparent)
-  (define-type (ParkingQueue :t)
-    "ParkingQueue is a thread-safe list of parked threads. A parking thread can atomically
-subscibe and park on a Parking Queue, and a signalling thread can atomically unpark all
-parkers on a ParkingQueue.
+  (define-type (ParkingSet :t)
+    "ParkingSet is a thread-safe list of parked threads. A parking thread can atomically
+subscibe and park on a Parking Set, and a signalling thread can atomically unpark all
+parkers on a ParkingSet.
 
-In general, ParkingQueue is the preferred way to park and unpark threads. The lower-level
+In general, ParkingSet is the preferred way to park and unpark threads. The lower-level
 parking functions exposed by the MonadIoThread and Runtime classes should only be used
-if ParkingQueue doesn't provide enough functionality for the algorithm.
+if ParkingSet doesn't provide enough functionality for the algorithm.
 
 Concurrent:
-  - ParkingQueue's algorithms are lock free, but individual threads can block for a very
-    short window if contention on the parking queue is very high."
-    (ParkingQueue% (at:Atomic (List (Tuple Generation :t)))))
+  - ParkingSet's algorithms are lock free, but individual threads can block for a very
+    short window if contention on the parking set is very high."
+    (ParkingSet% (at:Atomic (List (Tuple Generation :t)))))
 
   (inline)
-  (declare new-parking-queue% (Unit -> ParkingQueue :t))
-  (define (new-parking-queue%)
-    (ParkingQueue% (at:new Nil)))
+  (declare new-parking-set% (Unit -> ParkingSet :t))
+  (define (new-parking-set%)
+    (ParkingSet% (at:new Nil)))
 
   (inline)
-  (declare new-parking-queue (MonadIoThread :rt :t :m => :m (ParkingQueue :t)))
-  (define new-parking-queue
-    "Create a new ParkingQueue."
-    (wrap-io_ new-parking-queue%))
+  (declare new-parking-set (MonadIoThread :rt :t :m => :m (ParkingSet :t)))
+  (define new-parking-set
+    "Create a new ParkingSet."
+    (wrap-io_ new-parking-set%))
 
   (inline)
-  (declare get-queue% (ParkingQueue :t -> at:Atomic (List (Tuple Generation :t))))
-  (define (get-queue% (ParkingQueue% atm))
+  (declare get-set% (ParkingSet :t -> at:Atomic (List (Tuple Generation :t))))
+  (define (get-set% (ParkingSet% atm))
     atm)
 
   (inline)
-  (declare park-in-queues-if% (Runtime :rt :t
-                              => Proxy :rt -> (Unit -> Boolean) -> List (ParkingQueue :t) -> Unit))
-  (define (park-in-queues-if% rt-prx should-park? pqueues)
+  (declare park-in-sets-if% (Runtime :rt :t
+                              => Proxy :rt -> (Unit -> Boolean) -> List (ParkingSet :t) -> Unit))
+  (define (park-in-sets-if% rt-prx should-park? psets)
     (park-current-thread-if!
      rt-prx
      (fn (gen)
-       (for pqueue in pqueues
-         (at:atomic-push (get-queue% pqueue)
+       (for pset in psets
+         (at:atomic-push (get-set% pset)
                          (Tuple gen (current-thread! rt-prx))))
        Unit)
      should-park?))
 
   (inline)
-  (declare park-in-queue-if% (Runtime :rt :t
-                              => Proxy :rt -> (Unit -> Boolean) -> ParkingQueue :t -> Unit))
-  (define (park-in-queue-if% rt-prx should-park? pqueue)
+  (declare park-in-set-if% (Runtime :rt :t
+                              => Proxy :rt -> (Unit -> Boolean) -> ParkingSet :t -> Unit))
+  (define (park-in-set-if% rt-prx should-park? pset)
     (park-current-thread-if!
      rt-prx
      (fn (gen)
-       (at:atomic-push (get-queue% pqueue)
+       (at:atomic-push (get-set% pset)
                        (Tuple gen (current-thread! rt-prx)))
        Unit)
      should-park?))
 
   (inline)
-  (declare park-in-queues-if ((BaseIo :io) (MonadIoThread :rt :t :io) (MonadIo :m)
-                             => :io Boolean -> List (ParkingQueue :t) -> :m Unit))
-  (define (park-in-queues-if should-park? pqueues)
-    "Parks the current thread in PQUEUES if SHOULD-PARK? returns True. Will park the thread
+  (declare park-in-sets-if ((BaseIo :io) (MonadIoThread :rt :t :io) (MonadIo :m)
+                             => :io Boolean -> List (ParkingSet :t) -> :m Unit))
+  (define (park-in-sets-if should-park? psets)
+    "Parks the current thread in PSETS if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
 if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
 park, *not* if it should resume.
@@ -102,17 +102,17 @@ Concurrent:
     (park-current-thread-if
      (fn (gen)
        (wrap-io-with-runtime (rt-prx)
-         (for pqueue in pqueues
-           (at:atomic-push (get-queue% pqueue)
+         (for pset in psets
+           (at:atomic-push (get-set% pset)
                            (Tuple gen (current-thread! rt-prx))))
          Unit))
      should-park?))
 
   (inline)
-  (declare park-in-queue-if ((BaseIo :io) (MonadIoThread :rt :t :io) (MonadIo :m)
-                             => :io Boolean -> ParkingQueue :t -> :m Unit))
-  (define (park-in-queue-if should-park? pqueue)
-    "Parks the current thread in PQUEUE if SHOULD-PARK? returns True. Will park the thread
+  (declare park-in-set-if ((BaseIo :io) (MonadIoThread :rt :t :io) (MonadIo :m)
+                             => :io Boolean -> ParkingSet :t -> :m Unit))
+  (define (park-in-set-if should-park? pset)
+    "Parks the current thread in PSET if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
 if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
 park, *not* if it should resume.
@@ -124,26 +124,26 @@ Concurrent:
     (park-current-thread-if
      (fn (gen)
        (wrap-io-with-runtime (rt-prx)
-         (at:atomic-push (get-queue% pqueue)
+         (at:atomic-push (get-set% pset)
                          (Tuple gen (current-thread! rt-prx)))
          Unit))
      should-park?))
 
   (inline)
-  (declare unpark-queue% (Runtime :rt :t => Proxy :rt -> ParkingQueue :t -> Unit))
-  (define (unpark-queue% rt-prx pqueue)
-    (let parked-entries = (at:atomic-swap (get-queue% pqueue) Nil))
+  (declare unpark-set% (Runtime :rt :t => Proxy :rt -> ParkingSet :t -> Unit))
+  (define (unpark-set% rt-prx pset)
+    (let parked-entries = (at:atomic-swap (get-set% pset) Nil))
     (for (Tuple gen thread) in parked-entries
       (unpark-thread! rt-prx gen thread))
     Unit)
 
   (inline)
-  (declare unpark-queue (MonadIoThread :rt :t :m => ParkingQueue :t -> :m Unit))
-  (define (unpark-queue pqueue)
-    "Atomically reset PQUEUE, then attempt to unpark all threads parked on the queue.
+  (declare unpark-set (MonadIoThread :rt :t :m => ParkingSet :t -> :m Unit))
+  (define (unpark-set pset)
+    "Atomically reset PSET, then attempt to unpark all threads parked on the set.
 
 Concurrent:
-  - Can briefly block while trying to reset the queue or unpark a parked thread"
-    (inject-runtime unpark-queue% pqueue))
+  - Can briefly block while trying to reset the set or unpark a parked thread"
+    (inject-runtime unpark-set% pset))
 
  )
