@@ -739,7 +739,15 @@ Concurrent:
   - Can briefly block while trying to park the thread, if contended.</p><h4 id=unpark-queue-value><a href="#unpark-queue-value"><code>(UNPARK-QUEUE PQUEUE)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/gen-impl/conc/parking.lisp#L105-L110">src</a></sub></sup></sub></sup></h4><code>&forall; :A :B :C. <a href="#monadiothread-class">MonadIoThread</a> :A :B :C &rArr; ((<a href="#parkingqueue-type">ParkingQueue</a> :B) &rarr; (:C <a href="#unit-type">Unit</a>))</code><p class=docstring>Atomically reset PQUEUE, then attempt to unpark all threads parked on the queue.
 
 Concurrent:
-  - Can briefly block while trying to reset the queue or unpark a parked thread</p></div>
+  - Can briefly block while trying to reset the queue or unpark a parked thread</p><h4 id=park-in-queue-if_-value><a href="#park-in-queue-if_-value"><code>(PARK-IN-QUEUE-IF_)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/conc/parking.lisp#L21-L31">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#monadio-class">MonadIo</a> :A &rArr; ((<a href="#io-type">IO</a> <a href="#boolean-type">Boolean</a>) &rarr; (<a href="#parkingqueue-type">ParkingQueue</a> <a href="#iothread-type">IoThread</a>) &rarr; (:A <a href="#unit-type">Unit</a>))</code><p class=docstring>Parks the current thread in PQUEUE if SHOULD-PARK? returns True. Will park the thread
+until woken by an unpark from another thread. Upon an unpark, the thread will resume even
+if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
+park, *not* if it should resume.
+
+Concurrent:
+  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
+    state.
+  - Can briefly block while trying to park the thread, if contended.</p></div>
       <hr><h1 id="io/conc/scheduler-package">Package <code>IO/CONC/SCHEDULER</code></h1><div class=classes-content>
        <h3 class=classes-header>Classes</h3><h4 id=scheduler-class><a href="#scheduler-class"><code>Scheduler</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/conc/scheduler.lisp#L23-L57">src</a></sub></sup></sub></sup></h4><code><a href="#scheduler-class">Scheduler</a> :A</code><p class=docstring>A Scheduler distributes work from producer threads to worker threads. Generally, the
 Scheduler is allowed to completely control the worker threads: it can sleep, block, spin,

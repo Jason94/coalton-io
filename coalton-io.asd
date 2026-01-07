@@ -71,6 +71,7 @@
                                (:file "io-mvar")
                                (:file "io-future")
                                (:file "io-file")
+                               (:file "conc/parking")
                                (:file "conc/worker-pool")))
                  ;;;
                  ;;; Library Public Packages (Re-Export)
@@ -134,7 +135,8 @@ mutable variables, multithreading, and several data structures to safely share s
                   :components ((:file "thread")))
                  (:module "conc"
                   :serial t
-                  :components ((:file "concurrent-group")
+                  :components ((:file "parking")
+                               (:file "concurrent-group")
                                (:file "stm")
                                (:file "worker-pool")
                                (:file "ring-buffer")

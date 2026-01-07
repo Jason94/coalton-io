@@ -15,11 +15,13 @@
    ;; Library Public
    #:ParkingQueue
    #:new-parking-queue
+   #:park-in-queues-if
    #:park-in-queue-if
    #:unpark-queue
 
    ;; Library Private
    #:new-parking-queue%
+   #:park-in-queues-if%
    #:park-in-queue-if%
    #:unpark-queue%
    ))
@@ -60,6 +62,19 @@ Concurrent:
     atm)
 
   (inline)
+  (declare park-in-queues-if% (Runtime :rt :t
+                              => Proxy :rt -> (Unit -> Boolean) -> List (ParkingQueue :t) -> Unit))
+  (define (park-in-queues-if% rt-prx should-park? pqueues)
+    (park-current-thread-if!
+     rt-prx
+     (fn (gen)
+       (for pqueue in pqueues
+         (at:atomic-push (get-queue% pqueue)
+                         (Tuple gen (current-thread! rt-prx))))
+       Unit)
+     should-park?))
+
+  (inline)
   (declare park-in-queue-if% (Runtime :rt :t
                               => Proxy :rt -> (Unit -> Boolean) -> ParkingQueue :t -> Unit))
   (define (park-in-queue-if% rt-prx should-park? pqueue)
@@ -69,6 +84,28 @@ Concurrent:
        (at:atomic-push (get-queue% pqueue)
                        (Tuple gen (current-thread! rt-prx)))
        Unit)
+     should-park?))
+
+  (inline)
+  (declare park-in-queues-if ((BaseIo :io) (MonadIoThread :rt :t :io) (MonadIo :m)
+                             => :io Boolean -> List (ParkingQueue :t) -> :m Unit))
+  (define (park-in-queues-if should-park? pqueues)
+    "Parks the current thread in PQUEUES if SHOULD-PARK? returns True. Will park the thread
+until woken by an unpark from another thread. Upon an unpark, the thread will resume even
+if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
+park, *not* if it should resume.
+
+Concurrent:
+  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
+    state.
+  - Can briefly block while trying to park the thread, if contended."
+    (park-current-thread-if
+     (fn (gen)
+       (wrap-io-with-runtime (rt-prx)
+         (for pqueue in pqueues
+           (at:atomic-push (get-queue% pqueue)
+                           (Tuple gen (current-thread! rt-prx))))
+         Unit))
      should-park?))
 
   (inline)
