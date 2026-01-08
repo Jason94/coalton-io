@@ -14,7 +14,8 @@
   (:import-from #:io/gen-impl/conc/stm
    #:tx-io!%)
   (:local-nicknames
-   (:l #:coalton-library/list))
+   (:l #:coalton-library/list)
+   (:tm #:io/term))
   )
 (in-package :coalton-io/tests/conc/stm)
 
@@ -197,7 +198,6 @@
       (finished-gate <- new-empty-mvar)
       (do-fork-thread_
         (do-run-tx
-          (n-retries <- (tx-io!% (read retry-count)))
           (x-val <- (read-tvar used-tvar))
           (do-when (zero? x-val)
             (tx-io!% (modify retry-count (+ 1)))
@@ -206,6 +206,7 @@
           (tx-io!% (try-put-mvar finished-gate Unit))))
       ;; Wait until the retry is triggered
       (take-mvar retry-gate)
+      (sleep 2)
       ;; Write to the ignored TVar, not triggering a retry
       (run-tx (write-tvar ignored-tvar 10))
       (sleep 2)
