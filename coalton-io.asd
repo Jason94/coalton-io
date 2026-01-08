@@ -49,6 +49,7 @@
                   :serial t
                   :components ((:file "io-term")
                                (:file "io-mut")
+                               (:file "conc/parking")
                                (:file "conc/io-mvar")
                                (:file "conc/mchan-scheduler")
                                (:file "conc/io-future")
@@ -70,6 +71,7 @@
                                (:file "io-mvar")
                                (:file "io-future")
                                (:file "io-file")
+                               (:file "conc/parking")
                                (:file "conc/worker-pool")))
                  ;;;
                  ;;; Library Public Packages (Re-Export)
@@ -88,7 +90,8 @@
 
                  (:module "conc"
                   :serial t
-                  :components ((:file "scheduler")
+                  :components ((:file "parking")
+                               (:file "scheduler")
                                (:file "mchan-scheduler")
                                (:file "ring-buffer")
                                (:file "io-future")
@@ -132,7 +135,8 @@ mutable variables, multithreading, and several data structures to safely share s
                   :components ((:file "thread")))
                  (:module "conc"
                   :serial t
-                  :components ((:file "concurrent-group")
+                  :components ((:file "parking")
+                               (:file "concurrent-group")
                                (:file "stm")
                                (:file "worker-pool")
                                (:file "ring-buffer")

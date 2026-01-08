@@ -10,6 +10,7 @@
    #:io/classes/monad-io
    #:io/classes/monad-io-thread
    #:io/classes/runtime-utils
+   #:io/gen-impl/conc/parking
    )
   (:local-nicknames
    (:opt #:coalton-library/optional)
@@ -57,15 +58,19 @@
 (coalton-toplevel
 
   (derive Eq)
-  (repr :transparent)
   (define-type (TVar :a)
     "A Transaction Variable that can be read and modified inside an STM transaction."
-    (TVar% (c:Cell :a)))
+    (TVar% (c:Cell :a) ParkingSet))
 
   (inline)
   (declare unwrap-tvar% (TVar :a -> c:Cell :a))
-  (define (unwrap-tvar% (TVar% a))
+  (define (unwrap-tvar% (TVar% a _))
     a)
+
+  (inline)
+  (declare unwrap-tvar-pset% (TVar :a -> ParkingSet))
+  (define (unwrap-tvar-pset% (TVar% _ pset))
+    pset)
 
   (inline)
   (declare set-tvar% (TVar :a -> :a -> Unit))
@@ -265,6 +270,13 @@ conditions. DONT USE THIS!"
        (cl:car entr))))
 
   (inline)
+  (declare read-entry-pset% (ReadEntry% -> ParkingSet))
+  (define (read-entry-pset% entr)
+    (unwrap-tvar-pset%
+     (lisp (TVar Anything) (entr)
+       (cl:car entr))))
+
+  (inline)
   (declare read-entry-cached-val% (ReadEntry% -> Anything))
   (define (read-entry-cached-val% entr)
     (lisp Anything (entr)
@@ -284,6 +296,13 @@ conditions. DONT USE THIS!"
          (cl:if found?
                 (Some val)
                 None))))
+
+  (inline)
+  (declare logged-write-psets% (WriteHashTable% -> List ParkingSet))
+  (define (logged-write-psets% write-log)
+    (lisp (List ParkingSet) (write-log)
+      (cl:loop :for addr :being :the :hash-keys :of write-log
+               :collect (call-coalton-function unwrap-tvar-pset% addr))))
 
   (declare tx-logged-write-value% (TxData% -> :a -> Optional Anything))
   (define (tx-logged-write-value% tx-data key)
@@ -402,7 +421,7 @@ For safety, disconnects the transactions when done."
   (inline)
   (declare new-tvar% (:a -> TVar :a))
   (define (new-tvar% val)
-    (TVar% (c:new val)))
+    (TVar% (c:new val) (new-parking-set%)))
 
   (inline)
   (declare new-tvar (MonadIo :m => :a -> :m (TVar :a)))
@@ -429,47 +448,16 @@ For safety, disconnects the transactions when done."
     (mem-barrier)
     (at:read-at-int global-lock))
 
-  ;; NOTE: In general, NOrec wants to avoid mutex locks and CV's wherever possible.
-  ;; It does this by with an AtomicInteger-backed sequence lock and compressing
-  ;; the time when a write-transaction will need to hold the lock, so that it's
-  ;; acceptable to just spin while a write-transaction is actually committing.
-  ;;
-  ;; HOWEVER, when a user retries because the observed TVars are in some bad state,
-  ;; there's no guarantee that the period until the state is possibly valid (after
-  ;; the next write commit to the read TVar's) is short, so spinning after a user-signalled
-  ;; retry could potentially spin forever.  For now, just have one global CV that every
-  ;; write signals. Each user retry'd commit will do one attempt after every write
-  ;; transaction. A better, but more complicated, solution would be to use the broadcast
-  ;; pool to send a log of all written TVar's per each transaction, and woken threads
-  ;; could choose to re-attempt their transaction or go back to sleep. The actual solution
-  ;; is to implement runtime-level thread parking and waking.
-  (define global-write-cv (cv:new))
-  (define global-write-cv-lock (lk:new))
-
   (inline)
-  (declare wait-for-write-tx!% (Runtime :rt :t => Proxy :rt -> Word -> Unit))
-  (define (wait-for-write-tx!% rt-prx lock-snapshot)
+  (declare broadcast-write-tx!% (TxData% -> Unit))
+  (define (broadcast-write-tx!% tx-data)
     ;; CONCURRENT:
-    ;; - Masks before entering the critical region
-    ;; - unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
-    ;;   catch block guaranteeing lock release.
-    ;; - Check for incremented lock snapshot protects against spurious wakeups without
-    ;;   any intervening commit
-    (mask-current! rt-prx)
-    (lk:acquire global-write-cv-lock)
-    (rec % ()
-      (unmask-and-await-safely% rt-prx global-write-cv global-write-cv-lock)
-      (if (>= lock-snapshot (get-global-time))
-          (%)
-          (progn
-            (lk:release global-write-cv-lock)
-            (unmask-current! rt-prx))))
-    Unit)
-
-  (inline)
-  (declare broadcast-write-cv!% (Unit -> Unit))
-  (define (broadcast-write-cv!%)
-    (cv:broadcast global-write-cv))
+    ;;   - WARNING: Should be run in a masked region to ensure writes aren't committed
+    ;;     without unparking the corresponding psets
+    ;;   - Because assuming masked, no need to mask to ensure consistent unparks in
+    ;;     the presence of an asynchronous stop
+    (for pset in (logged-write-psets% (.write-log tx-data))
+      (unpark-set% pset)))
 
   (inline)
   (declare tx-begin-io% (MonadIo :m => Unit -> :m TxData%))
@@ -510,6 +498,20 @@ For safety, disconnects the transactions when done."
           (match check
             ((None) (%))
             ((Some x) x))))))
+
+  (inline)
+  (declare wait-for-write-tx!% (Runtime :rt :t => Proxy :rt -> TxData% -> Unit))
+  (define (wait-for-write-tx!% rt-prx tx-data)
+    ;; CONCURRENT:
+    ;; - Inherits concurrent semantics of park-in-sets-if%
+    (let lock-snapshot = (the Word (c:read (.lock-snapshot tx-data))))
+    (park-in-sets-if%
+     rt-prx
+     (fn ()
+       (== (TxContinue% lock-snapshot)
+           (validate% tx-data)))
+     (map read-entry-pset% (c:read (.read-log tx-data))))
+    Unit)
 
   (declare inner-read-tvar% (TVar :a -> TxData% -> TxResult% :a))
   (define (inner-read-tvar% tvar tx-data)
@@ -639,7 +641,7 @@ value."
             (when (c:read result)
               (commit-logged-writes (.write-log tx-data))
               (at:atomic-inc1 global-lock)
-              (broadcast-write-cv!%)
+              (broadcast-write-tx!% tx-data)
               Unit)
             (unmask-current! rt-prx)
             (c:read result)))))
@@ -705,7 +707,7 @@ a consistent snapshot of the data. Therefore, TX must be pure."
            (%))
           ((TxRetryAfterWrite)
            (progn
-             (wait-for-write-tx!% rt-prx (c:read (.lock-snapshot tx-data)))
+             (wait-for-write-tx!% rt-prx tx-data)
              (%)))
           ((TxSuccess val)
            (commit-succeeded? <- (tx-commit-io% tx-data))

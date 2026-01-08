@@ -14,7 +14,8 @@
   (:import-from #:io/gen-impl/conc/stm
    #:tx-io!%)
   (:local-nicknames
-   (:l #:coalton-library/list))
+   (:l #:coalton-library/list)
+   (:tm #:io/term))
   )
 (in-package :coalton-io/tests/conc/stm)
 
@@ -184,6 +185,39 @@
       (pure (Tuple result num-retries)))))
   (let _ = (the (Tuple Integer Integer) result))
   (is (== (Tuple 10 1)
+          result)))
+
+(define-test test-retry-only-after-write-to-read-tvars ()
+  (let result =
+    (run-io!
+     (do
+      (retry-count <- (new-var 0))
+      (used-tvar <- (new-tvar 0))
+      (ignored-tvar <- (new-tvar 0))
+      (retry-gate <- new-empty-mvar)
+      (finished-gate <- new-empty-mvar)
+      (do-fork-thread_
+        (do-run-tx
+          (x-val <- (read-tvar used-tvar))
+          (do-when (zero? x-val)
+            (tx-io!% (modify retry-count (+ 1)))
+            (tx-io!% (try-put-mvar retry-gate Unit))
+            retry)
+          (tx-io!% (try-put-mvar finished-gate Unit))))
+      ;; Wait until the retry is triggered
+      (take-mvar retry-gate)
+      (sleep 2)
+      ;; Write to the ignored TVar, not triggering a retry
+      (run-tx (write-tvar ignored-tvar 10))
+      (sleep 2)
+      (retry-count-after-ignored <- (read retry-count))
+      ;; Write to the used TVar, triggering a retry
+      (run-tx (write-tvar used-tvar 10))
+      ;; Wait until the retry is finished
+      (take-mvar finished-gate)
+      (num-retries <- (read retry-count))
+      (pure (Tuple retry-count-after-ignored num-retries)))))
+  (is (== (Tuple 1 1)
           result)))
 
 (define-test test-write-interrupts-read ()

@@ -24,6 +24,7 @@
                #:coalton-io/tests/future-fiasco
                #:coalton-io/tests/io-atomic-fiasco
                #:coalton-io/tests/io-impl/thread-fiasco
+               #:coalton-io/tests/conc/parking-fiasco
                #:coalton-io/tests/conc/group-fiasco
                #:coalton-io/tests/conc/stm-fiasco
                #:coalton-io/tests/conc/worker-pool-fiasco
