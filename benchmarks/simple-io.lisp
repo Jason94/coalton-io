@@ -35,12 +35,16 @@
 
   (declare lst (List Integer))
   (define lst (l:range 0 3000000))
+  )
 
+(coalton-toplevel
   (declare increment-list-loop-non-monadic (Unit -> Unit))
   (define (increment-list-loop-non-monadic)
     (for x in lst
       (hash (1+ x))))
+  )
 
+(coalton-toplevel
   ;; TODO: For some reason SBCL is able to specialize some arithmetic in the non-monadic
   ;; version, but not this one. That's going to give it some degree of artificial edge
   ;; in the benchmark.
@@ -84,14 +88,18 @@
   (declare calculate-hash (Unit -> Hash))
   (define (calculate-hash)
     (hash (c:increment! x-cell)))
-  
+  )
+
+(coalton-toplevel
   (declare hash-n-times-non-monadic (Unit -> Unit))
   (define (hash-n-times-non-monadic)
     (let cell = (c:new (hash 0)))
     (dotimes (_ *n*)
       (c:write! cell
                 (calculate-hash))))
+  )
 
+(coalton-toplevel
   (declare hash-n-times-non-monadic-lambda (Unit -> Unit))
   (define (hash-n-times-non-monadic-lambda)
     (let cell = (c:new (hash 0)))
@@ -99,7 +107,9 @@
     (dotimes (_ *n*)
       (c:write! cell
                 (noinline (f)))))                
+  )
 
+(coalton-toplevel
   (declare hash-n-times-monadic (Unit -> Unit))
   (define (hash-n-times-monadic)
     (let cell = (c:new (hash 0)))
