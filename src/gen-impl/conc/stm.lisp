@@ -659,8 +659,9 @@ continue.
 
 Concurrent:
   - When the transaction runs, executing retry will abort the transaction and sleep the
-    thread. The thread will sleep until any write transaction commits to the STM, when
-    the retrying thread will wake and retry its transaction.
+    thread. The thread will sleep until any relevant write transaction commits to the STM,
+    when the retrying thread will wake and retry its transaction. A write transaction
+    only triggers a retry if it writes to a TVar that was read before `retry` was called.
 "
     (STM%
      (fn (_)
