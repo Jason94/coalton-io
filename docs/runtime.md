@@ -69,6 +69,29 @@ The `IoRuntime` uses system threads, as provided by the underlying Common Lisp i
 
 `join!` returns a `Result Dynamic Unit`, where the Dynamic error case is an error that was raised and unhandled by the target thread. A common idiom is to use `(raise-result (join-thread thread))` (see `MonadIoThread` for the `MonadIo` wrapped version of `join!`), to simply re-raise any unhandled exceptions.
 
+### Structured Concurrency
+
+All threads run within a specific scope. When a thread's scope ends, the thread is automatically stopped. A scope can either be (1) a parent thread, or (2) the global scope.
+
+`fork-thread` and `fork-thread-with` both use the structured concurrency system. `fork-thread-with` takes a `ForkStrategy` parameter that specifies the scope used (among other customizations). `fork-thread` automatically uses the `Structured` scope.
+
+There are three scopes that can be passed to `fork-thread-with`:
+
+* `Detached`     - Attaches to the global scope.
+* `StructuredIn` - Takes a thread handle as an argument, and forks as a child of that thread.
+* `Structured`   - Forks as a child of the calling thread.
+
+When a thread finishes running, it:
+
+1. Masks itself.
+2. Stops all of its child threads.
+3. Joins all of its child threads.
+4. Unmasks itself and ends the thread.
+
+WARNING: Step #3, joining the child threads, can block if the child threads are still running! This can lead to unexpected behavior. For example, if a child thread masks itself while trying to acquire a resource, like a lock, the parent thread will not end until the child thread has acquired the resource and eventually unmasks itself. If this never happens, then the parent thread will block forever. In practice, this is difficult to observe in coalton-io code, because the cleanup process only runs _after_ the thread finishes the program that it was forked with.
+
+`run!` executes the same cleanup process with all threads that are either (1) forked in the global scope, or (2) forked as children of the toplevel thread. This means its susceptible to the same blocking issue described above. A block here is much more noticeable. For example, if the toplevel `run!` is the last step in the whole program, the program might hang and never complete if a child thread is masked while blocking.
+
 ### Stopping, Masking, and Unmasking a Thread
 
 #### Stopping

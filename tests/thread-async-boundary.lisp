@@ -6,6 +6,8 @@
         #:io/thread
         #:io/mut
         #:io/conc/mvar)
+  (:import-from #:io/io-impl/simple-io
+    #:run-io-no-cleanup!)
   (:import-from #:io/thread-impl/runtime
     #:write-line-sync%)
   (:local-nicknames
@@ -28,16 +30,16 @@
     (let gate = (s:new))
     (let result = (c:new 0))
 
-    (let thread = ((fn ()
-                     (run-io!
-                      ;; This should wait 5 MS between the signal and write!
-                      (fork-thread_ ((noinline >>=)
-                                     (wrap-io
-                                       (s:signal gate 1)
-                                       Unit)
-                                     (fn (_)
-                                       (wrap-io
-                                         (c:write! result 100)))))))))
+    (let thread =
+      (run-io-no-cleanup!
+       ;; This should wait 5 MS between the signal and write!
+       (fork-thread_ ((noinline >>=)
+                      (wrap-io
+                       (s:signal gate 1)
+                       Unit)
+                      (fn (_)
+                        (wrap-io
+                         (c:write! result 100)))))))
 
     ;; Wait until the thread is running, wait 2 MS, kill it, wait 8 MS, then read.
     (s:await gate)

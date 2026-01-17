@@ -24,6 +24,7 @@
    #:park-in-sets-if%
    #:park-in-set-if%
    #:unpark-set%
+   #:num-waiters
    ))
 (in-package :io/gen-impl/conc/parking)
 
@@ -83,8 +84,9 @@ Concurrent:
     (park-current-thread-if!
      rt-prx
      (fn (gen)
+       (let parked-thread = (current-thread! rt-prx))
        (let unpark-action = (fn (_)
-                              (unpark-thread! rt-prx gen (current-thread! rt-prx))))
+                              (unpark-thread! rt-prx gen parked-thread)))
        (at:atomic-push (get-set% pset) unpark-action)
        Unit)
      should-park?))
@@ -154,5 +156,14 @@ Concurrent:
 Concurrent:
   - Can briefly block while trying to reset the set or unpark a parked thread"
     (wrap-io (unpark-set% pset)))
+
+  (declare num-waiters (MonadIo :m => ParkingSet -> :m UFix))
+  (define (num-waiters pset)
+    "Get the number of waiters in PSET."
+    (wrap-io
+     (let (ParkingSet% at-waiters) = pset)
+     (let waiters = (at:read at-waiters))
+     (length waiters)))
+
 
  )

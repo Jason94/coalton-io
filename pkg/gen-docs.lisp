@@ -33,6 +33,7 @@
                                  'io/conc/stm
                                  'io/conc/mchan-scheduler
                                  'io/conc/worker-pool
+                                 'io/conc/ring-buffer
                                  'io/io-all
                                  'io/stubs/term
                                  )))

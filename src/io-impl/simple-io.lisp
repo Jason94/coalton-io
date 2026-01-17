@@ -27,6 +27,7 @@
    (:it #:coalton-library/iterator)
    (:c #:coalton-library/cell))
   (:export
+   ;; Library Public
    #:IO
    #:run-io!
    #:run-io-handled!
@@ -46,6 +47,9 @@
    #:do-map-into-io_
    #:times-io_
    #:do-times-io_
+
+   ;; Library Private
+   #:run-io-no-cleanup!
    ))
 (in-package :io/io-impl/simple-io)
 
@@ -111,21 +115,62 @@ implement MonadException and handle asynchronous exception signals."
   (define (run-io-unhandled! (IO% f->a?))
     (f->a?))
 
-  (inline)
+  (declare run-io-no-cleanup! (IO :a -> :a))
+  (define (run-io-no-cleanup! io-op)
+    "Top-level run-io! that raises any unhandled exceptions. Also sets the current thread
+as the global thread for structured concurrency. Does not cleanup child threads on
+completion. Used for internal testing only."
+    (let f = (fn ()
+               (let result =
+                 (match (run-io-handled!% io-op)
+                   ((Ok a)
+                    a)
+                   ((Err io-err)
+                    (match io-err
+                      ((UnhandledError _ throw-thunk)
+                       (throw-thunk)
+                       (error "Malformed UnhandledError throw-thunk"))
+                      ((HandledError _ err-thunk)
+                       (err-thunk)
+                       (error "Malformed HandledError err-thunk"))))))
+               result))
+    (lisp :a (f)
+      ;; Only bind dynamic variables if at the top level
+      (cl:if *global-thread*
+             (call-coalton-function f)
+             (cl:let* ((current-thread (call-coalton-function construct-toplevel-current-thread))
+                       (*current-thread* current-thread)
+                       (*global-thread* current-thread))
+               (call-coalton-function f)))))
+
   (declare run-io! (IO :a -> :a))
   (define (run-io! io-op)
-    "Top-level run-io! that raises any unhandled exceptions."
-    (match (run-io-handled!% io-op)
-      ((Ok a)
-       a)
-      ((Err io-err)
-       (match io-err
-         ((UnhandledError _ throw-thunk)
-          (throw-thunk)
-          (error "Malformed UnhandledError throw-thunk"))
-         ((HandledError _ err-thunk)
-          (err-thunk)
-          (error "Malformed HandledError err-thunk"))))))
+    "Top-level run-io! that raises any unhandled exceptions. Also sets the current thread
+as the global thread for structured concurrency, and exits any child threads on exit."
+    (let f = (fn (toplevel?)
+               (let result =
+                 (match (run-io-handled!% io-op)
+                   ((Ok a)
+                    a)
+                   ((Err io-err)
+                    (match io-err
+                      ((UnhandledError _ throw-thunk)
+                       (throw-thunk)
+                       (error "Malformed UnhandledError throw-thunk"))
+                      ((HandledError _ err-thunk)
+                       (err-thunk)
+                       (error "Malformed HandledError err-thunk"))))))
+               (when toplevel?
+                 (stop-and-join-children!% (current-thread!%)))
+               result))
+    (lisp :a (f)
+      ;; Only bind dynamic variables if at the top level
+      (cl:if *global-thread*
+             (call-coalton-function f False)
+             (cl:let* ((current-thread (call-coalton-function construct-toplevel-current-thread))
+                       (*current-thread* current-thread)
+                       (*global-thread* current-thread))
+               (call-coalton-function f True)))))
 
   (define-instance (Functor IO)
     (inline)
@@ -239,6 +284,7 @@ implement MonadException and handle asynchronous exception signals."
          ((Ok a)
           (Ok a))
          ((Err io-err)
+          ;; Don't allow accidentally masking the thread!
           (if (is-threading-exception io-err)
               (throw io-err)
               (match io-err

@@ -27,6 +27,12 @@
 (define-test test-run-wrapped-io ()
   (is (== 5 (run! (io-const 5)))))
 
+(define-test test-repeated-runs ()
+  (is (== 1 (run! (io-const 1))))
+  (is (== 2 (run! (io-const 2))))
+  (is (== 3 (run! (io-const 3))))
+  (is (== 4 (run! (io-const 4)))))
+
 (define-test test-do-notation ()
   (let result =
     (run!
@@ -153,8 +159,6 @@
        handle-te2)
       handle-te)))
   (is (== "Caught: Error" result)))
-
-(test-handle-different-type)
 
 (define-test test-unhandled-errors ()
   (let res =
