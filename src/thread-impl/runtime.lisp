@@ -32,7 +32,6 @@
    #:current-thread!%
    #:sleep!%
    #:fork!%
-   #:fork-throw!%
    #:join!%
    #:stop!%
    #:mask!%
@@ -100,6 +99,18 @@
   ;;; Basic Thread Type
   ;;;
 
+  (derive Eq)
+  (repr :enum)
+  (define-type ThreadStatus
+    "Lifecycle state for an IoThread's structured-concurrency scope.
+
+ThreadRunning  - accepts new structured children.
+ThreadClosing  - scope is closing; no new children may attach.
+ThreadClosed   - scope closed and drained." 
+    ThreadRunning
+    ThreadClosing
+    ThreadClosed)
+
   ;; TODO: (t:Thread :a) is just bt2:Thread. Given the design differences, this should
   ;; just use bt2 directly and coalton-threads dependency should be dropped.
 
@@ -145,6 +156,10 @@
   ;; signal from B or C because they signal with a stale generation.
   (define-struct IoThread
     (handle     (c:Cell (Optional (t:Thread (Result Dynamic Unit)))))
+    ;; Structured Concurrency
+    (status     (c:Cell ThreadStatus))
+    (children-lock lk:Lock)
+    (children   (c:Cell (List IoThread)))
     ;; Masking/Unmasking
     (flags      at:AtomicInteger)
     ;; Parking/Unparking
@@ -166,6 +181,9 @@
   (define (new-io-thread)
     (IoThread
      (c:new None)
+     (c:new ThreadRunning)
+     (lk:new)
+     (c:new Nil)
      (at:new CLEAN)
      (at:new 0)
      (at:new 0)
@@ -227,6 +245,9 @@ thread is alive before interrupting."
   (define (construct-toplevel-current-thread)
     (IoThread
      (c:new (Some (current-native-thread%)))
+     (c:new ThreadRunning)
+     (lk:new)
+     (c:new Nil)
      (at:new CLEAN)
      (at:new 0)
      (at:new 0)
@@ -254,61 +275,156 @@ thread is alive before interrupting."
     (lisp IoThread ()
       *current-thread*))
 
-  (derive Eq)
-  (repr :enum)
-  (define-type UnhandledExceptionStrategy
-    ThrowException
-    LogAndSwallow)
+  ;;;
+  ;;; Structured Concurrency
+  ;;;
 
   (inline)
-  (declare fork-inner!% (UnhandledExceptionStrategy -> (Unit -> Result Dynamic :a) -> IoThread))
-  (define (fork-inner!% exc-strat thunk)
+  (declare pending-stop?% (IoThread -> Boolean))
+  (define (pending-stop?% thread)
+    (matches-flag (at:read (.flags thread)) PENDING-KILL))
+
+  (declare remove-child-from-scope!% (IoThread -> IoThread -> Unit))
+  (define (remove-child-from-scope!% scope child)
+    (lk:acquire (.children-lock scope))
+    (let old = (c:read (.children scope)))
+    (let new =
+      ((rec % (xs)
+         (match xs
+           ((Nil) Nil)
+           ((Cons x rest)
+            (if (== x child)
+                (% rest)
+                (Cons x (% rest))))))
+       old))
+    (c:write! (.children scope) new)
+    (lk:release (.children-lock scope))
+    Unit)
+
+  (declare add-child-to-scope!% (IoThread -> IoThread -> Unit))
+  (define (add-child-to-scope!% scope child)
+    (c:write! (.children scope) (Cons child (c:read (.children scope))))
+    Unit)
+
+  (declare close-scope!% (IoThread -> Unit))
+  (define (close-scope!% scope)
+    ;; Mark closing + snapshot owned children under lock.
+    (lk:acquire (.children-lock scope))
+    (let st = (c:read (.status scope)))
+    (if (== ThreadRunning st)
+        (progn
+          (c:write! (.status scope) ThreadClosing)
+          (let children = (c:read (.children scope)))
+          (c:write! (.children scope) Nil)
+          (lk:release (.children-lock scope))
+          ;; Stop + join outside the lock.
+          ((rec % (xs)
+             (match xs
+               ((Nil) Unit)
+               ((Cons child rest)
+                (stop!% child)
+                (let _ = (join!% child))
+                (% rest))))
+           children)
+          (lk:acquire (.children-lock scope))
+          (c:write! (.status scope) ThreadClosed)
+          (lk:release (.children-lock scope))
+          Unit)
+        (progn
+          (lk:release (.children-lock scope))
+          Unit)))
+
+  (declare finalize-thread!% ((Optional IoThread) -> IoThread -> Unit))
+  (define (finalize-thread!% owner? self)
+    ;; Make finalization uninterruptible.
+    (mask-current-thread!%)
+    (close-scope!% self)
+    (match owner?
+      ((None) Unit)
+      ((Some owner)
+       (remove-child-from-scope!% owner self)))
+    Unit)
+
+  (declare handle-fork-result!% (UnhandledExceptionStrategy -> (Result Dynamic :a) -> (Result Dynamic Unit)))
+  (define (handle-fork-result!% exc-strat res)
+    (match res
+      ((Ok _)
+       (Ok Unit))
+      ((Err e)
+       (if (can-cast-to? e (the (Proxy ThreadingException) Proxy))
+           (Ok Unit)
+           (match exc-strat
+             ((LogAndSwallow)
+              (lisp :a (e)
+                (cl:format cl:*error-output*
+                           "~%Unhandled exception occurred: ~a~%"
+                           e))
+              (Err e))
+             ((ThrowException)
+              (throw-dynamic e)
+              (Err e)))))))
+
+  (declare fork-native!% ((Optional IoThread) -> UnhandledExceptionStrategy -> (Unit -> Result Dynamic :a) -> IoThread))
+  (define (fork-native!% owner? exc-strat thunk)
     ;; Both the returning thread handle and the one made available to the child
     ;; thread have to have the IoThread packaged together before they do anything
-    ;; meaningful. As such, we'll construct it and then each thread will set
-    ;; native thread reference separately before they do any work. This guarantees
-    ;; it will be available in either thread before subsequent code could reference it,
-    ;; regardless of race conditions.
+    ;; meaningful.
     (let thread-container = (new-io-thread))
     (let native-thread =
-      ;; TODO: Could we use bt:make-threads's initial-bindings param to replace this
-      ;; dynamic binding nonsense?? That would involve wrapping bt directly but honestly
-      ;; we're basically there.
-      ;; See https://sionescu.github.io/bordeaux-threads/threads/make-thread/
       (t:spawn (fn ()
+                 ;; Set the child-visible native handle immediately.
                  (c:write! (.handle thread-container)
                            (Some (current-native-thread%)))
-                 (let res =
-                   (lisp (Result Dynamic :a) (thunk thread-container)
-                     (cl:let ((*current-thread* thread-container))
-                       (call-coalton-function thunk))))
-                 (match res
-                   ((Ok _)
-                    (Ok Unit))
-                   ((Err e)
-                    (if (can-cast-to? e (the (Proxy ThreadingException) Proxy))
-                       (Ok Unit)
-                       (match exc-strat
-                         ((LogAndSwallow)
-                          (lisp :a (e)
-                            (cl:format cl:*error-output*
-                                       "~%Unhandled exception occurred: ~a~%"
-                                       e))
-                          (Err e))
-                         ((ThrowException)
-                          (throw-dynamic e)))))))))
+                 ;; Run the user thunk and honor exc strategy, but always finalize.
+                 (lisp (Result Dynamic Unit) (thunk thread-container exc-strat owner?)
+                   (cl:let ((*current-thread* thread-container))
+                     (cl:unwind-protect
+                         (cl:let ((res (call-coalton-function thunk)))
+                           (call-coalton-function handle-fork-result!% exc-strat res))
+                       (call-coalton-function finalize-thread!% owner? thread-container)))))))
+    ;; Parent-visible native handle.
     (c:write! (.handle thread-container) (Some native-thread))
     thread-container)
 
-  (inline)
-  (declare fork!% ((Unit -> Result Dynamic :a) -> IoThread))
-  (define (fork!% thunk)
-    (fork-inner!% LogAndSwallow thunk))
+  (declare fork-attached!% (IoThread -> UnhandledExceptionStrategy -> (Unit -> Result Dynamic :a) -> IoThread))
+  (define (fork-attached!% owner exc-strat thunk)
+    ;; Prevent being stopped while holding the owner's child lock.
+    (mask-current-thread!%)
+    (lk:acquire (.children-lock owner))
+    (let st = (c:read (.status owner)))
+    (when (/= st ThreadRunning)
+      (lk:release (.children-lock owner))
+      (unmask-current-thread!%)
+      (error "Attempted to fork into a closing/closed thread scope."))
+    ;; Re-check pending stop after acquiring the lock.
+    (when (pending-stop?% (current-io-thread%))
+      (lk:release (.children-lock owner))
+      (unmask-current-thread!%)
+      (error "Attempted to fork while a stop was pending on the current thread."))
+    (let child = (fork-native!% (Some owner) exc-strat thunk))
+    ;; Register only after the child has a native handle set (fork-native!% does this).
+    (add-child-to-scope!% owner child)
+    (lk:release (.children-lock owner))
+    (unmask-current-thread!%)
+    child)
+
+  (declare fork-detached!% (UnhandledExceptionStrategy -> (Unit -> Result Dynamic :a) -> IoThread))
+  (define (fork-detached!% exc-strat thunk)
+    (fork-native!% None exc-strat thunk))
 
   (inline)
-  (declare fork-throw!% ((Unit -> Result Dynamic :a) -> IoThread))
-  (define (fork-throw!% thunk)
-    (fork-inner!% ThrowException thunk))
+  (declare fork!% ((ForkStrategy IoThread) -> (Unit -> Result Dynamic :a) -> IoThread))
+  (define (fork!% strat thunk)
+    ;; If we already have a pending stop, don't bother forking.
+    (when (pending-stop?% (current-io-thread%))
+      (error "Attempted to fork while a stop was pending on the current thread."))
+    (match (.scope strat)
+      ((Detached)
+       (fork-detached!% (.unhandled strat) thunk))
+      ((Structured)
+       (fork-attached!% (current-io-thread%) (.unhandled strat) thunk))
+      ((StructuredIn owner)
+       (fork-attached!% owner (.unhandled strat) thunk))))
 
   (inline)
   (declare join!% (IoThread -> Result Dynamic Unit))
