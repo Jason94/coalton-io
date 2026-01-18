@@ -109,17 +109,17 @@
     "Controls what happens when a forked thread raises an exception that is not a
 ThreadingException.
 
-* ThrowException  - immediately throws the Dynamic value in the child thread.
-* LogAndSwallow   - logs the exception to *ERROR-OUTPUT* and swallows it until/if joined."
+  - ThrowException: Immediately throws the Dynamic value in the child thread.
+  - LogAndSwallow:  Logs the exception to *ERROR-OUTPUT* and swallows it until/if joined."
     ThrowException
     LogAndSwallow)
 
   (define-type (ForkScope :t)
     "Controls whether a forked thread is attached to a scope, and if so which one.
 
-* Structured       - attach to the current thread's scope.
-* StructuredIn :t  - attach to the provided thread handle's scope (ZIO forkIn).
-* Detached         - do not attach to any scope; the thread may outlive its parent."
+  - Structured:   Attach to the current thread's scope.
+  - StructuredIn: Attach to the provided thread handle's scope.
+  - Detached:     Do not attach to any scope; the thread may outlive its parent."
     Structured
     Detached
     (StructuredIn :t))
