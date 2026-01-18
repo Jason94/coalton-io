@@ -43,6 +43,9 @@
    #:unmask-current-thread-finally!%
    #:unmask-current-thread-finally%
    #:unmask-current-thread!%
+   #:stop-and-join-children!%
+   #:*current-thread*
+   #:*global-thread*
 
    #:park-current-thread-if!%
    #:unpark-thread!%
@@ -257,8 +260,6 @@ Concurrent:
      (c:new Nil)
      )))
 
-;; BUG: Both of these need to be set in the IO top-level runner, in case an IO
-;; is run from a different thread than the main thread.
 (cl:defvar *global-thread*
   (call-coalton-function construct-toplevel-current-thread)
   "Hold a reference to the global thread. Used for Detached fork scope.")
