@@ -433,12 +433,20 @@ was stopping/stopped and the child should not start."
   (inline)
   (declare mask!% (IoThread -> Unit))
   (define (mask!% thread)
+    ;; CONCURRENT:
+    ;;   - Stops thread if it was previously unmasked AND the pending stop was
+    ;;     previously set. Prevents a race condition where a stopped thread is
+    ;;     masked between checking for unmasked and throwing the exception.
+    ;; TODO: Add that mask is allowed to stop in weird edge-cases to the runtime
+    ;; documentation.
     (let flags = (.flags thread))
     (rec % ()
       (let old = (at:read flags))
       (let new = (mask-once% old))
       (if (at:cas! flags old new)
-          (Tuple old new)
+          ;; The PENDING-KILL bitmask is the kill bit set with no masking bits set
+          (when  (== old PENDING-KILL)
+            (interrupt-iothread% thread))
           (%)))
     Unit)
 
@@ -581,10 +589,6 @@ just be limited to implementing only solutions #2 or #3.
          (fn (run)
            (wrap-io (unmask-current-thread-finally!% (fn (m) (run! (run (thunk m))))))))))
 
-  ;; BUG: There's a race condition if another thread trying to stop the target thread
-  ;; finishes the unmasked check, and before it actually triggers the interrupt, the
-  ;; target thread masks itself and enters a critical region. To fix this, mask should
-  ;; stop if the pending kill bit was set and the old bitset was unmasked.
   (inline)
   (declare stop!% (IoThread -> Unit))
   (define (stop!% thread)
