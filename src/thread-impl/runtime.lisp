@@ -156,12 +156,15 @@
     (handle     (c:Cell (Optional (t:Thread (Result Dynamic Unit)))))
     ;; Masking/Unmasking
     (flags      at:AtomicInteger)
+    (stop-lk    lk:Lock)
     ;; Parking/Unparking
     (generation at:AtomicInteger)
     (fired-gen  at:AtomicInteger)
     (park-lock  lk:Lock)
     (park-cv    cv:ConditionVariable)
     ;; Structured Concurrency
+    ;; NOTE: status is protected by the child-lk, and can only be touched with that
+    ;; lock held.
     (status     (c:Cell ThreadStatus))
     (child-lk   lk:Lock)
     (children   (c:Cell (List IoThread)))
@@ -181,6 +184,7 @@
     (IoThread
      (c:new None)
      (at:new CLEAN)
+     (lk:new)
      (at:new 0)
      (at:new 0)
      (lk:new)
@@ -227,17 +231,32 @@ thread is alive before interrupting.
 
 Concurrent:
   - Masks the thread before throwing the exception. Prevents another thread stopping again
-    before the thread completes cleanup."
-    (let native-thread? = (c:read (.handle thd)))
-    (match native-thread?
-      ((None)
-       (error "Tried to kill misconstructed thread."))
-      ((Some native-thread)
-       (mask!% thd)
-       (lisp Void (native-thread)
-         (cl:when (bt:thread-alive-p native-thread)
-           (bt:error-in-thread native-thread (InterruptCurrentThread ""))))
-       Unit)))
+    before the thread completes cleanup.
+  - Locks both child-lk (to protect status) and stop-lk (to protect stop race conditions)
+  - Masks around the critical region"
+    ;; TODO: It might be possible to only use the child lock here, but I'd be nervous about
+    ;; leaning on that for too much
+    (mask-current-thread!%)
+    (lk:acquire (.stop-lk thd))
+    (lk:acquire (.child-lk thd))
+    (let should-interrupt = (== ThreadRunning (c:read (.status thd))))
+    (when should-interrupt
+      (c:write! (.status thd) ThreadStopping)
+      Unit)
+    (lk:release (.child-lk thd))
+    (lk:release (.stop-lk thd))
+    (unmask-current-thread!%)
+    (when should-interrupt
+      (let native-thread? = (c:read (.handle thd)))
+      (match native-thread?
+        ((None)
+         (error "Tried to kill misconstructed thread."))
+        ((Some native-thread)
+         (mask!% thd)
+         (lisp Void (native-thread)
+           (cl:when (bt:thread-alive-p native-thread)
+             (bt:error-in-thread native-thread (InterruptCurrentThread ""))))
+         Unit))))
   )
 
 ;; To make sure that child threads have access to their current thread, store it
@@ -251,6 +270,7 @@ Concurrent:
     (IoThread
      (c:new (Some (current-native-thread%)))
      (at:new CLEAN)
+     (lk:new)
      (at:new 0)
      (at:new 0)
      (lk:new)
@@ -301,7 +321,6 @@ was stopping/stopped and the child should not start."
   (define (stop-and-join-children!% thread)
     "Concurrent: WARNING, does not mask! This MUST be run inside a masked region."
     (lk:acquire (.child-lk thread))
-    (c:write! (.status thread) ThreadStopping)
     (for child in (c:read (.children thread))
       (stop!% child))
     (for child in (c:read (.children thread))
@@ -386,16 +405,16 @@ was stopping/stopped and the child should not start."
         ((StructuredIn t)
          t)))
     (let child-should-run? = (subscribe-child!% thread-container parent))
-    (when child-should-run?
-      (let native-thread =
-        ;; TODO: Could we use bt:make-threads's initial-bindings param to replace this
-        ;; dynamic binding nonsense?? That would involve wrapping bt directly but honestly
-        ;; we're basically there.
-        ;; See https://sionescu.github.io/bordeaux-threads/threads/make-thread/
-        (t:spawn (fn ()
-                   (thread-runner!% strategy thread-container thunk))))
-      (c:write! (.handle thread-container) (Some native-thread))
-      Unit)
+    (let native-thread =
+      ;; TODO: Could we use bt:make-threads's initial-bindings param to replace this
+      ;; dynamic binding nonsense?? That would involve wrapping bt directly but honestly
+      ;; we're basically there.
+      ;; See https://sionescu.github.io/bordeaux-threads/threads/make-thread/
+      (t:spawn (fn ()
+                 (if child-should-run?
+                   (thread-runner!% strategy thread-container thunk)
+                   (Ok Unit)))))
+    (c:write! (.handle thread-container) (Some native-thread))
     thread-container)
 
   (inline)
@@ -437,8 +456,6 @@ was stopping/stopped and the child should not start."
     ;;   - Stops thread if it was previously unmasked AND the pending stop was
     ;;     previously set. Prevents a race condition where a stopped thread is
     ;;     masked between checking for unmasked and throwing the exception.
-    ;; TODO: Add that mask is allowed to stop in weird edge-cases to the runtime
-    ;; documentation.
     (let flags = (.flags thread))
     (rec % ()
       (let old = (at:read flags))
