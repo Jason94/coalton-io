@@ -363,11 +363,8 @@ was stopping/stopped and the child should not start."
     (catch
         (progn
           (unmask!% thread-container)
-          (let res =
-            (c:new
-             (lisp (Result Dynamic :a) (thunk thread-container)
-               (cl:let ((*current-thread* thread-container))
-                 (call-coalton-function thunk)))))
+          (let res = (c:new (thunk)))
+          ;; NOTE: The current thread is the thread-container thread at this point
           (mask-current-thread!%)
           (stop-and-join-children!% thread-container)
           (unmask-current-thread!%)
@@ -412,9 +409,14 @@ was stopping/stopped and the child should not start."
       ;; See https://sionescu.github.io/bordeaux-threads/threads/make-thread/
       (t:spawn (fn ()
                  (if child-should-run?
-                   (thread-runner!% strategy thread-container thunk)
+                     (lisp (Result Dynamic :a) (strategy thunk thread-container)
+                       (cl:let ((*current-thread* thread-container))
+                         (call-coalton-function thread-runner!% strategy thread-container thunk)))
                    (Ok Unit)))))
     (c:write! (.handle thread-container) (Some native-thread))
+    (when (not child-should-run?)
+      (c:write! (.status thread-container) ThreadStopped)
+      Unit)
     thread-container)
 
   (inline)
