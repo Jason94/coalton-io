@@ -18,11 +18,21 @@
    ;; Re-exports from io/classes/monad-io-thread
    #:Generation
 
+   #:UnhandledExceptionStrategy
+   #:ThrowException
+   #:LogAndSwallow
+
+   #:ForkScope
+   #:Structured
+   #:Detached
+   #:StructuredIn
+
+   #:ForkStrategy
+
    #:Runtime
    #:current-thread!
    #:sleep!
    #:fork!
-   #:fork-throw!
    #:join!
    #:stop!
    #:mask!
@@ -43,8 +53,10 @@
    #:MonadIoThread
    #:derive-monad-io-thread
    #:current-thread
+   #:fork-thread-with
    #:fork-thread
    #:fork-thread-throw
+   #:fork-thread-in
    #:join-thread
    #:sleep
    #:mask-thread
