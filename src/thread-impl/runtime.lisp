@@ -278,20 +278,24 @@ Concurrent:
     (lisp IoThread ()
       *current-thread*))
 
-  (declare subscribe-child!% (IoThread -> IoThread -> Unit))
+  (declare subscribe-child!% (IoThread -> IoThread -> Boolean))
   (define (subscribe-child!% child parent)
-    "Subscribe child to parent if the parent has Running status."
+    "Subscribe child to parent if the parent has Running status. Returns TRUE
+if the parent was running and the child should continue, FALSE if the parent
+was stopping/stopped and the child should not start."
     ;; CONCURRENT:
     ;; - Masks around entire critical region
     ;; - Don't need to mask parent thread beacuse holding the child lock prevents race
     ;;   condition in case where parent tries to stop before child gets subscribed
     (mask-current-thread!%)
     (lk:acquire (.child-lk parent))
-    (when (== (c:read (.status parent)) ThreadRunning)
+    (let should-run? = (== (c:read (.status parent)) ThreadRunning))
+    (when should-run?
       (c:push! (.children parent) child)
       Unit)
     (lk:release (.child-lk parent))
-    (unmask-current-thread!%))
+    (unmask-current-thread!%)
+    should-run?)
 
   (declare stop-and-join-children!% (IoThread -> Unit))
   (define (stop-and-join-children!% thread)
@@ -345,7 +349,9 @@ Concurrent:
              (lisp (Result Dynamic :a) (thunk thread-container)
                (cl:let ((*current-thread* thread-container))
                  (call-coalton-function thunk)))))
+          (mask-current-thread!%)
           (stop-and-join-children!% thread-container)
+          (unmask-current-thread!%)
           (match (c:read res)
             ((Ok _)
              (Ok Unit))
@@ -379,15 +385,17 @@ Concurrent:
            *global-thread*))
         ((StructuredIn t)
          t)))
-    (subscribe-child!% thread-container parent)
-    (let native-thread =
-      ;; TODO: Could we use bt:make-threads's initial-bindings param to replace this
-      ;; dynamic binding nonsense?? That would involve wrapping bt directly but honestly
-      ;; we're basically there.
-      ;; See https://sionescu.github.io/bordeaux-threads/threads/make-thread/
-      (t:spawn (fn ()
-                 (thread-runner!% strategy thread-container thunk))))
-    (c:write! (.handle thread-container) (Some native-thread))
+    (let child-should-run? = (subscribe-child!% thread-container parent))
+    (when child-should-run?
+      (let native-thread =
+        ;; TODO: Could we use bt:make-threads's initial-bindings param to replace this
+        ;; dynamic binding nonsense?? That would involve wrapping bt directly but honestly
+        ;; we're basically there.
+        ;; See https://sionescu.github.io/bordeaux-threads/threads/make-thread/
+        (t:spawn (fn ()
+                   (thread-runner!% strategy thread-container thunk))))
+      (c:write! (.handle thread-container) (Some native-thread))
+      Unit)
     thread-container)
 
   (inline)
@@ -573,6 +581,10 @@ just be limited to implementing only solutions #2 or #3.
          (fn (run)
            (wrap-io (unmask-current-thread-finally!% (fn (m) (run! (run (thunk m))))))))))
 
+  ;; BUG: There's a race condition if another thread trying to stop the target thread
+  ;; finishes the unmasked check, and before it actually triggers the interrupt, the
+  ;; target thread masks itself and enters a critical region. To fix this, mask should
+  ;; stop if the pending kill bit was set and the old bitset was unmasked.
   (inline)
   (declare stop!% (IoThread -> Unit))
   (define (stop!% thread)
