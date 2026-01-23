@@ -199,6 +199,16 @@
   (define PENDING-KILL (b:shift 0 1))
 
   (inline)
+  (declare atomic-remove-pending-kill (at:AtomicInteger -> Word))
+  (define (atomic-remove-pending-kill at-int)
+    "Atomically remove the pending kill bit. Return the old bitmask."
+    (let old = (at:read at-int))
+    (let new = (b:shift 1 (b:shift -1 old)))
+    (if (at:cas! at-int old new)
+        old
+        (atomic-remove-pending-kill at-int)))
+
+  (inline)
   (declare mask-once% (Word -> Word))
   (define (mask-once% word)
     (+ word 2))
@@ -270,6 +280,7 @@ Concurrent:
     (when should-interrupt
       (c:write! (.status thd) ThreadStopping)
       Unit)
+    (atomic-remove-pending-kill (.flags thd))
     (lk:release (.child-lk thd))
     (lk:release (.stop-lk thd))
     (unmask-current-thread!%)
