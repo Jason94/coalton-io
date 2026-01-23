@@ -98,6 +98,7 @@ _coalton-io_ provides the following features in these packages:
 * `io/conc/future`- Futures that run an `IO` computation in another thread and return the value to the calling thread
 * `io/conc/atomic`- Atomic mutable variables for sharing state across threads
 * `io/conc/mvar`  - Provides `MVar`s (synchronized single-value mutable stores to hand off data between threads) and `MChan`s (thread safe FIFO queues to stream data between threads)
+* `io/conc/parking` - Park and unpark threads to wait on multiple conditions
 * `io/conc/stm`   - Atomically run transactions on mutable memory shared between threads
 * `io/conc/group` - `ConcurrentGroup`s that atomically manage the masking, stopping, and awaiting of a group of `Concurrent`s
 * `io/conc/worker-pool` - Pool of worker threads that execute tasks submitted to the pool.
