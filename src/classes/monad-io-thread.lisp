@@ -22,6 +22,9 @@
   (:export
    ;; Library Public
    #:Generation
+   #:TimeoutStrategy
+   #:Timeout
+   #:NoTimeout
 
    #:UnhandledExceptionStrategy
    #:ThrowException
@@ -101,6 +104,12 @@
   (repr :transparent)
   (define-type Generation
     (Generation at::Word))
+
+  (derive Eq)
+  (define-type TimeoutStrategy
+    "Controls whether blocking IO operations use a timeout in milliseconds."
+    (Timeout Double-Float)
+    NoTimeout)
 
   (derive Eq)
   (repr :enum)

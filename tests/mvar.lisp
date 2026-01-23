@@ -575,3 +575,75 @@
       (s-signal s-stopped)
       (take-mvar result))))
   (is (== (Some True) result)))
+
+;;;
+;;; Test the "-with" timeout functions
+;;;
+
+(define-test test-take-with-happy-path ()
+  (let result =
+    (run-io!
+     (do
+      (mv <- (new-mvar True))
+      (take-mvar-with (Timeout 1) mv))))
+  (is (== True result)))
+
+(define-test test-take-with-timeout ()
+  (let result =
+    (the (Optional Boolean)
+         (run-io!
+          (do
+           (mv <- new-empty-mvar)
+           (try-all (take-mvar-with (Timeout 1) mv))))))
+  (is (== None result)))
+
+(define-test test-put-with-happy-path ()
+  (let result =
+    (run-io!
+     (do
+      (mv <- new-empty-mvar)
+      (put-mvar-with (Timeout 1) mv True)
+      (read-mvar mv))))
+  (is (== True result)))
+
+(define-test test-put-with-timeout ()
+  (let result =
+    (run-io!
+     (do
+      (mv <- (new-mvar False))
+      (try-all (put-mvar-with (Timeout 1) mv True)))))
+  (is (== None result)))
+
+(define-test test-read-with-happy-path ()
+  (let result =
+    (run-io!
+     (do
+      (mv <- (new-mvar True))
+      (read-mvar-with (Timeout 1) mv))))
+  (is (== True result)))
+
+(define-test test-read-with-timeout ()
+  (let result =
+    (the (Optional Boolean)
+         (run-io!
+          (do
+           (mv <- new-empty-mvar)
+           (try-all (read-mvar-with (Timeout 1) mv))))))
+  (is (== None result)))
+
+(define-test test-swap-with-happy-path ()
+  (let result =
+    (run-io!
+     (do
+      (mv <- (new-mvar True))
+      (swap-mvar-with (Timeout 1) mv False))))
+  (is (== True result)))
+
+(define-test test-swap-with-timeout ()
+  (let result =
+    (the (Optional Boolean)
+         (run-io!
+          (do
+           (mv <- new-empty-mvar)
+           (try-all (swap-mvar-with (Timeout 1) mv False))))))
+  (is (== None result)))

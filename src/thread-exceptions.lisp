@@ -14,6 +14,8 @@
    #:SynchronousThreadException
    #:JoinedFailedThread
    #:SynchronousThreadException/JoinedFailedThread
+   #:TimeoutException
+   #:SynchronousThreadException/TimeoutException
 
    #:UnmaskFinallyMode
    #:Stopped
@@ -63,14 +65,17 @@ IoError containing a ThreadingException."
   (define-exception SynchronousThreadException
     "Exceptions that a thread raises whenever it encounters a threading
 related problem. Unlike ThreadingException, these are actual exceptions."
-    (JoinedFailedThread Dynamic))
+    (JoinedFailedThread Dynamic)
+    (TimeoutException String))
 
   (define-instance (Signalable SynchronousThreadException)
     (define (error x)
       (match x
         ((JoinedFailedThread inner-err)
          (error (build-str "Attempted to join a failed thread. Thread failed with error: "
-                           (force-string inner-err)))))))
+                           (force-string inner-err))))
+        ((TimeoutException msg)
+         (error msg)))))
 
   (derive Eq)
   (repr :enum)

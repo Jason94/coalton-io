@@ -21,6 +21,7 @@
    #:new-broadcast-pool
    #:publish
    #:subscribe
+   #:subscribe-with
    ))
 (in-package :io/thread-impl/data-broadcast-pool)
 
@@ -128,22 +129,34 @@ THE THREAD IS MASKED."
       (unmask-current-thread!%)
       ))
 
-  (declare subscribe (Runtime :rt :t => Proxy :rt -> DataBroadcastPool :a -> :a))
-  (define (subscribe rt-prx pool)
+  ;; TODO: Remove lambda when this is fixed:
+  ;; https://github.com/coalton-lang/coalton/issues/1719
+  (declare subscribe-with (Runtime :rt :t
+                           => Proxy :rt -> TimeoutStrategy -> DataBroadcastPool :a -> :a))
+  (define (subscribe-with rt-prx strategy pool)
     "Subscribe to the pool, and block until a publish is made."
     (mask-current-thread!%)
     (lk:acquire (.notify-lock pool))
     (at:atomic-inc1 (.n-subscribers pool))
     (let version = (at:read-at-int (.version pool)))
+    (let f =
+      (fn ()
+        (unmask-and-await-safely-finally-with%
+         rt-prx
+         strategy
+         (.notify-cv pool)
+         (.notify-lock pool)
+         (fn ()
+           (when (< version (at:read-at-int (.version pool)))
+             (checkout!% version (.version-entries pool))
+             Unit)))))
     (rec % ()
-      (unmask-and-await-safely-finally%
-       rt-prx
-       (.notify-cv pool)
-       (.notify-lock pool)
-       (fn ()
-         (when (< version (at:read-at-int (.version pool)))
-           (checkout!% version (.version-entries pool))
-           Unit)))
+      (catch (inline (f))
+       ((TimeoutException msg)
+        (lk:release (.notify-lock pool))
+        (at:atomic-dec1 (.n-subscribers pool))
+        (unmask-current-thread!%)
+        (throw (TimeoutException msg))))
       ;; Protect against spurious wake-ups
       (when (== version (at:read-at-int (.version pool)))
         (%)))
@@ -151,5 +164,10 @@ THE THREAD IS MASKED."
     (let result = (checkout!% version (.version-entries pool)))
     (unmask-current-thread!%)
     result)
+
+  (declare subscribe (Runtime :rt :t => Proxy :rt -> DataBroadcastPool :a -> :a))
+  (define (subscribe rt-prx pool)
+    "Subscribe to the pool, and block until a publish is made."
+    (subscribe-with rt-prx NoTimeout pool))
 
   )
