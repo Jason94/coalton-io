@@ -349,11 +349,14 @@ was stopping/stopped and the child should not start."
         (Ok Unit)
         (match (.unhandled strategy)
           ((LogAndSwallow)
-           (lisp :a (e)
-             (cl:format cl:*error-output*
-                        "~%Unhandled exception occurred: ~a~%"
-                        e))
-           (Err e))
+           (if (dynamic-is-threading-exception? e)
+               (Ok Unit)
+               (progn
+                 (lisp :a (e)
+                   (cl:format cl:*error-output*
+                              "~%Unhandled exception occurred: ~a~%"
+                              e))
+                 (Err e))))
           ((Swallow)
            (Err e))
           ((ThrowException)
