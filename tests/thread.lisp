@@ -9,6 +9,8 @@
         #:io/conc/mvar
         #:io/tests/utils
         )
+  (:import-from #:io/gen-impl/thread
+    #:write-line-sync)
   (:local-nicknames
    (:tm #:io/term)
    (:opt #:coalton-library/optional)
@@ -41,11 +43,12 @@
         (flag <- (new-var Unset))
         (fork-thread_
           (do
-            (wrap-io (lk:acquire lock))
-            (write flag Set)
-            (wrap-io (lk:release lock))))
+           (wrap-io (lk:acquire lock))
+           (write flag Set)
+           (wrap-io (lk:release lock))))
         (rec % ()
           (do
+            (sleep 1)
             (got <- (wrap-io (lk:acquire-no-wait lock)))
             (if got
                 (do
@@ -71,6 +74,7 @@
           (wrap-io (lk:release lock)))
         (rec % ()
           (do
+            (sleep 1)
             (got <- (wrap-io (lk:acquire-no-wait lock)))
             (if got
                 (do
@@ -146,6 +150,17 @@
       (sleep 4)
       (read flag))))
   (is (== Unset result)))
+
+(define-test test-stop-finished-thread-doesnt-raise ()
+  (let result =
+    (run-io!
+     (do
+      (thread <-
+        (do-fork-thread_
+          (pure Unit)))
+      (await thread)
+      (pure True))))
+  (is (== True result)))
 
 (define-test test-current-thread ()
   (let (Tuple outer-handle inner-handle) =

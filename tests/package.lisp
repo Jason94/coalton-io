@@ -20,6 +20,7 @@
                #:coalton-io/tests/resource-fiasco
                #:coalton-io/tests/thread-fiasco
                #:coalton-io/tests/thread-async-boundary-fiasco
+               #:coalton-io/tests/thread-impl/runtime/structured-conc-fiasco
                #:coalton-io/tests/mvar-fiasco
                #:coalton-io/tests/future-fiasco
                #:coalton-io/tests/io-atomic-fiasco

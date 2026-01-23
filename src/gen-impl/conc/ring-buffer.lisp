@@ -5,6 +5,7 @@
    #:coalton-prelude
    #:coalton-library/cell
    #:coalton-library/types
+   #:io/classes/monad-io
    #:io/classes/monad-io-thread
    #:io/classes/runtime-utils
    )
@@ -17,6 +18,11 @@
   (:export
    ;; Library Public
    #:RingBuffer
+
+   #:new-ring-buffer
+   #:enqueue
+   #:try-enqueue
+   #:dequeue
    
    ;; Library Private
    #:new-ring-buffer%
@@ -166,7 +172,7 @@ Concurrent: Can block acquiring lock on buffer."
     "Pop an element from BUFFER.
 
 Concurrent:
-  - Can block acquiring lock on buffer.
+  - Can block briefly while acquiring lock on buffer.
   - If empty, blocks until BUFFER is not empty."
     ;; CONCURRENT:
     ;; - Masks before entering the critical region
@@ -208,4 +214,46 @@ Concurrent:
             (unmask-current! rt-prx)
             elt)
           )))
+  )
+
+;;;
+;;; IO Wrappers
+;;;
+
+(coalton-toplevel
+
+  (inline)
+  (declare new-ring-buffer (MonadIoThread :rt :t :m => UFix -> :m (RingBuffer :a)))
+  (define (new-ring-buffer capacity)
+    "Create a new ring buffer with the given capacity."
+    (wrap-io (new-ring-buffer% capacity)))
+
+  (inline)
+  (declare enqueue (MonadIoThread :rt :t :m => :a -> RingBuffer :a -> :m Unit))
+  (define (enqueue elt buffer)
+    "Add ELT to BUFFER.
+
+Concurrent:
+  - Can block acquiring lock on buffer.
+  - If full, blocks until BUFFER is not full."
+    (inject-runtime enqueue!% elt buffer))
+
+  (inline)
+  (declare try-enqueue (MonadIothread :rt :t :m => :a -> RingBuffer :a -> :m Boolean))
+  (define (try-enqueue elt buffer)
+    "Attempt to add ELT to BUFFER. Returns True if equeue succeeded, False otherwise.
+
+Concurrent: Can block acquiring lock on buffer."
+    (inject-runtime try-enqueue!% elt buffer))
+
+  (inline)
+  (declare dequeue (MonadIoThread :rt :t :m => RingBuffer :a -> :m :a))
+  (define (dequeue buffer)
+    "Pop an element from BUFFER.
+
+Concurrent:
+  - Can block briefly while acquiring lock on buffer.
+  - If empty, blocks until BUFFER is not empty."
+    (inject-runtime dequeue!% buffer))
+
   )

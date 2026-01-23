@@ -8,7 +8,10 @@ _coalton-io_ provides tools to write safe, functional programs in Coalton that c
 * Mutating data
 * Generating random numbers
 * Terminal & File IO
-* Multithreading, with comprehensive support for stopping threads at any time and masking to protect critical areas
+* Multithreading, with comprehensive support for:
+  - Stopping threads at any time
+  - Structured concurrency to prevent orphaned threads
+  - Masking to protect critical areas
 * Safely sharing data between threads (_coalton-io_ provides Atomic variables, MVars, MChans, a Software Transactional Memory, Futures, Thread Pools, and more)
 
 `IO` is fast. Even in high-frequency hot loops, [benchmarks](benchmarks/bench.csv) show that `IO` is competitive (_within 50%-80% speed of impure Coalton_) with iterative, non-pure Coalton code. If hot loops don't need to execute effects inside the loop, then `IO` runs with no significant overhead.
@@ -221,6 +224,10 @@ The `fork` functions and macros return a handle to the thread object, which can 
    (sleep 20)
    (write-line "That was a close one"))
 ```
+
+Coalton-io uses _structured_ concurrency, which helps prevent orphaned threads. For example, suppose a thread sets up a `WorkerPool` and prepares to distribute tasks to the pool. But when it begins parsing the data, it raises an unhandled exception and the thread ends. The worker pool threads will automatically be cleaned up when the parent thread ends from the exception.
+
+Threads are forked as a child of a parent thread, which sets their scope. When a parent thread finishes, it stops and joins all of its child threads. The top-level `run!` also sets a `Detached` scope. Threads forked under the `Detached` scope will outlive the thread that forked them, but will be stopped when the top-level `run!` finishes. For more on structured concurrency, [read here](docs/runtime.md#structured-concurrency).
 
 ### Atomic Transactions (STM)
 

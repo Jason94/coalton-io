@@ -14,9 +14,9 @@
    )
   (:export
    #:fork-thread_
-   #:fork-thread-throw_
+   #:fork-thread-with_
    #:do-fork-thread_
-   #:do-fork-thread-throw_
+   #:do-fork-thread-with_
    #:unmask-thread-finally_
    #:unmask-finally_
    #:park-current-thread-if_
@@ -33,9 +33,9 @@
   (define fork-thread_ fork-thread)
 
   (inline)
-  (declare fork-thread-throw_ ((MonadIoThread IoRuntime IoThread :m) (LiftTo IO :m)
-                  => IO :a -> :m IoThread))
-  (define fork-thread-throw_ fork-thread-throw)
+  (declare fork-thread-with_ ((MonadIoThread IoRuntime IoThread :m) (LiftTo IO :m)
+                  => ForkStrategy IoThread -> IO :a -> :m IoThread))
+  (define fork-thread-with_ fork-thread-with)
 
   (inline)
   (declare unmask-thread-finally_ ((LiftTo IO :m) (MonadException :m)
@@ -70,7 +70,7 @@ Concurrent:
     (do
      ,@body)))
 
-(defmacro do-fork-thread-throw_ (cl:&body body)
-  `(fork-thread-throw_
+(defmacro do-fork-thread-with_ (strategy cl:&body body)
+  `(fork-thread-with_ ,strategy
     (do
      ,@body)))

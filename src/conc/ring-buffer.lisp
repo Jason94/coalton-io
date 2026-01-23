@@ -6,7 +6,12 @@
   (:export
    ;; Re-exports from io/gen-impl/conc/ring-buffer
    #:RingBuffer
-   
+
+   #:new-ring-buffer
+   #:enqueue
+   #:try-enqueue
+   #:dequeue
+
    ;; Re-exports from io/gen-impl/conc/ring-buffer-scheduler
    #:SchedulerError
    #:InvalidBoundedCapacityError

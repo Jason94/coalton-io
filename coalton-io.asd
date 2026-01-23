@@ -130,6 +130,9 @@ mutable variables, multithreading, and several data structures to safely share s
                  (:file "io-atomic")
                  (:file "mvar")
                  (:file "future")
+                 (:module "thread-impl"
+                  :serial t
+                  :components((:file "runtime--structured-conc")))
                  (:module "io-impl"
                   :serial t
                   :components ((:file "thread")))

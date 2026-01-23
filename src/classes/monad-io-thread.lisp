@@ -23,11 +23,22 @@
    ;; Library Public
    #:Generation
 
+   #:UnhandledExceptionStrategy
+   #:ThrowException
+   #:LogAndSwallow
+   #:Swallow
+
+   #:ForkScope
+   #:Structured
+   #:Detached
+   #:StructuredIn
+
+   #:ForkStrategy
+
    #:Runtime
    #:current-thread!
    #:sleep!
    #:fork!
-   #:fork-throw!
    #:join!
    #:stop!
    #:mask!
@@ -48,8 +59,8 @@
    #:MonadIoThread
    #:derive-monad-io-thread
    #:current-thread
+   #:fork-thread-with
    #:fork-thread
-   #:fork-thread-throw
    #:join-thread
    #:sleep
    #:mask-thread
@@ -59,8 +70,8 @@
    #:unmask-current-thread
    #:unmask-current-thread-finally
    #:stop-thread
+   #:do-fork-thread-with
    #:do-fork-thread
-   #:do-fork-thread-throw
    #:park-current-thread-if
    #:unpark-thread
 
@@ -90,6 +101,34 @@
   (repr :transparent)
   (define-type Generation
     (Generation at::Word))
+
+  (derive Eq)
+  (repr :enum)
+  (define-type UnhandledExceptionStrategy
+    "Controls what happens when a forked thread raises an exception that is not a
+ThreadingException.
+
+  - ThrowException: Immediately throws the Dynamic value in the child thread.
+  - LogAndSwallow:  Logs the exception to *ERROR-OUTPUT* and ignore it until/if joined.
+  - Swallow:        Ignore the error until/if joined."
+    ThrowException
+    LogAndSwallow
+    Swallow)
+
+  (define-type (ForkScope :t)
+    "Controls whether a forked thread is attached to a scope, and if so which one.
+
+  - Structured:   Attach to the current thread's scope.
+  - StructuredIn: Attach to the provided thread handle's scope.
+  - Detached:     Attach to the global scope; the thread will end with the toplevel run!."
+    Structured
+    Detached
+    (StructuredIn :t))
+
+  (define-struct (ForkStrategy :t)
+    "Strategy object controlling fork behavior (exception semantics + structured concurrency)."
+    (unhandled UnhandledExceptionStrategy)
+    (scope (ForkScope :t)))
 
   (define-instance (Ord Generation)
     (inline)
@@ -126,14 +165,12 @@ over the underlying thread type."
      (Proxy :r -> UFix -> Unit))
     (fork!
      "Spawn a new thread, which starts running immediately.
-Returns the handle to the thread."
-     (Proxy :r -> (Unit -> Result Dynamic :a) -> :t))
-    (fork-throw!
-     "Spawn a new thread, which starts running immediately. Returns
-the handle to the thread. If the thread raises an unhandled exception,
-throws immediately. The underlying system determines the result of the
-throw, but it could include terminating the whole program."
-     (Proxy :r -> (Unit -> Result Dynamic :a) -> :t))
+Returns the handle to the thread.
+
+The ForkStrategy controls both:
+  - how unhandled exceptions behave, and
+  - whether the fork is structured (and which thread's scope owns it)."
+     (Proxy :r -> (ForkStrategy :t) -> (Unit -> Result Dynamic :a) -> :t))
     (join!
      "Block the current thread until the target thread is completed.
 Does not a retrieve value. Raises an exception if the target thread
@@ -314,6 +351,23 @@ Assumes the output has type :m :a for some MonadIoThread :m."
 ;;; put the implementations into gen-impl/io-thread
 (coalton-toplevel
   (inline)
+  (declare fork-thread-with ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :r)
+                             => ForkStrategy :t -> :r :a -> :m :t))
+  (define (fork-thread-with strat op)
+    "Spawn a new thread using STRAT.
+
+This version can accept any underlying BaseIo, which can be useful, but
+causes inference issues in some cases."
+    (lift-to
+     (with-run-in-io
+       (fn (run)
+         (wrap-io
+           (fork! (get-runtime-for op)
+                  strat
+                  (fn (_)
+                    (run-handled! (run op)))))))))
+
+  (inline)
   (declare fork-thread ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :r)
                         => :r :a -> :m :t))
   (define (fork-thread op)
@@ -322,32 +376,8 @@ the handle to the thread. If the thread raises an unhandled exception,
 it will be logged to *ERROR-OUTPUT* and swallowed, until/if the thread
 is joined.
 
-This version can accept
-any underlying BaseIo, which can be useful, but causes inference
-issues in some cases."
-    (lift-to
-     (with-run-in-io
-         (fn (run)
-           (wrap-io
-             (fork! (get-runtime-for op)
-                    (fn (_)
-                      (run-handled! (run op)))))))))
-
-  (inline)
-  (declare fork-thread-throw ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :r)
-                              => :r :a -> :m :t))
-  (define (fork-thread-throw op)
-  "Spawn a new thread, which starts running immediately. Returns
-the handle to the thread. If the thread raises an unhandled exception,
-throws immediately. The underlying system determines the result of the
-throw, but it could include terminating the whole program."
-    (lift-to
-     (with-run-in-io
-       (fn (run)
-         (wrap-io
-          (fork-throw! (get-runtime-for op)
-                       (fn (_)
-                         (run-handled! (run op)))))))))
+This is the default fork behavior: structured + log-and-swallow."
+    (fork-thread-with (ForkStrategy LogAndSwallow Structured) op))
 
   (inline)
   (declare join-thread ((MonadIoThread :rt :t :m) (MonadException :m) => :t -> :m Unit))
@@ -506,8 +536,8 @@ Concurrent:
     (do
      ,@body)))
 
-(defmacro do-fork-thread-throw (cl:&body body)
-  `(fork-thread-throw
+(defmacro do-fork-thread-with (strategy cl:&body body)
+  `(fork-thread-with ,strategy
     (do
      ,@body)))
 
