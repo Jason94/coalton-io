@@ -10,14 +10,19 @@
    #:new-mvar
    #:new-empty-mvar
    #:take-mvar-masked
+   #:take-mvar-masked-with
    #:take-mvar
+   #:take-mvar-with
    #:put-mvar
+   #:put-mvar-with
    #:try-take-mvar
    #:try-take-mvar-masked
    #:try-put-mvar
    #:read-mvar
+   #:read-mvar-with
    #:try-read-mvar
    #:swap-mvar
+   #:swap-mvar-with
    #:is-empty-mvar
    #:do-with-mvar
 

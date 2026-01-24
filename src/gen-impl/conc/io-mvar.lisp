@@ -28,14 +28,19 @@
    #:new-mvar
    #:new-empty-mvar
    #:take-mvar-masked
+   #:take-mvar-masked-with
    #:take-mvar
+   #:take-mvar-with
    #:put-mvar
+   #:put-mvar-with
    #:try-take-mvar
    #:try-take-mvar-masked
    #:try-put-mvar
    #:read-mvar
+   #:read-mvar-with
    #:try-read-mvar
    #:swap-mvar
+   #:swap-mvar-with
    #:is-empty-mvar
    #:with-mvar
 
@@ -86,8 +91,8 @@ deadlocks and other race conditions."
             (cv:new)
             (at:new None))))
 
-  (declare take-mvar-masked-inner% (Runtime :rt :t => MVar :a -> Proxy :rt -> :a))
-  (define (take-mvar-masked-inner% mvar rt-prx)
+  (declare take-mvar-masked-inner% (Runtime :rt :t => TimeoutStrategy -> MVar :a -> Proxy :rt -> :a))
+  (define (take-mvar-masked-inner% strategy mvar rt-prx)
     "Concurrent: Leaves the thread masked once."
     ;; CONCURRENT: Masks before entering the critical region.
     ;; - unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
@@ -103,7 +108,7 @@ deadlocks and other race conditions."
     ;;   but before masking (very unlikely), notifies the next waiting read-consumer
     ;;   to prevent lost handoff.
     (mask-current! rt-prx)
-    (lk:acquire (.lock mvar))
+    (lk-acquire-with (.lock mvar) strategy)
     (let ((lp (fn ()
                 (match (at:read (.data mvar))
                   ((Some val)
@@ -112,14 +117,31 @@ deadlocks and other race conditions."
                    (cv:notify (.notify-empty mvar))
                    val)
                   ((None)
-                   (unmask-and-await-safely-finally%
+                   (unmask-and-await-safely-finally-with%
                     rt-prx
+                    strategy
                     (.notify-full mvar)
                     (.lock mvar)
                     (fn ()
                       (cv:notify (.notify-full mvar))))
-                   (lp))))))
+                    (lp))))))
       (lp)))
+
+  (inline)
+  (declare take-mvar-masked-with (MonadIoThread :rt :t :m => TimeoutStrategy -> MVar :a -> :m :a))
+  (define (take-mvar-masked-with strategy mvar)
+    "Take a value from an MVar, blocking until one is available.
+
+Concurrent:
+  - WARNING: Leaves the thread masked when returns to protect caller's critical regions
+    based on consuming and restoring MVar to a valid state. See MChan for an example.
+  - Blocks while the MVar is empty
+  - Read-consumers (including `take-mvar-masked`) are woken individual on succesfull puts,
+    in order of acquisition
+  - On succesful take, one blocking writer is woken in order of acquisition"
+    ;; CONCURRENT: Inherits CONCURRENT semantics from take-mvar-masked-inner%
+    (wrap-io-with-runtime (rt-prx)
+      (take-mvar-masked-inner% strategy mvar rt-prx)))
 
   (inline)
   (declare take-mvar-masked (MonadIoThread :rt :t :m => MVar :a -> :m :a))
@@ -133,13 +155,11 @@ Concurrent:
   - Read-consumers (including `take-mvar-masked`) are woken individual on succesfull puts,
     in order of acquisition
   - On succesful take, one blocking writer is woken in order of acquisition"
-    ;; CONCURRENT: Inherits CONCURRENT semantics from take-mvar-masked-inner%
-    (wrap-io-with-runtime (rt-prx)
-      (take-mvar-masked-inner% mvar rt-prx)))
+    (take-mvar-masked-with NoTimeout mvar))
 
   (inline)
-  (declare take-mvar (MonadIoThread :rt :t :m => MVar :a -> :m :a))
-  (define (take-mvar mvar)
+  (declare take-mvar-with (MonadIoThread :rt :t :m => TimeoutStrategy -> MVar :a -> :m :a))
+  (define (take-mvar-with strategy mvar)
     "Take a value from an MVar, blocking until one is available.
 
 Concurrent:
@@ -151,12 +171,24 @@ Concurrent:
     ;; Inherits CONCURRENT semantics from take-mvar-masked-inner%.
     ;; unmasks from take-mvar-masked-inner% before returning to caller.
     (wrap-io-with-runtime (rt-prx)
-      (let result = (take-mvar-masked-inner% mvar rt-prx))
+      (let result = (take-mvar-masked-inner% strategy mvar rt-prx))
       (unmask-current! rt-prx)
       result))
 
-  (declare put-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m Unit))
-  (define (put-mvar mvar val)
+  (inline)
+  (declare take-mvar (MonadIoThread :rt :t :m => MVar :a -> :m :a))
+  (define (take-mvar mvar)
+    "Take a value from an MVar, blocking until one is available.
+
+Concurrent:
+  - Blocks while the MVar is empty
+  - Read-consumers (including `take-mvar`) are woken individual on succesful puts,
+    in order of acquisition
+  - On succesful take, one blocking writer is woken in order of acquisition"
+    (take-mvar-with NoTimeout mvar))
+
+  (declare put-mvar-with (MonadIoThread :rt :t :m => TimeoutStrategy -> MVar :a -> :a -> :m Unit))
+  (define (put-mvar-with strategy mvar val)
     "Fill an empty MVar, blocking until it becomes empty.
 
 Concurrent:
@@ -182,7 +214,7 @@ Concurrent:
       (let lock = (.lock mvar))
       (let data = (.data mvar))
       (mask-current! rt-prx)
-      (lk:acquire lock)
+      (lk-acquire-with lock strategy)
       (let ((lp (fn ()
                   (match (at:read data)
                     ((None)
@@ -193,8 +225,9 @@ Concurrent:
                      (unmask-current! rt-prx)
                      Unit)
                     ((Some _)
-                     (unmask-and-await-safely-finally%
+                     (unmask-and-await-safely-finally-with%
                       rt-prx
+                      strategy
                       (.notify-empty mvar)
                       lock
                       (fn ()
@@ -202,8 +235,23 @@ Concurrent:
                      (lp))))))
         (lp))))
 
-  (declare try-take-mvar-masked-inner% (Runtime :rt :t => MVar :a -> Proxy :rt -> Optional :a))
-  (define (try-take-mvar-masked-inner% mvar rt-prx)
+  (inline)
+  (declare put-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m Unit))
+  (define (put-mvar mvar val)
+    "Fill an empty MVar, blocking until it becomes empty.
+
+Concurrent:
+  - Blocks while the MVar is full
+  - Writers (including `put-mvar`) are woken individual on succesful takes in order
+    of acquisition
+  - On succesful put, blocking read-consumers are woken individually in order of acquisition
+  - On succesful put, all blocking read-non-consumers are woken simultaneously. New data
+    is handed directly to woken read-non-consumers so they don't contend on the MVar."
+    (put-mvar-with NoTimeout mvar val))
+
+  (declare try-take-mvar-masked-inner%-with
+           (Runtime :rt :t => TimeoutStrategy -> MVar :a -> Proxy :rt -> Optional :a))
+  (define (try-take-mvar-masked-inner%-with strategy mvar rt-prx)
     "Concurrent: Leaves the thread masked once."
     ;; CONCURRENT:
     ;; - Does not need to mask until acquiring lock, because atomic read and function
@@ -219,7 +267,7 @@ Concurrent:
       ((None)
        None)
       ((Some _)
-       (lk:acquire (.lock mvar))
+       (lk-acquire-with (.lock mvar) strategy)
        (match (at:read (.data mvar))
          ((Some x)
           (at:atomic-write (.data mvar) None)
@@ -227,8 +275,14 @@ Concurrent:
           (cv:notify (.notify-empty mvar))
           (Some x))
          ((None)
-          (lk:release (.lock mvar))
-          None)))))
+         (lk:release (.lock mvar))
+         None)))))
+
+  (inline)
+  (declare try-take-mvar-masked-inner% (Runtime :rt :t => MVar :a -> Proxy :rt -> Optional :a))
+  (define (try-take-mvar-masked-inner% mvar rt-prx)
+    "Concurrent: Leaves the thread masked once."
+    (try-take-mvar-masked-inner%-with NoTimeout mvar rt-prx))
 
   (declare try-take-mvar (MonadIoThread :rt :t :m => MVar :a -> :m (Optional :a)))
   (define (try-take-mvar mvar)
@@ -296,8 +350,8 @@ Concurrent:
             (unmask-current! rt-prx)
             True))))))
 
-  (declare read-mvar (MonadIoThread :rt :t :m => MVar :a -> :m :a))
-  (define (read-mvar mvar)
+  (declare read-mvar-with (MonadIoThread :rt :t :m => TimeoutStrategy -> MVar :a -> :m :a))
+  (define (read-mvar-with strategy mvar)
     "Read a value from an MVar, blocking until one is available. Does not consume value.
 
 Concurrent:
@@ -312,7 +366,17 @@ Concurrent:
         ((Some x)
          x)
         ((None)
-         (subscribe rt-prx (.read-broadcast-pool mvar))))))
+         (subscribe-with rt-prx strategy (.read-broadcast-pool mvar))))))
+
+  (declare read-mvar (MonadIoThread :rt :t :m => MVar :a -> :m :a))
+  (define (read-mvar mvar)
+    "Read a value from an MVar, blocking until one is available. Does not consume value.
+
+Concurrent:
+  - Blocks while the MVar is empty
+  - Blocking read-non-consumers (including `read-mvar`) are woken simultaneously on 
+    succesful put. Data is handed directly to woken readers, which don't contend on mvar."
+    (read-mvar-with NoTimeout mvar))
 
   (declare try-read-mvar (MonadIoThread :rt :t :m => MVar :a -> :m (Optional :a)))
   (define (try-read-mvar mvar)
@@ -320,8 +384,8 @@ Concurrent:
     (wrap-io
       (at:read (.data mvar))))
 
-  (declare swap-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m :a))
-  (define (swap-mvar mvar new-val)
+  (declare swap-mvar-with (MonadIoThread :rt :t :m => TimeoutStrategy -> MVar :a -> :a -> :m :a))
+  (define (swap-mvar-with strategy mvar new-val)
     "Atomically replace the value in an MVar and return the old value.
 
 Concurrent:
@@ -339,7 +403,7 @@ Concurrent:
     ;;   to prevent lost handoff.
     (wrap-io-with-runtime (rt-prx)
       (mask-current! rt-prx)
-      (lk:acquire (.lock mvar))
+      (lk-acquire-with (.lock mvar) strategy)
       (let ((lp (fn ()
                   (match (at:read (.data mvar))
                     ((Some old-val)
@@ -349,8 +413,9 @@ Concurrent:
                      (unmask-current! rt-prx)
                      old-val)
                     ((None)
-                     (unmask-and-await-safely-finally%
+                     (unmask-and-await-safely-finally-with%
                       rt-prx
+                      strategy
                       (.notify-full mvar)
                       (.lock mvar)
                       (fn ()
@@ -358,12 +423,22 @@ Concurrent:
                      (lp))))))
         (lp))))
 
+  (inline)
+  (declare swap-mvar (MonadIoThread :rt :t :m => MVar :a -> :a -> :m :a))
+  (define (swap-mvar mvar new-val)
+    "Atomically replace the value in an MVar and return the old value.
+
+Concurrent:
+  - Blocks while the MVar is empty
+  - Wakes the next blocking read-consumer when `swap-mvar` completes"
+    (swap-mvar-with NoTimeout mvar new-val))
+
+  (inline)
   (declare is-empty-mvar (MonadIoThread :rt :t :m => MVar :a -> :m Boolean))
   (define (is-empty-mvar mvar)
     "Return True if the MVar is currently empty."
     (wrap-io
       (opt:none? (at:read (.data mvar)))))
-
   )
 
 (coalton-toplevel

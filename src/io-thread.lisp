@@ -17,6 +17,9 @@
 
    ;; Re-exports from io/classes/monad-io-thread
    #:Generation
+   #:TimeoutStrategy
+   #:Timeout
+   #:NoTimeout
 
    #:UnhandledExceptionStrategy
    #:ThrowException
