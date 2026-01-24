@@ -9,8 +9,10 @@
 
    #:new-ring-buffer
    #:enqueue
+   #:enqueue-with
    #:try-enqueue
    #:dequeue
+   #:dequeue-with
 
    ;; Re-exports from io/gen-impl/conc/ring-buffer-scheduler
    #:SchedulerError

@@ -30,6 +30,7 @@
    #:new-empty-chan
    #:push-chan
    #:pop-chan
+   #:pop-chan-with
    #:try-pop-chan
 
    #:with-mvar

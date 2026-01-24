@@ -21,14 +21,18 @@
 
    #:new-ring-buffer
    #:enqueue
+   #:enqueue-with
    #:try-enqueue
    #:dequeue
+   #:dequeue-with
    
    ;; Library Private
    #:new-ring-buffer%
    #:enqueue!%
+   #:enqueue-with!%
    #:try-enqueue!%
    #:dequeue!%
+   #:dequeue-with!%
    ))
 (in-package :io/gen-impl/conc/ring-buffer)
 
@@ -87,13 +91,13 @@
      (cv:new)
      (cv:new)))
 
-  (declare enqueue!% (Runtime :rt :t => Proxy :rt -> :a -> RingBuffer :a -> Unit))
-  (define (enqueue!% rt-prx elt buffer)
+  (declare enqueue-with!% (Runtime :rt :t => Proxy :rt -> :a -> TimeoutStrategy -> RingBuffer :a -> Unit))
+  (define (enqueue-with!% rt-prx elt strategy buffer)
     "Add ELT to BUFFER.
 
 Concurrent:
   - Can block acquiring lock on buffer.
-  - If full, blocks until BUFFER is not full."
+  - If full, blocks until BUFFER is not full, possibly timing out based on STRATEGY."
     ;; CONCURRENT:
     ;; - Masks before entering the critical region
     ;; - unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
@@ -112,8 +116,9 @@ Concurrent:
     (rec % ()
       (if (full?% buffer)
           (progn
-            (unmask-and-await-safely%
+            (unmask-and-await-safely-with%
              rt-prx
+             strategy
              (.notify-not-full buffer)
              (.lock buffer))
             (%))
@@ -129,6 +134,16 @@ Concurrent:
               (cv:broadcast (.notify-not-empty buffer)))
             (unmask-current! rt-prx))
             )))
+
+  (inline)
+  (declare enqueue!% (Runtime :rt :t => Proxy :rt -> :a -> RingBuffer :a -> Unit))
+  (define (enqueue!% rt-prx elt buffer)
+    "Add ELT to BUFFER.
+
+Concurrent:
+  - Can block acquiring lock on buffer.
+  - If full, blocks until BUFFER is not full."
+    (enqueue-with!% rt-prx elt NoTimeout buffer))
 
   (declare try-enqueue!% (Runtime :rt :t => Proxy :rt -> :a -> RingBuffer :a -> Boolean))
   (define (try-enqueue!% rt-prx elt buffer)
@@ -167,13 +182,13 @@ Concurrent: Can block acquiring lock on buffer."
           True)
         ))
 
-  (declare dequeue!% (Runtime :rt :t => Proxy :rt -> RingBuffer :a -> :a))
-  (define (dequeue!% rt-prx buffer)
+  (declare dequeue-with!% (Runtime :rt :t => Proxy :rt -> TimeoutStrategy -> RingBuffer :a -> :a))
+  (define (dequeue-with!% rt-prx strategy buffer)
     "Pop an element from BUFFER.
 
 Concurrent:
   - Can block briefly while acquiring lock on buffer.
-  - If empty, blocks until BUFFER is not empty."
+  - If empty, blocks until BUFFER is not empty, possibly timing out based on STRATEGY."
     ;; CONCURRENT:
     ;; - Masks before entering the critical region
     ;; - unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a
@@ -192,8 +207,9 @@ Concurrent:
     (rec % ()
       (if (empty?% buffer)
           (progn
-            (unmask-and-await-safely%
+            (unmask-and-await-safely-with%
              rt-prx
+             strategy
              (.notify-not-empty buffer)
              (.lock buffer))
             (%))
@@ -214,6 +230,16 @@ Concurrent:
             (unmask-current! rt-prx)
             elt)
           )))
+
+  (inline)
+  (declare dequeue!% (Runtime :rt :t => Proxy :rt -> RingBuffer :a -> :a))
+  (define (dequeue!% rt-prx buffer)
+    "Pop an element from BUFFER.
+
+Concurrent:
+  - Can block briefly while acquiring lock on buffer.
+  - If empty, blocks until BUFFER is not empty."
+    (dequeue-with!% rt-prx NoTimeout buffer))
   )
 
 ;;;
@@ -227,6 +253,16 @@ Concurrent:
   (define (new-ring-buffer capacity)
     "Create a new ring buffer with the given capacity."
     (wrap-io (new-ring-buffer% capacity)))
+
+  (inline)
+  (declare enqueue-with (MonadIoThread :rt :t :m => :a -> TimeoutStrategy -> RingBuffer :a -> :m Unit))
+  (define (enqueue-with elt strategy buffer)
+    "Add ELT to BUFFER.
+
+Concurrent:
+  - Can block acquiring lock on buffer.
+  - If full, blocks until BUFFER is not full, possibly timing out based on STRATEGY."
+    (inject-runtime enqueue-with!% elt strategy buffer))
 
   (inline)
   (declare enqueue (MonadIoThread :rt :t :m => :a -> RingBuffer :a -> :m Unit))
@@ -245,6 +281,16 @@ Concurrent:
 
 Concurrent: Can block acquiring lock on buffer."
     (inject-runtime try-enqueue!% elt buffer))
+
+  (inline)
+  (declare dequeue-with (MonadIoThread :rt :t :m => TimeoutStrategy -> RingBuffer :a -> :m :a))
+  (define (dequeue-with strategy buffer)
+    "Pop an element from BUFFER.
+
+Concurrent:
+  - Can block briefly while acquiring lock on buffer.
+  - If empty, blocks until BUFFER is not empty."
+    (inject-runtime dequeue-with!% strategy buffer))
 
   (inline)
   (declare dequeue (MonadIoThread :rt :t :m => RingBuffer :a -> :m :a))
