@@ -6,6 +6,7 @@
    ;; Re-exports from io/classes/conc/scheduler
    #:Scheduler
    #:submit
+   #:submit-with
    #:try-submit
    #:take-item
    ))

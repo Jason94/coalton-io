@@ -2,6 +2,8 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
    #:coalton-library/types
    #:io/simple-io
+   #:io/thread
+   #:io/exception
    #:io/conc/ring-buffer
    )
   )
@@ -37,3 +39,14 @@
       (pure (Tuple a b)))))
   (is (== 1 a))
   (is (== 4 b)))
+
+(define-test test-enqueue-with-timeout ()
+  (let result =
+    (run-io!
+     (do
+      (buffer <- (new-ring-buffer 2))
+      (enqueue 1 buffer)
+      (enqueue 2 buffer)
+      (try-all
+       (enqueue-with 100 (Timeout 1) buffer)))))
+  (is (== None result)))

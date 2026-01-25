@@ -42,6 +42,9 @@ MChanScheduler is unbounded."
     (define (submit item scheduler)
       (push-chan (mchan% scheduler) item))
     (inline)
+    (define (submit-with item _strategy scheduler)
+      (submit item scheduler))
+    (inline)
     (define (try-submit item scheduler)
       (do
        (push-chan (mchan% scheduler) item)

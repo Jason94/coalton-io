@@ -21,7 +21,9 @@
    #:new-worker-pool
    #:request-shutdown
    #:submit-job
+   #:submit-job-with
    #:do-submit-job
+   #:do-submit-job-with
    ))
 (in-package :io/gen-impl/conc/worker-pool)
 
@@ -60,10 +62,8 @@
     "Create a new worker pool. Automatically forks N-THREADS worker threads."
     ;; CONCURRENT:
     ;; - Concurrent concerns are managed by the thread group.
-    ;; - If the thread is stopped after the fork completes but before the return, then the
-    ;;   threads will be orphaned. There's no solution to that now (masking wouldn't help
-    ;;   the fundamental problem), but it will be solved once structured concurrency is
-    ;;   implemented.
+    ;; - If the thread is stopped after the fork completes but before the return, then
+    ;;   structured concurrency keeps the forked threads from being orphaned.
     (do
      (do-when (zero? n-threads)
        (raise "Worker pool must be initialized with non-zero threads."))
@@ -72,17 +72,35 @@
                                 (l:range 0 (1- n-threads))))))
      (pure (WorkerPool n-threads threads scheduler))))
 
+  (declare submit-job-with ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :i)
+                            (MonadException :i) (Scheduler :s)
+                            => TimeoutStrategy -> WorkerPool :s :i :t -> :r :a -> :m Unit))
+  (define (submit-job-with strategy pool job)
+    "Submit a job to the worker pool. Any jobs submitted after a shutdown request will
+be ignored.
+
+Concurrent:
+  - If the pool's scheduler is backed by a bounded data structure, then this can block
+    while the scheduler is full, possibly timing out based on STRATEGY."
+    (lift-to
+     (with-run-in-io
+       (fn (run)
+         (submit-with (Some (map (const Unit) (run job)))
+                      strategy
+                      (.scheduler pool))))))
+
+  (inline)
   (declare submit-job ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :i)
                        (MonadException :i) (Scheduler :s)
                        => WorkerPool :s :i :t -> :r :a -> :m Unit))
   (define (submit-job pool job)
     "Submit a job to the worker pool. Any jobs submitted after a shutdown request will
-be ignored."
-    (lift-to
-     (with-run-in-io
-       (fn (run)
-         (submit (Some (map (const Unit) (run job)))
-                 (.scheduler pool))))))
+be ignored.
+
+Concurrent:
+  - If the pool's scheduler is backed by a bounded data structure, then this can block
+    while the scheduler is full."
+    (submit-job-with NoTimeout pool job))
 
   (declare request-shutdown ((MonadIoThread :rt :t :m) (MonadException :m) (Scheduler :s)
                              => WorkerPool :s :i :t -> :m Unit))
@@ -119,5 +137,10 @@ To immediately stop the threads, use `stop`."
 
 (defmacro do-submit-job (pool cl:&body body)
   `(submit-job ,pool
+    (do
+     ,@body)))
+
+(defmacro do-submit-job-with (strategy pool cl:&body body)
+  `(submit-job-with ,strategy ,pool
     (do
      ,@body)))
