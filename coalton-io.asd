@@ -5,7 +5,7 @@
   :maintainer "Jason Walker"
   :mailto "Jason0@pm.me"
   :license "MIT"
-  :depends-on ("uiop" "coalton" "named-readtables" "atomics" "coalton-threads")
+  :depends-on ("uiop" "coalton" "named-readtables" "atomics" "coalton-threads" "usocket" "usocket-server")
   :components ((:module "src"
                 :serial t
                 :components
@@ -25,6 +25,7 @@
                                (:file "monad-io-unique")
                                (:file "monad-io-random")
                                (:file "monad-io-var")
+                               (:file "monad-io-network")
                                (:file "runtime-utils")
                                (:file "conc/scheduler")
                                ))
@@ -62,7 +63,8 @@
                                (:file "io-thread")
                                (:file "io-file")
                                (:file "io-random")
-                               (:file "io-unique")))
+                               (:file "io-unique")
+                               (:file "io-network")))
                  (:module "io-impl"
                   :serial t
                   :components ((:file "runtime")
@@ -86,6 +88,7 @@
                  (:file "io-thread")
                  (:file "io-file")
                  (:file "io-unique")
+                 (:file "io-network")
                  (:file "io-all")
 
                  (:module "conc"

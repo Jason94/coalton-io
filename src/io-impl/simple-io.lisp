@@ -426,4 +426,5 @@ to the value of the element in the iterator."
   (io/gen-impl/file:implement-monad-io-file IO)
   (io/gen-impl/random:implement-monad-io-random IO)
   (io/gen-impl/term:implement-monad-io-term IO)
+  (io/gen-impl/network:implement-monad-io-network IO)
   )
