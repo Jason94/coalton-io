@@ -17,6 +17,7 @@
    #:new-worker-pool_
    #:submit-job_
    #:do-submit-job_
+   #:do-submit-job-with_
    ))
 (in-package :io/io-impl/conc/worker-pool)
 
@@ -33,9 +34,19 @@
                         (LiftTo IO :m) (Scheduler :s)
                         => WorkerPool :s IO IoThread -> IO :a -> :m Unit))
   (define submit-job_ submit-job)
+
+  (declare submit-job-with_ ((MonadIoThread IoRuntime IoThread :m)
+                             (LiftTo IO :m) (Scheduler :s)
+                             => TimeoutStrategy -> WorkerPool :s IO IoThread -> IO :a -> :m Unit))
+  (define submit-job-with_ submit-job-with)
   )
 
 (defmacro do-submit-job_ (pool cl:&body body)
   `(submit-job_ ,pool
+    (do
+     ,@body)))
+
+(defmacro do-submit-job-with_ (strategy pool cl:&body body)
+  `(submit-job_ ,strategy ,pool
     (do
      ,@body)))

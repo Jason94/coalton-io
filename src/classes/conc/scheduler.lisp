@@ -8,6 +8,7 @@
   (:export
    #:Scheduler
    #:submit
+   #:submit-with
    #:try-submit
    #:take-item
    ))
@@ -44,6 +45,13 @@ should be 0-indexed, from [0, n-threads)."
 Concurrent:
   - Blocks if the Scheduler is full. Only bounded Schedulers will ever be full."
     (MonadIoThread :rt :t :m => :a -> :s :a -> :m Unit))
+   (submit-with
+    "Submit a new item to the Scheduler.
+
+Concurrent:
+  - Blocks if the Scheduler is full, possibly timing out based on STRATEGY. Only bounded
+Schedulers will ever be full."
+    (MonadIoThread :rt :t :m => :a -> TimeoutStrategy -> :s :a -> :m Unit))
    (try-submit
     "Attempt to submit a new item to the Scheduler. Returns `True` if the item was added,
 or `False` if the Scheduler was full. Only bounded Schedulers can be full."

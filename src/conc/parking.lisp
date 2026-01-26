@@ -9,7 +9,9 @@
    #:ParkingSet
    #:new-parking-set
    #:park-in-sets-if
+   #:park-in-sets-if-with
    #:park-in-set-if
+   #:park-in-set-if-with
    #:unpark-set
 
    ;; Re-exports from io/io-impl/conc/parking

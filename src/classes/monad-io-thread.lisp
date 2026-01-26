@@ -50,6 +50,7 @@
    #:mask-current!
    #:unmask-current!
    #:park-current-thread-if!
+   #:park-current-thread-if-with!
    #:unpark-thread!
 
    #:Concurrent
@@ -76,6 +77,7 @@
    #:do-fork-thread-with
    #:do-fork-thread
    #:park-current-thread-if
+   #:park-current-thread-if-with
    #:unpark-thread
 
    #:runtime-for
@@ -224,6 +226,17 @@ Concurrent:
     state.
   - Can briefly block while trying to park the thread, if contended."
      (Proxy :r -> (Generation -> Unit) -> (Unit -> Boolean) -> Unit))
+    (park-current-thread-if-with!
+     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
+woken by an unpark from another thread. Upon an unpark, the thread will resume even if
+SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
+park, *not* if it should resume.
+
+Concurrent:
+  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
+    state.
+  - Can briefly block while trying to park the thread, if contended."
+     (Proxy :r -> (Generation -> Unit) -> (Unit -> Boolean) -> TimeoutStrategy -> Unit))
     (unpark-thread!
      "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread
@@ -527,7 +540,30 @@ Concurrent:
       (park-current-thread-if! runtime-prx
                                (fn (gen) (run! (with-gen gen)))
                                (fn () (run! should-park?)))))
-  
+
+  (inline)
+  (declare park-current-thread-if-with ((BaseIo :io) (MonadIoThread :rt :t :io) (MonadIo :m)
+                                        => (Generation -> :io Unit)
+                                        -> :io Boolean
+                                        -> TimeoutStrategy
+                                        -> :m Unit))
+  (define (park-current-thread-if-with with-gen should-park? strategy)
+    "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
+woken by an unpark from another thread. Upon an unpark, the thread will resume even if
+SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
+park, *not* if it should resume.
+
+Concurrent:
+  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
+    state.
+  - Can briefly block while trying to park the thread, if contended."
+     (wrap-io
+      (let runtime-prx = (get-runtime-for should-park?))
+      (park-current-thread-if-with! runtime-prx
+                                    (fn (gen) (run! (with-gen gen)))
+                                    (fn () (run! should-park?))
+                                    strategy)))
+
   (inline)
   (declare unpark-thread (MonadIoThread :rt :t :m => Generation -> :t -> :m Unit))
   (define (unpark-thread gen thread)

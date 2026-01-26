@@ -49,6 +49,7 @@
    #:*global-thread*
 
    #:park-current-thread-if!%
+   #:park-current-thread-if-with!%
    #:unpark-thread!%
 
    #:write-line-sync%
@@ -641,12 +642,13 @@ just be limited to implementing only solutions #2 or #3.
   ;;;
 
   ;; For full discussion of the park algorithm, see top of the file and docs/runtime.md
-  (declare park-current-thread-if!% (Runtime :rt IoThread
-                             => Proxy :rt
-                             -> (Generation -> Unit)
-                             -> (Unit -> Boolean)
-                             -> Unit))
-  (define (park-current-thread-if!% rt-prx with-gen should-park?)
+  (declare park-current-thread-if-with!% (Runtime :rt IoThread
+                                          => Proxy :rt
+                                          -> (Generation -> Unit)
+                                          -> (Unit -> Boolean)
+                                          -> TimeoutStrategy
+                                          -> Unit))
+  (define (park-current-thread-if-with!% rt-prx with-gen should-park? strategy)
     ;; CONCURRENT:
     ;; - Masks before acquiring the lock and unmasks after releasing the lock,
     ;;   so the thread can't be stopped while the lock is held
@@ -678,8 +680,9 @@ just be limited to implementing only solutions #2 or #3.
                   (park-current-thread-if!% rt-prx with-gen should-park?)))
               ;; If another thread did not beat us to parking, wait on the CV
               (rec wait-loop ()
-                (unmask-and-await-safely% ;; (B)
+                (unmask-and-await-safely-with% ;; (B)
                  rt-prx
+                 strategy
                  (.park-cv thread)
                  (.park-lock thread))
                 ;; If we've been woken up, unmask, release, and return
@@ -692,6 +695,15 @@ just be limited to implementing only solutions #2 or #3.
         (progn
           (lk:release (.park-lock thread))
           (unmask-current-thread!%))))
+
+  (inline)
+  (declare park-current-thread-if!% (Runtime :rt IoThread
+                                     => Proxy :rt
+                                     -> (Generation -> Unit)
+                                     -> (Unit -> Boolean)
+                                     -> Unit))
+  (define (park-current-thread-if!% rt-prx with-gen should-park?)
+    (park-current-thread-if-with!% rt-prx with-gen should-park? NoTimeout))
 
   (declare unpark-thread!% (Generation -> IoThread -> Unit))
   (define (unpark-thread!% gen thread)

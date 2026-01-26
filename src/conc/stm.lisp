@@ -13,6 +13,7 @@
    #:modify-tvar
    #:modify-swap-tvar
    #:retry
+   #:retry-with
    #:or-else
    #:run-tx
    #:do-run-tx

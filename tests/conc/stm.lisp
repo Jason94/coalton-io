@@ -153,6 +153,18 @@
   (let _ = (the (Tuple Integer Integer) result))
   (is (== (Tuple 0 20) result)))
 
+(define-test test-retry-with-timeout ()
+  (let result =
+    (run-io!
+     (do
+      (a <- (new-tvar False))
+      (try-all
+       (do-run-tx
+         (read-tvar a)
+         (retry-with (Timeout 1))
+         (pure Unit))))))
+  (is (== None result)))
+
 ;;;
 ;;; Multi-threaded tests
 ;;;
