@@ -78,10 +78,11 @@ Once you have the latest version of Coalton, you can install `coalton-io` from [
 
 ## Examples
 
-_coalton-io_ has two example programs to demonstrate how to use `IO`:
+_coalton-io_ has a few example programs to demonstrate how to use `IO`:
 
 * [Hangman](examples/hangman.lisp) - Play a game of hangman in the terminal. Shows `IO` basics and terminal IO.
 * [Channels & Threading](examples/channels-threading.lisp) - Multithreaded application to process an input data file. Shows how to mix different `IO` effects, multithreading, and passing data safely between threads.
+* [Networking](examples/networking-demo.lisp) - Run a simple client and server that allows the client to send messages to the server.
 
 ## Feature Breakdown
 
@@ -95,6 +96,7 @@ _coalton-io_ provides the following features in these packages:
 * `io/mut`        - Use unsynchronized (non-thread safe) mutable variables in pure code
 * `io/unique`     - Generate guaranteed unique values (thread safe)
 * `io/thread`     - Fork new threads which run their own `IO` operations
+* `io/networking` - Connect sockets and send data over TCP/IP
 * `io/conc/future`- Futures that run an `IO` computation in another thread and return the value to the calling thread
 * `io/conc/atomic`- Atomic mutable variables for sharing state across threads
 * `io/conc/mvar`  - Provides `MVar`s (synchronized single-value mutable stores to hand off data between threads) and `MChan`s (thread safe FIFO queues to stream data between threads)
