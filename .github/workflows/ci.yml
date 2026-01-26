@@ -25,7 +25,7 @@ jobs:
     env:
       LISP: sbcl-bin
       # Bump this to force a full cache refresh.
-      cache-name: coalton-io
+      cache-name: coalton-io-1
       # Helps Qlot avoid GitHub API rate-limits when fetching tarballs.
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -34,7 +34,8 @@
      (derive-monad-io-file ,monad-param ,monadT-form)
      (derive-monad-io-random ,monad-param ,monadT-form)
      (derive-monad-io-term ,monad-param ,monadT-form)
-     (derive-monad-io-unique ,monad-param ,monadT-form)))
+     (derive-monad-io-unique ,monad-param ,monadT-form)
+     (derive-monad-io-network ,monad-param ,monadT-form)))
 
 (defmacro implement-monad-io-all (monad)
   `(progn
@@ -43,4 +44,5 @@
      (implement-monad-io-file ,monad)
      (implement-monad-io-random ,monad)
      (implement-monad-io-term ,monad)
-     (implement-monad-io-unique ,monad)))
+     (implement-monad-io-unique ,monad)
+     (implement-monad-io-network ,monad)))
