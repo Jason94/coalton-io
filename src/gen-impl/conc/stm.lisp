@@ -32,6 +32,7 @@
    #:modify-tvar
    #:modify-swap-tvar
    #:retry
+   #:retry-with
    #:or-else
    #:run-tx
    #:do-run-tx
@@ -85,7 +86,7 @@
 
   (define-type (TxResult% :a)
     (TxSuccess :a)
-    TxRetryAfterWrite ;; User-requested sleep until another write commit
+    (TxRetryAfterWrite TimeoutStrategy) ;; User-requested sleep until another write commit
     TxFailed) ;; Another thread wrote to an accessed TVar during our commit
 
   (define-instance (Functor TxResult%)
@@ -94,8 +95,8 @@
       (match result
         ((TxSuccess a)
          (TxSuccess (f a)))
-        ((TxRetryAfterWrite)
-         TxRetryAfterWrite)
+        ((TxRetryAfterWrite strategy)
+         (TxRetryAfterWrite strategy))
         ((TxFailed)
          TxFailed))))
 
@@ -170,14 +171,14 @@ conditions. DONT USE THIS!"
        (matchM (run-stm% tx-data tx-a)
          ((TxFailed)
           (pure TxFailed))
-         ((TxRetryAfterWrite)
-          (pure TxRetryAfterWrite))
+         ((TxRetryAfterWrite strategy)
+          (pure (TxRetryAfterWrite strategy)))
          ((TxSuccess val-a)
           (do-matchM (run-stm% tx-data tx-b)
             ((TxFailed)
              (pure TxFailed))
-            ((TxRetryAfterWrite)
-             (pure TxRetryAfterWrite))
+            ((TxRetryAfterWrite strategy)
+             (pure (TxRetryAfterWrite strategy)))
             ((TxSuccess val-b)
              (pure (TxSuccess (fa->b->c val-a val-b))))))))))
 
@@ -194,8 +195,8 @@ conditions. DONT USE THIS!"
        (matchM (run-stm% tx-data tx)
          ((TxFailed)
           (pure TxFailed))
-         ((TxRetryAfterWrite)
-          (pure TxRetryAfterWrite))
+         ((TxRetryAfterWrite strategy)
+          (pure (TxRetryAfterWrite strategy)))
          ((TxSuccess val-a)
           (run-stm% tx-data
                     (fa->stmb val-a)))))))
@@ -243,8 +244,8 @@ conditions. DONT USE THIS!"
                    (match tx-result
                      ((TxFailed)
                       TxFailed)
-                     ((TxRetryAfterWrite)
-                      TxRetryAfterWrite)
+                     ((TxRetryAfterWrite strategy)
+                      (TxRetryAfterWrite strategy))
                      ((TxSuccess val)
                       (TxSuccess (Ok val)))))))
               (try-dynamic (run-stm% tx-data tx)))))))
@@ -500,16 +501,17 @@ For safety, disconnects the transactions when done."
             ((Some x) x))))))
 
   (inline)
-  (declare wait-for-write-tx!% (Runtime :rt :t => Proxy :rt -> TxData% -> Unit))
-  (define (wait-for-write-tx!% rt-prx tx-data)
+  (declare wait-for-write-tx!% (Runtime :rt :t => Proxy :rt -> TimeoutStrategy -> TxData% -> Unit))
+  (define (wait-for-write-tx!% rt-prx strategy tx-data)
     ;; CONCURRENT:
     ;; - Inherits concurrent semantics of park-in-sets-if%
     (let lock-snapshot = (the Word (c:read (.lock-snapshot tx-data))))
-    (park-in-sets-if%
+    (park-in-sets-if-with%
      rt-prx
      (fn ()
        (== (TxContinue% lock-snapshot)
            (validate% tx-data)))
+     strategy
      (map read-entry-pset% (c:read (.read-log tx-data))))
     Unit)
 
@@ -565,8 +567,8 @@ value."
      (fn (tx-data)
        (wrap-io
          (match (inner-read-tvar% tvar tx-data)
-           ((TxRetryAfterWrite)
-            TxRetryAfterWrite)
+           ((TxRetryAfterWrite strategy)
+            (TxRetryAfterWrite strategy))
            ((TxFailed)
             TxFailed)
            ((TxSuccess val)
@@ -581,8 +583,8 @@ value."
      (fn (tx-data)
        (wrap-io
          (match (inner-read-tvar% tvar tx-data)
-           ((TxRetryAfterWrite)
-            TxRetryAfterWrite)
+           ((TxRetryAfterWrite strategy)
+            (TxRetryAfterWrite strategy))
            ((TxFailed)
             TxFailed)
            ((TxSuccess val)
@@ -598,8 +600,8 @@ value."
      (fn (tx-data)
        (wrap-io
          (match (inner-read-tvar% tvar tx-data)
-           ((TxRetryAfterWrite)
-            TxRetryAfterWrite)
+           ((TxRetryAfterWrite strategy)
+            (TxRetryAfterWrite strategy))
            ((TxFailed)
             TxFailed)
            ((TxSuccess val)
@@ -647,6 +649,29 @@ value."
             (c:read result)))))
 
   (inline)
+  (declare retry-with (MonadIo :m => TimeoutStrategy -> STM :m :a))
+  (define (retry-with strategy)
+    "Retry the current operation because the observed state is invalid. Waits for a write
+transaction to commit somewhere else, and then tries this transaction again.
+
+This is useful if the transaction needs to wait for other threads to update the data
+before it can continue. For example, if the transaction reads from a (TVar Queue) and the
+queue is empty, it must wait until another thread pushes onto the queue before it can
+continue.
+
+Concurrent:
+  - When the transaction runs, executing retry will abort the transaction and sleep the
+    thread. The thread will sleep until any relevant write transaction commits to the STM,
+    when the retrying thread will wake and retry its transaction. A write transaction
+    only triggers a retry if it writes to a TVar that was read before `retry` was called.
+  - Will timeout depending on strategy.
+"
+    (STM%
+     (fn (_)
+      (wrap-io
+        (TxRetryAfterWrite strategy)))))
+
+  (inline)
   (declare retry (MonadIo :m => STM :m :a))
   (define retry
     "Retry the current operation because the observed state is invalid. Waits for a write
@@ -663,10 +688,7 @@ Concurrent:
     when the retrying thread will wake and retry its transaction. A write transaction
     only triggers a retry if it writes to a TVar that was read before `retry` was called.
 "
-    (STM%
-     (fn (_)
-      (wrap-io
-        TxRetryAfterWrite))))
+    (retry-with NoTimeout))
 
   (declare or-else (MonadIo :m => STM :m :a -> STM :m :a -> STM :m :a))
   (define (or-else tx-a tx-b)
@@ -683,7 +705,7 @@ retry, then the entire transaction retries."
            ((TxSuccess val)
             (merge-into-parent-tx% a-tx-data)
             (pure (TxSuccess val)))
-           ((TxRetryAfterWrite)
+           ((TxRetryAfterWrite _)
             (merge-read-log-into-parent-tx% a-tx-data)
             (run-stm% tx-data tx-b)))))))
 
@@ -706,9 +728,9 @@ a consistent snapshot of the data. Therefore, TX must be pure."
         (do-matchM (run-stm% tx-data tx)
           ((TxFailed)
            (%))
-          ((TxRetryAfterWrite)
+          ((TxRetryAfterWrite strategy)
            (progn
-             (wait-for-write-tx!% rt-prx tx-data)
+             (wait-for-write-tx!% rt-prx strategy tx-data)
              (%)))
           ((TxSuccess val)
            (commit-succeeded? <- (tx-commit-io% tx-data))

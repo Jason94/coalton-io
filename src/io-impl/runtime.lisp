@@ -39,6 +39,9 @@
     (define (park-current-thread-if! prx)
       (park-current-thread-if!% prx))
     (inline)
+    (define (park-current-thread-if-with! prx)
+      (park-current-thread-if-with!% prx))
+    (inline)
     (define (unpark-thread! _) unpark-thread!%)
     )
 
