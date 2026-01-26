@@ -24,6 +24,7 @@
                                  'io/thread
                                  'io/file
                                  'io/unique
+                                 'io/network
                                  'io/conc/parking
                                  'io/conc/scheduler
                                  'io/conc/future

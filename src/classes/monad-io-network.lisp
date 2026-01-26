@@ -44,13 +44,13 @@
   (define-class (MonadIo :m => MonadIoNetwork :m)
     (socket-listen
      "Start a new server socket, listening on HOSTNAME and PORT."
-     (String -> String -> :m ServerSocket))
+     (String -> UFix -> :m ServerSocket))
     (socket-accept
      "Accept a connection with a new client."
      (ServerSocket -> :m ConnectionSocket))
     (socket-connect
      "Connect to a server at HOSTNAME and PORT, returning a new connection."
-     (String -> String -> :m ConnectionSocket))
+     (String -> UFix -> :m ConnectionSocket))
     (close-connection
      "Close an open connection socket."
      (ConnectionSocket -> :m Unit))

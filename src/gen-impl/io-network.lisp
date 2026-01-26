@@ -23,7 +23,7 @@
 
 (coalton-toplevel
 
-  (declare socket-listen% (MonadIo :m => String -> String -> :m ServerSocket))
+  (declare socket-listen% (MonadIo :m => String -> UFix -> :m ServerSocket))
   (define (socket-listen% hostname port)
     (wrap-io
      (lisp ServerSocket (hostname port)
@@ -33,9 +33,9 @@
   (define (socket-accept% server-socket)
     (wrap-io
      (lisp ConnectionSocket (server-socket)
-       (usocket:socket-accept server-socket :element-type 'character))))
+       (usocket:socket-accept server-socket :element-type 'cl:character))))
 
-  (declare socket-connect% (MonadIo :m => String -> String -> :m ConnectionSocket))
+  (declare socket-connect% (MonadIo :m => String -> UFix -> :m ConnectionSocket))
   (define (socket-connect% hostname port)
     (wrap-io
      (lisp ConnectionSocket (hostname port)

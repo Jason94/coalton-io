@@ -14,6 +14,8 @@
    #:socket-connect
    #:close-connection
    #:close-server
+   #:write-line
+   #:read-line
 
    #:derive-monad-io-network
 
