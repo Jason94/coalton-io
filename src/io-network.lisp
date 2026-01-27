@@ -8,6 +8,8 @@
    ;; Re-exports from io/classes/monad-io-network
    #:ServerSocket
    #:ConnectionSocket
+   #:ByteServerSocket
+   #:ByteConnectionSocket
    #:MonadIoNetwork
    #:socket-listen
    #:socket-accept
@@ -16,6 +18,14 @@
    #:close-server
    #:write-line
    #:read-line
+
+   #:byte-socket-listen
+   #:byte-socket-accept
+   #:byte-socket-connect
+   #:close-byte-connection
+   #:close-byte-server
+   #:write-bytes
+   #:read-exactly
 
    #:derive-monad-io-network
 
