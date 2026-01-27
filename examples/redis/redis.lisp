@@ -35,6 +35,14 @@
     ;; Hash is implementation dependent, but will always be some kind of underlying integer.
     (lisp UFix (the-hash n)
       (cl:mod the-hash n)))
+
+  (declare starts-with? (String -> String -> Boolean))
+  (define (starts-with? str prefix)
+    "Return TRUE if STR starts with PREFIX."
+    (lisp Boolean (str prefix)
+      (cl:let ((n (cl:length prefix)))
+        (cl:and (cl:<= n (cl:length str))
+                (cl:string= str prefix :end1 n)))))
   )
 
 ;;;
@@ -47,7 +55,9 @@
 
   (define-type Command
     Ping
-    Close)
+    Close
+    (GetKey String)
+    (SetKey String String))
 
   (declare command->msg (Command -> String))
   (define (command->msg com)
@@ -55,16 +65,51 @@
       ((Ping)
        "Ping")
       ((Close)
-       "Close")))
+       "Close")
+      ((GetKey key)
+       (lisp String (key)
+         (cl:format cl:nil "GetKey|~D|~A"
+                    (cl:length key) key)))
+      ((SetKey key value)
+       (lisp String (key value)
+         (cl:format cl:nil "SetKey|~D|~A|~D|~A"
+                    (cl:length key) key
+                    (cl:length value) value)))))
 
   (declare msg->command? (String -> Result String Command))
   (define (msg->command? msg)
-    (match msg
-      ("Ping"
+    (cond
+      ((starts-with? msg "Ping")
        (Ok Ping))
-      ("Close"
+      ((starts-with? msg "Close")
        (Ok Close))
-      (_
+      ((starts-with? msg "GetKey")
+       ;; NOTE: Assumes a well-formatted message
+       (lisp (Result String Command) (msg)
+         (cl:let* ((prefix-len (cl:length "GetKey|"))
+                   (p1 (cl:position #\| msg :start prefix-len))
+                   (klen (cl:parse-integer msg :start prefix-len :end p1))
+                   (key-start (cl:1+ p1))
+                   (key-end (cl:+ key-start klen))
+                   (key (cl:subseq msg key-start key-end)))
+           (Ok (GetKey key)))))
+      ((starts-with? msg "SetKey")
+       ;; NOTE: Assumes a well-formatted message
+       (lisp (Result String Command) (msg)
+         (cl:let* ((prefix-len (cl:length "SetKey|"))
+                   (p1 (cl:position #\| msg :start prefix-len))
+                   (klen (cl:parse-integer msg :start prefix-len :end p1))
+                   (key-start (cl:1+ p1))
+                   (key-end (cl:+ key-start klen))
+                   (key (cl:subseq msg key-start key-end))
+                   (vlen-start (cl:1+ key-end))                ; skip the '|' after key
+                   (p2 (cl:position #\| msg :start vlen-start))
+                   (vlen (cl:parse-integer msg :start vlen-start :end p2))
+                   (val-start (cl:1+ p2))
+                   (val-end (cl:+ val-start vlen))
+                   (val (cl:subseq msg val-start val-end)))
+           (Ok (SetKey key val)))))
+      (True
        (Err (<> "Unknown command: " msg)))))
   )
 
@@ -79,6 +124,13 @@
      (nt:write-line (command->msg Ping) conn)
      (response <- (nt:read-line conn))
      (tm:write-line (<> "Response: " response))
+     (nt:write-line (command->msg (SetKey "a" "100")) conn)
+     (nt:write-line (command->msg (GetKey "a")) conn)
+     (response <- (nt:read-line conn))
+     (tm:write-line response)
+     (nt:write-line (command->msg (GetKey "b")) conn)
+     (response <- (nt:read-line conn))
+     (tm:write-line response)
      (nt:write-line (command->msg Close) conn)
      (nt:close-connection conn)))
 
@@ -119,10 +171,10 @@ to retry."
     "Creates a new database with N-BUCKETS buckets. (Will always create at least 1 bucket.)"
     (do
      (vector <- (wrap-io (v:with-capacity (max n-buckets 1))))
-     (do-loop-times (i (max n-buckets 1))
+     (do-loop-times (_ (max n-buckets 1))
        (bucket <- (new-tvar hm:empty))
-       (wrap-io (v:set! i bucket vector))
-       (tm:write-line (force-string bucket)))
+       (wrap-io
+        (v:push! bucket vector)))
      (pure (TStripedMap vector))))
 
   (inline)
@@ -156,39 +208,53 @@ to retry."
 
 (coalton-toplevel
 
-  (declare handle-client (nt:ConnectionSocket -> IO Unit))
-  (define (handle-client conn)
+  (declare handle-client (nt:ConnectionSocket -> Database -> IO Unit))
+  (define (handle-client conn db)
     (do
      (msg <- (nt:read-line conn))
      (do-match (msg->command? msg)
        ((Err e)
         (tm:write-line e)
-        (handle-client conn))
+        (handle-client conn db))
        ((Ok command)
         (tm:write-line (<> "Received command: " msg))
         (do-match command
           ((Ping)
            (nt:write-line "PingPong" conn)
-           (handle-client conn))
+           (handle-client conn db))
+          ((GetKey key)
+           (value? <- (read-key key db))
+           (let value =
+             (match value?
+               ((Some s)
+                s)
+               ((None)
+                "<Missing Key>")))
+           (nt:write-line value conn)
+           (handle-client conn db))
+          ((SetKey key value)
+           (tm:write-line (build-str "Setting <" key "> to: " value))
+           (run-tx (write-key-tx key value db))
+           (handle-client conn db))
           ((Close)
            (pure Unit)))))))
 
-  (declare accept-loop (nt:ServerSocket -> IO Unit))
-  (define (accept-loop server)
+  (declare accept-loop (nt:ServerSocket -> Database -> IO Unit))
+  (define (accept-loop server db)
     (do
       (conn <- (nt:socket-accept server))
       (tm:write-line "client connected")
-      (fork-thread_ (handle-client conn))
-      (accept-loop server)))
+      (fork-thread_ (handle-client conn db))
+      (accept-loop server db)))
 
   (declare server-main (IO Unit))
   (define server-main
     (do
+      (db <- (new-database 16))
       (server <- (nt:socket-listen hostname port))
       (tm:write-line (<> "listening on " (<> hostname (<> ":" (as String port)))))
-      (accept-loop server)))
+      (accept-loop server db)))
   )
 
 (cl:defun run-server ()
   (coalton (run-io! server-main)))
-
