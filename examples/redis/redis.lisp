@@ -57,6 +57,8 @@
        (tm:write-line str))
       ((RespBulkString str)
        (tm:write-line str))
+      ((RespNull)
+       (tm:write-line "(nil)"))
       (_
        (tm:write-line "Received invalid client response:")
        (tm:write-line (force-string resp)))))
@@ -72,10 +74,11 @@
   (declare client-loop (nt:ByteConnectionSocket -> IO Unit))
   (define (client-loop conn)
     (do
-     (do-foreach-io_ (cmd (make-list (Ping "Hello")
-                                     ;; (SetKey "a" "100")
-                                     ;; (GetKey "a")
-                                     ;; (GetKey "b")
+     (do-foreach-io_ (cmd (make-list
+                                     (Ping "Hello")
+                                     (SetKey "a" "100")
+                                     (GetKey "a")
+                                     (GetKey "b")
                                      Quit))
        (do-command cmd conn))
      (nt:close-byte-connection conn)))

@@ -80,8 +80,8 @@
        (cl:map 'cl:list (cl:lambda (b) (cl:code-char b)) v)
        'cl:string)))
 
-  (define term-1 (char->u8 #\r))
-  (define term-2 (char->u8 #\n))
+  (define term-1 (char->u8 #\Return))
+  (define term-2 (char->u8 #\Newline))
 
   (define array-type-char (char->u8 #\*))
   (define simple-string-type-char (char->u8 #\+))
@@ -218,6 +218,16 @@ Example stream input, where the '$' type byte has already been read:
         (read-until-terminator conn)
         (pure (Ok (RespBulkString (bytes->str str-bytes))))))))
 
+  (declare read-null (nt:ByteConnectionSocket -> IO (Result String Resp)))
+  (define (read-null conn)
+    "Read a resp-null. Assumes the first byte, signifying the type, has been read.
+
+Example stream input, where the '_' type byte has already been read:
+  _\r\n"
+    (do
+     (read-until-terminator conn)
+     (pure (Ok RespNull))))
+
   (declare read-resp (nt:ByteConnectionSocket -> IO (Result String Resp)))
   (define (read-resp conn)
     (do
@@ -233,6 +243,8 @@ Example stream input, where the '$' type byte has already been read:
         (read-integer conn))
        ((== bulk-str-type-char type-byte)
         (read-bulk-string conn))
+       ((== null-type-char type-byte)
+        (read-null conn))
        (True
         (pure (Err (build-str "Unknown type byte: " (force-string type-byte))))))))
   )
@@ -428,7 +440,7 @@ Example stream input, where the '$' type byte has already been read:
        (RespArray (v:make (RespBulkString ping-command-str)
                           (RespBulkString ping-str))))
       ((GetKey key)
-       (RespArray (v:make (RespBulkString set-command-str)
+       (RespArray (v:make (RespBulkString get-command-str)
                           (RespBulkString key))))
       ((SetKey key val)
        (RespArray (v:make (RespBulkString set-command-str)
