@@ -736,15 +736,21 @@ for any two different Unique instances.</p></div>
 Example:
   (derive-monad-io-unique :m (st:StateT :s :m))</p></div>
       <hr><h1 id="io/network-package">Package <code>IO/NETWORK</code></h1><div class=types-content>
-       <h3 class=types-header>Types</h3><h4 id=connectionsocket-type><a href="#connectionsocket-type"><code>ConnectionSocket</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-network.lisp#L41-L42">src</a></sub></sup></sub></sup></h4><p class=docstring>A socket connecting a client and server.</p><details>
+       <h3 class=types-header>Types</h3><h4 id=byteconnectionsocket-type><a href="#byteconnectionsocket-type"><code>ByteConnectionSocket</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-network.lisp#L59-L60">src</a></sub></sup></sub></sup></h4><p class=docstring>A socket connecting a client and server using a byte stream.</p><details>
         <summary>Instances</summary>
         <ul class=instances-list>
-         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> <a href="#connectionsocket-type">ConnectionSocket</a></code></ul></details><h4 id=serversocket-type><a href="#serversocket-type"><code>ServerSocket</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-network.lisp#L37-L38">src</a></sub></sup></sub></sup></h4><p class=docstring>A server socket listening for new connections.</p><details>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> <a href="#byteconnectionsocket-type">ByteConnectionSocket</a></code></ul></details><h4 id=connectionsocket-type><a href="#connectionsocket-type"><code>ConnectionSocket</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-network.lisp#L51-L52">src</a></sub></sup></sub></sup></h4><p class=docstring>A socket connecting a client and server.</p><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> <a href="#connectionsocket-type">ConnectionSocket</a></code></ul></details><h4 id=byteserversocket-type><a href="#byteserversocket-type"><code>ByteServerSocket</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-network.lisp#L55-L56">src</a></sub></sup></sub></sup></h4><p class=docstring>A server socket listening for new byte-stream connections.</p><details>
+        <summary>Instances</summary>
+        <ul class=instances-list>
+         <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> <a href="#byteserversocket-type">ByteServerSocket</a></code></ul></details><h4 id=serversocket-type><a href="#serversocket-type"><code>ServerSocket</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-network.lisp#L47-L48">src</a></sub></sup></sub></sup></h4><p class=docstring>A server socket listening for new connections.</p><details>
         <summary>Instances</summary>
         <ul class=instances-list>
          <li class=instances-item><code><a href="#runtimerepr-class">RuntimeRepr</a> <a href="#serversocket-type">ServerSocket</a></code></ul></details></div>
       <hr><div class=classes-content>
-       <h3 class=classes-header>Classes</h3><h4 id=monadionetwork-class><a href="#monadionetwork-class"><code>MonadIoNetwork</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-network.lisp#L44-L65">src</a></sub></sup></sub></sup></h4><code><a href="#monadio-class">MonadIo</a> :A &rArr; <a href="#monadionetwork-class">MonadIoNetwork</a> :A</code><span>Methods:</span>
+       <h3 class=classes-header>Classes</h3><h4 id=monadionetwork-class><a href="#monadionetwork-class"><code>MonadIoNetwork</code></a> <sup><sub>CLASS · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/monad-io-network.lisp#L62-L105">src</a></sub></sup></sub></sup></h4><code><a href="#monadio-class">MonadIo</a> :A &rArr; <a href="#monadionetwork-class">MonadIoNetwork</a> :A</code><span>Methods:</span>
        <ul class=methods-list>
         <li class=methods-item><code>SOCKET-LISTEN :: (<a href="#string-type">String</a> &rarr; <a href="#ufix-type">UFix</a> &rarr; (:A <a href="#serversocket-type">ServerSocket</a>))</code><span><br>Start a new server socket, listening on HOSTNAME and PORT.</span>
         <li class=methods-item><code>SOCKET-ACCEPT :: (<a href="#serversocket-type">ServerSocket</a> &rarr; (:A <a href="#connectionsocket-type">ConnectionSocket</a>))</code><span><br>Accept a connection with a new client.</span>
@@ -752,7 +758,14 @@ Example:
         <li class=methods-item><code>CLOSE-CONNECTION :: (<a href="#connectionsocket-type">ConnectionSocket</a> &rarr; (:A <a href="#unit-type">Unit</a>))</code><span><br>Close an open connection socket.</span>
         <li class=methods-item><code>CLOSE-SERVER :: (<a href="#serversocket-type">ServerSocket</a> &rarr; (:A <a href="#unit-type">Unit</a>))</code><span><br>Close an open server socket.</span>
         <li class=methods-item><code>WRITE-LINE :: <a href="#into-class">Into</a> :A <a href="#string-type">String</a> &rArr; (:A &rarr; <a href="#connectionsocket-type">ConnectionSocket</a> &rarr; (:B <a href="#unit-type">Unit</a>))</code>
-        <li class=methods-item><code>READ-LINE :: (<a href="#connectionsocket-type">ConnectionSocket</a> &rarr; (:A <a href="#string-type">String</a>))</code><span><br>Read the next line from the socket. Blocks until data is sent!</span></ul><details>
+        <li class=methods-item><code>READ-LINE :: (<a href="#connectionsocket-type">ConnectionSocket</a> &rarr; (:A <a href="#string-type">String</a>))</code><span><br>Read the next line from the socket. Blocks until data is sent!</span>
+        <li class=methods-item><code>BYTE-SOCKET-LISTEN :: (<a href="#string-type">String</a> &rarr; <a href="#ufix-type">UFix</a> &rarr; (:A <a href="#byteserversocket-type">ByteServerSocket</a>))</code><span><br>Start a new server socket for byte-stream connections, listening on HOSTNAME and PORT.</span>
+        <li class=methods-item><code>BYTE-SOCKET-ACCEPT :: (<a href="#byteserversocket-type">ByteServerSocket</a> &rarr; (:A <a href="#byteconnectionsocket-type">ByteConnectionSocket</a>))</code><span><br>Accept a byte-stream connection with a new client.</span>
+        <li class=methods-item><code>BYTE-SOCKET-CONNECT :: (<a href="#string-type">String</a> &rarr; <a href="#ufix-type">UFix</a> &rarr; (:A <a href="#byteconnectionsocket-type">ByteConnectionSocket</a>))</code><span><br>Connect to a server at HOSTNAME and PORT using a byte stream, returning a new connection.</span>
+        <li class=methods-item><code>CLOSE-BYTE-CONNECTION :: (<a href="#byteconnectionsocket-type">ByteConnectionSocket</a> &rarr; (:A <a href="#unit-type">Unit</a>))</code><span><br>Close an open byte-stream connection socket.</span>
+        <li class=methods-item><code>CLOSE-BYTE-SERVER :: (<a href="#byteserversocket-type">ByteServerSocket</a> &rarr; (:A <a href="#unit-type">Unit</a>))</code><span><br>Close an open byte-stream server socket.</span>
+        <li class=methods-item><code>WRITE-BYTES :: ((<a href="#vector-type">Vector</a> <a href="#u8-type">U8</a>) &rarr; <a href="#byteconnectionsocket-type">ByteConnectionSocket</a> &rarr; (:A <a href="#unit-type">Unit</a>))</code><span><br>Write all bytes in the vector to the socket.</span>
+        <li class=methods-item><code>READ-EXACTLY :: (<a href="#ufix-type">UFix</a> &rarr; <a href="#byteconnectionsocket-type">ByteConnectionSocket</a> &rarr; (:A (<a href="#vector-type">Vector</a> <a href="#u8-type">U8</a>)))</code><span><br>Read exactly N bytes from the socket. Blocks until N bytes are available.</span></ul><details>
         <summary>Instances</summary>
         <ul class=instances-list>
          <li class=instances-item><code><a href="#monadionetwork-class">MonadIoNetwork</a> <a href="#io-type">IO</a></code>

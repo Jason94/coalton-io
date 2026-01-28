@@ -30,6 +30,9 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
+  ;;;
+  ;;; Generic Implementation Functions
+  ;;;
 
   (declare socket-listen% (MonadIo :m => String -> UFix -> :m ServerSocket))
   (define (socket-listen% hostname port)

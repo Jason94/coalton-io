@@ -11,11 +11,13 @@
    #:io/simple-io
    #:io/thread
    #:io/conc/stm
+   #:io/examples/redis/protocol
    )
   (:local-nicknames
    (:v #:coalton-library/vector)
    (:hm #:coalton-library/hashmap)
    (:tm #:io/term)
+   (:mt #:io/mut)
    (:nt  #:io/network))
   (:export
    #:run-server
@@ -35,82 +37,11 @@
     ;; Hash is implementation dependent, but will always be some kind of underlying integer.
     (lisp UFix (the-hash n)
       (cl:mod the-hash n)))
-
-  (declare starts-with? (String -> String -> Boolean))
-  (define (starts-with? str prefix)
-    "Return TRUE if STR starts with PREFIX."
-    (lisp Boolean (str prefix)
-      (cl:let ((n (cl:length prefix)))
-        (cl:and (cl:<= n (cl:length str))
-                (cl:string= str prefix :end1 n)))))
   )
-
-;;;
-;;; Protocol (Used on Client & Server)
-;;;
 
 (coalton-toplevel
   (define hostname "127.0.0.1")
   (define port (the UFix 5555))
-
-  (define-type Command
-    Ping
-    Close
-    (GetKey String)
-    (SetKey String String))
-
-  (declare command->msg (Command -> String))
-  (define (command->msg com)
-    (match com
-      ((Ping)
-       "Ping")
-      ((Close)
-       "Close")
-      ((GetKey key)
-       (lisp String (key)
-         (cl:format cl:nil "GetKey|~D|~A"
-                    (cl:length key) key)))
-      ((SetKey key value)
-       (lisp String (key value)
-         (cl:format cl:nil "SetKey|~D|~A|~D|~A"
-                    (cl:length key) key
-                    (cl:length value) value)))))
-
-  (declare msg->command? (String -> Result String Command))
-  (define (msg->command? msg)
-    (cond
-      ((starts-with? msg "Ping")
-       (Ok Ping))
-      ((starts-with? msg "Close")
-       (Ok Close))
-      ((starts-with? msg "GetKey")
-       ;; NOTE: Assumes a well-formatted message
-       (lisp (Result String Command) (msg)
-         (cl:let* ((prefix-len (cl:length "GetKey|"))
-                   (p1 (cl:position #\| msg :start prefix-len))
-                   (klen (cl:parse-integer msg :start prefix-len :end p1))
-                   (key-start (cl:1+ p1))
-                   (key-end (cl:+ key-start klen))
-                   (key (cl:subseq msg key-start key-end)))
-           (Ok (GetKey key)))))
-      ((starts-with? msg "SetKey")
-       ;; NOTE: Assumes a well-formatted message
-       (lisp (Result String Command) (msg)
-         (cl:let* ((prefix-len (cl:length "SetKey|"))
-                   (p1 (cl:position #\| msg :start prefix-len))
-                   (klen (cl:parse-integer msg :start prefix-len :end p1))
-                   (key-start (cl:1+ p1))
-                   (key-end (cl:+ key-start klen))
-                   (key (cl:subseq msg key-start key-end))
-                   (vlen-start (cl:1+ key-end))                ; skip the '|' after key
-                   (p2 (cl:position #\| msg :start vlen-start))
-                   (vlen (cl:parse-integer msg :start vlen-start :end p2))
-                   (val-start (cl:1+ p2))
-                   (val-end (cl:+ val-start vlen))
-                   (val (cl:subseq msg val-start val-end)))
-           (Ok (SetKey key val)))))
-      (True
-       (Err (<> "Unknown command: " msg)))))
   )
 
 ;;;
@@ -118,26 +49,35 @@
 ;;;
 
 (coalton-toplevel
-  (declare client-loop (nt:ConnectionSocket -> IO Unit))
+
+  (declare print-response (Resp -> IO Unit))
+  (define (print-response resp)
+    (do-match resp
+      ((RespSimpleString str)
+       (tm:write-line str))
+      ((RespBulkString str)
+       (tm:write-line str))
+      (_
+       (tm:write-line "Received invalid client response:")
+       (tm:write-line (force-string resp)))))
+
+  (declare client-loop (nt:ByteConnectionSocket -> IO Unit))
   (define (client-loop conn)
     (do
-     (nt:write-line (command->msg Ping) conn)
-     (response <- (nt:read-line conn))
-     (tm:write-line (<> "Response: " response))
-     (nt:write-line (command->msg (SetKey "a" "100")) conn)
-     (nt:write-line (command->msg (GetKey "a")) conn)
-     (response <- (nt:read-line conn))
-     (tm:write-line response)
-     (nt:write-line (command->msg (GetKey "b")) conn)
-     (response <- (nt:read-line conn))
-     (tm:write-line response)
-     (nt:write-line (command->msg Close) conn)
-     (nt:close-connection conn)))
+     (write-resp (command->resp (Ping "Hello")) conn)
+     (resp? <- (read-resp conn))
+     (do-when-val (resp resp?)
+       (print-response resp))
+     (write-resp (command->resp Quit) conn)
+     (resp? <- (read-resp conn))
+     (do-when-val (resp resp?)
+       (print-response resp))
+     (nt:close-byte-connection conn)))
 
   (declare client-main (IO Unit))
   (define client-main
     (do
-     (conn <- (nt:socket-connect hostname port))
+     (conn <- (nt:byte-socket-connect hostname port))
      (tm:write-line (<> "connected to " (<> hostname (<> ":" (as String port)))))
      (client-loop conn))))
 
@@ -208,41 +148,65 @@ to retry."
 
 (coalton-toplevel
 
-  (declare handle-client (nt:ConnectionSocket -> Database -> IO Unit))
+  (declare handle-ping (String -> IO Resp))
+  (define (handle-ping ping-str)
+    (if (== ping-str "")
+        (pure (RespSimpleString "PONG"))
+        (pure (RespBulkString ping-str))))
+
+  (declare handle-client (nt:ByteConnectionSocket -> Database -> IO Unit))
   (define (handle-client conn db)
     (do
-     (msg <- (nt:read-line conn))
-     (do-match (msg->command? msg)
-       ((Err e)
-        (tm:write-line e)
+     (cmd? <- (read-command conn))
+     (tm:write-line (<> "Received command: " (force-string cmd?)))
+     (do-match cmd?
+       ((Err _)
         (handle-client conn db))
-       ((Ok command)
-        (tm:write-line (<> "Received command: " msg))
-        (do-match command
-          ((Ping)
-           (nt:write-line "PingPong" conn)
-           (handle-client conn db))
-          ((GetKey key)
-           (value? <- (read-key key db))
-           (let value =
-             (match value?
-               ((Some s)
-                s)
-               ((None)
-                "<Missing Key>")))
-           (nt:write-line value conn)
-           (handle-client conn db))
-          ((SetKey key value)
-           (tm:write-line (build-str "Setting <" key "> to: " value))
-           (run-tx (write-key-tx key value db))
-           (handle-client conn db))
-          ((Close)
-           (pure Unit)))))))
+       ((Ok cmd)
+        (resp <-
+          (match cmd
+            ((Ping ping-str)
+             (handle-ping ping-str))
+            ((Quit)
+             (pure (RespSimpleString "OK")))))
+        (write-resp resp conn)
+        (match cmd
+          ((Quit)
+           (pure Unit))
+          (_
+           (handle-client conn db)))))))
+     ;; (msg <- (nt:read-line conn))
+     ;; (do-match (msg->command? msg)
+     ;;   ((Err e)
+     ;;    (tm:write-line e)
+     ;;    (handle-client conn db))
+     ;;   ((Ok command)
+     ;;    (tm:write-line (<> "Received command: " msg))
+     ;;    (do-match command
+     ;;      ((Ping)
+     ;;       (nt:write-line "PingPong" conn)
+     ;;       (handle-client conn db))
+     ;;      ((GetKey key)
+     ;;       (value? <- (read-key key db))
+     ;;       (let value =
+     ;;         (match value?
+     ;;           ((Some s)
+     ;;            s)
+     ;;           ((None)
+     ;;            "<Missing Key>")))
+     ;;       (nt:write-line value conn)
+     ;;       (handle-client conn db))
+     ;;      ((SetKey key value)
+     ;;       (tm:write-line (build-str "Setting <" key "> to: " value))
+     ;;       (run-tx (write-key-tx key value db))
+     ;;       (handle-client conn db))
+     ;;      ((Close)
+     ;;       (pure Unit)))))))
 
-  (declare accept-loop (nt:ServerSocket -> Database -> IO Unit))
+  (declare accept-loop (nt:ByteServerSocket -> Database -> IO Unit))
   (define (accept-loop server db)
     (do
-      (conn <- (nt:socket-accept server))
+      (conn <- (nt:byte-socket-accept server))
       (tm:write-line "client connected")
       (fork-thread_ (handle-client conn db))
       (accept-loop server db)))
@@ -251,7 +215,7 @@ to retry."
   (define server-main
     (do
       (db <- (new-database 16))
-      (server <- (nt:socket-listen hostname port))
+      (server <- (nt:byte-socket-listen hostname port))
       (tm:write-line (<> "listening on " (<> hostname (<> ":" (as String port)))))
       (accept-loop server db)))
   )
