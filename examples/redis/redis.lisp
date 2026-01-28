@@ -61,17 +61,23 @@
        (tm:write-line "Received invalid client response:")
        (tm:write-line (force-string resp)))))
 
+  (declare do-command (Command -> nt:ByteConnectionSocket -> IO Unit))
+  (define (do-command cmd conn)
+    (do
+     (write-resp (command->resp cmd) conn)
+     (resp? <- (read-resp conn))
+     (do-when-val (resp resp?)
+       (print-response resp))))
+
   (declare client-loop (nt:ByteConnectionSocket -> IO Unit))
   (define (client-loop conn)
     (do
-     (write-resp (command->resp (Ping "Hello")) conn)
-     (resp? <- (read-resp conn))
-     (do-when-val (resp resp?)
-       (print-response resp))
-     (write-resp (command->resp Quit) conn)
-     (resp? <- (read-resp conn))
-     (do-when-val (resp resp?)
-       (print-response resp))
+     (do-foreach-io_ (cmd (make-list (Ping "Hello")
+                                     ;; (SetKey "a" "100")
+                                     ;; (GetKey "a")
+                                     ;; (GetKey "b")
+                                     Quit))
+       (do-command cmd conn))
      (nt:close-byte-connection conn)))
 
   (declare client-main (IO Unit))
@@ -164,9 +170,19 @@ to retry."
         (handle-client conn db))
        ((Ok cmd)
         (resp <-
-          (match cmd
+          (do-match cmd
             ((Ping ping-str)
              (handle-ping ping-str))
+            ((GetKey key)
+             (value? <- (read-key key db))
+             (match value?
+               ((None)
+                (pure RespNull))
+               ((Some val)
+                (pure (RespBulkString val)))))
+            ((SetKey key val)
+             (run-tx (write-key-tx key val db))
+             (pure (RespSimpleString "OK")))
             ((Quit)
              (pure (RespSimpleString "OK")))))
         (write-resp resp conn)

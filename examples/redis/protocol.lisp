@@ -30,6 +30,8 @@
 
    #:Command
    #:Ping
+   #:SetKey
+   #:GetKey
    #:Quit
 
    #:read-resp
@@ -330,12 +332,14 @@ Example stream input, where the '$' type byte has already been read:
   (define-type Command
     (Ping String)
     Quit
-    ;; (GetKey String)
-    ;; (SetKey String String)
+    (GetKey String)
+    (SetKey String String)
     )
 
   (define ping-command-str "PING")
   (define quit-command-str "QUIT")
+  (define get-command-str "GET")
+  (define set-command-str  "SET")
 
   (declare parse-ping (Vector Resp -> Result String Command))
   (define (parse-ping data)
@@ -348,6 +352,31 @@ Example stream input, where the '$' type byte has already been read:
           (Err "Bad type: Ping expuects bulk-str payload."))
          ((Some str)
           (Ok (Ping str)))))))
+
+  (declare parse-get (Vector Resp -> Result String Command))
+  (define (parse-get data)
+    (match (v:index 1 data)
+      ((None)
+       (Err "Get missing string payload."))
+      ((Some str-payload)
+       (match (resp->resp-bulk-str str-payload)
+         ((None)
+          (Err "Bad type: Get expects bulk-str payload."))
+         ((Some str)
+          (Ok (GetKey str)))))))
+
+  (declare parse-set (Vector Resp -> Result String Command))
+  (define (parse-set data)
+    (match (Tuple (v:index 1 data) (v:index 2 data))
+      ((Tuple (Some key-resp) (Some val-resp))
+       (match (Tuple (resp->resp-bulk-str key-resp)
+                     (resp->resp-bulk-str val-resp))
+         ((Tuple (Some key) (Some val))
+          (Ok (SetKey key val)))
+         (_
+          (Err "Bad type: Set expects bulk-str payloads."))))
+      (_
+       (Err "Set missing payloads"))))
 
   (declare parse-quit (Vector Resp -> Result String Command))
   (define (parse-quit _)
@@ -371,6 +400,10 @@ Example stream input, where the '$' type byte has already been read:
              (cond
                ((== ping-command-str command-str)
                 (parse-ping data))
+               ((== get-command-str command-str)
+                (parse-get data))
+               ((== set-command-str command-str)
+                (parse-set data))
                ((== quit-command-str command-str)
                 (parse-quit data))
                (True
@@ -394,6 +427,13 @@ Example stream input, where the '$' type byte has already been read:
       ((Ping ping-str)
        (RespArray (v:make (RespBulkString ping-command-str)
                           (RespBulkString ping-str))))
+      ((GetKey key)
+       (RespArray (v:make (RespBulkString set-command-str)
+                          (RespBulkString key))))
+      ((SetKey key val)
+       (RespArray (v:make (RespBulkString set-command-str)
+                          (RespBulkString key)
+                          (RespBulkString val))))
       ((Quit)
        (RespArray (v:make (RespBulkString quit-command-str))))))
   )
