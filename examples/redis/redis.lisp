@@ -57,6 +57,8 @@
        (tm:write-line str))
       ((RespBulkString str)
        (tm:write-line str))
+      ((RespError msg)
+       (tm:write-line (<> "Server returned an error: " msg)))
       ((RespNull)
        (tm:write-line "(nil)"))
       (_
@@ -79,6 +81,10 @@
                                      (SetKey "a" "100")
                                      (GetKey "a")
                                      (GetKey "b")
+                                     (RenameKey "a" "c")
+                                     (GetKey "a")
+                                     (GetKey "c")
+                                     (RenameKey "b" "d")
                                      Quit))
        (do-command cmd conn))
      (nt:close-byte-connection conn)))
@@ -153,7 +159,30 @@ to retry."
      (bucket-map <- (run-tx (read-tvar bucket)))
      (pure (hm:lookup bucket-map key))))
 
-  )
+  (declare rename-key (String -> String -> Database -> STM IO Boolean))
+  (define (rename-key key new-key db)
+    "Rename a key in the database. Returns True if the original key was found, False if
+it was missing."
+    (let bucket = (bucket-for key db))
+    (do
+     (bucket-map <- (read-tvar bucket))
+     (let (Tuple bucket-map2 val?) =
+       (hm:update bucket-map key
+                  (fn (k?)
+                    (match k?
+                      ((None)
+                       (Tuple None None))
+                      ((Some val)
+                       (Tuple None (Some val)))))))
+     (let _ = (traceobject "bucket-map2" bucket-map2))
+     (let _ = (traceobject "val?" val?))
+     (do-match val?
+       ((None)
+        (pure False))
+       ((Some val)
+        (write-tvar bucket bucket-map2)
+        (write-key-tx new-key val db)
+        (pure True))))))
 
 (coalton-toplevel
 
@@ -186,6 +215,11 @@ to retry."
             ((SetKey key val)
              (run-tx (write-key-tx key val db))
              (pure (RespSimpleString "OK")))
+            ((RenameKey key new-key)
+             (result <- (run-tx (rename-key key new-key db)))
+             (if result
+                 (pure (RespSimpleString "OK"))
+                 (pure (RespError (<> "Key not found: " key)))))
             ((Quit)
              (pure (RespSimpleString "OK")))))
         (write-resp resp conn)

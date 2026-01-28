@@ -32,6 +32,7 @@
    #:Ping
    #:SetKey
    #:GetKey
+   #:RenameKey
    #:Quit
 
    #:read-resp
@@ -346,12 +347,14 @@ Example stream input, where the '_' type byte has already been read:
     Quit
     (GetKey String)
     (SetKey String String)
+    (RenameKey String String)
     )
 
   (define ping-command-str "PING")
   (define quit-command-str "QUIT")
   (define get-command-str "GET")
   (define set-command-str  "SET")
+  (define rename-command-str "RENAME")
 
   (declare parse-ping (Vector Resp -> Result String Command))
   (define (parse-ping data)
@@ -390,6 +393,19 @@ Example stream input, where the '_' type byte has already been read:
       (_
        (Err "Set missing payloads"))))
 
+  (declare parse-rename (Vector Resp -> Result String Command))
+  (define (parse-rename data)
+    (match (Tuple (v:index 1 data) (v:index 2 data))
+      ((Tuple (Some key-resp) (Some new-key-resp))
+       (match (Tuple (resp->resp-bulk-str key-resp)
+                     (resp->resp-bulk-str new-key-resp))
+         ((Tuple (Some key) (Some new-key))
+          (Ok (RenameKey key new-key)))
+         (_
+          (Err "Bad type: Set expects bulk-str payloads."))))
+      (_
+       (Err "Set missing payloads"))))
+
   (declare parse-quit (Vector Resp -> Result String Command))
   (define (parse-quit _)
     (Ok Quit))
@@ -416,6 +432,8 @@ Example stream input, where the '_' type byte has already been read:
                 (parse-get data))
                ((== set-command-str command-str)
                 (parse-set data))
+               ((== rename-command-str command-str)
+                (parse-rename data))
                ((== quit-command-str command-str)
                 (parse-quit data))
                (True
@@ -446,6 +464,10 @@ Example stream input, where the '_' type byte has already been read:
        (RespArray (v:make (RespBulkString set-command-str)
                           (RespBulkString key)
                           (RespBulkString val))))
+      ((RenameKey key new-key)
+       (RespArray (v:make (RespBulkString rename-command-str)
+                          (RespBulkString key)
+                          (RespBulkString new-key))))
       ((Quit)
        (RespArray (v:make (RespBulkString quit-command-str))))))
   )
