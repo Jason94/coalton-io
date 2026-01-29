@@ -1,20 +1,20 @@
 (cl:in-package :cl-user)
-(defpackage :io/thread-impl/data-broadcast-pool
+(defpackage :io/threads-impl/data-broadcast-pool
   (:use
    #:coalton
    #:coalton-prelude
    #:coalton-library/types
    #:io/utils
-   #:io/thread-exceptions
-   #:io/thread-impl/runtime
+   #:io/threads-exceptions
+   #:io/threads-impl/runtime
    #:io/classes/runtime-utils
-   #:io/classes/monad-io-thread
+   #:io/classes/threads
    )
   (:local-nicknames
    (:lk  #:coalton-threads/lock)
    (:c #:coalton-library/cell)
    (:cv  #:coalton-threads/condition-variable)
-   (:at #:io/thread-impl/atomics)
+   (:at #:io/threads-impl/atomics)
    )
   (:export
    #:DataBroadcastPool
@@ -23,7 +23,7 @@
    #:subscribe
    #:subscribe-with
    ))
-(in-package :io/thread-impl/data-broadcast-pool)
+(in-package :io/threads-impl/data-broadcast-pool)
 
 (named-readtables:in-readtable coalton:coalton)
 

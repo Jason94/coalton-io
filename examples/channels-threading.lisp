@@ -4,9 +4,9 @@
    #:coalton
    #:coalton-prelude
    #:io/simple-io
-   #:io/thread
-   #:io/term
-   #:io/exception
+   #:io/threads
+   #:io/terminal
+   #:io/exceptions
    #:io/random
    #:io/conc/future
    #:coalton-library/experimental/do-control-core
@@ -14,10 +14,10 @@
   (:local-nicknames
    (:s #:coalton-library/string)
    (:f_ #:coalton-library/file)
-   (:f #:io/file)
+   (:f #:io/files)
    (:r #:coalton-library/result)
    (:mv #:io/conc/mvar)
-   (:m #:io/mut)))
+   (:m #:io/mutable-var)))
 (in-package :io/examples/channels-threading)
 
 (named-readtables:in-readtable coalton:coalton)

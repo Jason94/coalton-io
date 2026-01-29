@@ -4,7 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:io/classes/monad-io
-   #:io/classes/monad-io-thread
+   #:io/classes/threads
    #:io/classes/conc/scheduler
    #:io/gen-impl/conc/mvar
    )
@@ -28,7 +28,7 @@ MChanScheduler is unbounded."
     (MChanScheduler% (MChan :a)))
 
   (inline)
-  (declare new-mchan-scheduler (MonadIoThread :rt :t :m => :m (MChanScheduler :a)))
+  (declare new-mchan-scheduler (Threads :rt :t :m => :m (MChanScheduler :a)))
   (define new-mchan-scheduler
     (map MChanScheduler% new-empty-chan))
 

@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/thread-exceptions
+(defpackage :io/threads-exceptions
   (:use
    #:coalton
    #:coalton-prelude
@@ -25,7 +25,7 @@
    #:dynamic-is-threading-exception?
    #:is-threading-exception
    ))
-(in-package :io/thread-exceptions)
+(in-package :io/threads-exceptions)
 
 (named-readtables:in-readtable coalton:coalton)
 

@@ -6,10 +6,10 @@
    #:coalton-library/types
    #:io/utils
    #:io/classes/monad-io
-   #:io/classes/monad-io-thread
+   #:io/classes/threads
    )
   (:local-nicknames
-   (:at #:io/thread-impl/atomics)
+   (:at #:io/threads-impl/atomics)
    )
   (:export
    ;; Library Public
@@ -41,7 +41,7 @@ subscibe and park on a Parking Set, and a signalling thread can atomically unpar
 parkers on a ParkingSet.
 
 In general, ParkingSet is the preferred way to park and unpark threads. The lower-level
-parking functions exposed by the MonadIoThread and Runtime classes should only be used
+parking functions exposed by the Threads and Runtime classes should only be used
 if ParkingSet doesn't provide enough functionality for the algorithm.
 
 Concurrent:
@@ -117,7 +117,7 @@ Concurrent:
     (park-in-set-if-with% rt-prx should-park? NoTimeout pset))
 
   (inline)
-  (declare park-in-sets-if-with ((BaseIo :io) (MonadIoThread :rt :t :io) (MonadIo :m)
+  (declare park-in-sets-if-with ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
                                  => :io Boolean -> TimeoutStrategy -> List ParkingSet -> :m Unit))
   (define (park-in-sets-if-with should-park? strategy psets)
     "Parks the current thread in PSETS if SHOULD-PARK? returns True. Will park the thread
@@ -143,7 +143,7 @@ Concurrent:
      strategy))
 
   (inline)
-  (declare park-in-sets-if ((BaseIo :io) (MonadIoThread :rt :t :io) (MonadIo :m)
+  (declare park-in-sets-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
                              => :io Boolean -> List ParkingSet -> :m Unit))
   (define (park-in-sets-if should-park? psets)
     "Parks the current thread in PSETS if SHOULD-PARK? returns True. Will park the thread
@@ -158,7 +158,7 @@ Concurrent:
     (park-in-sets-if-with should-park? NoTimeout psets))
 
   (inline)
-  (declare park-in-set-if-with ((BaseIo :io) (MonadIoThread :rt :t :io) (MonadIo :m)
+  (declare park-in-set-if-with ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
                                 => :io Boolean -> TimeoutStrategy -> ParkingSet -> :m Unit))
   (define (park-in-set-if-with should-park? strategy pset)
     "Parks the current thread in PSET if SHOULD-PARK? returns True. Will park the thread
@@ -183,7 +183,7 @@ Concurrent:
      strategy))
 
   (inline)
-  (declare park-in-set-if ((BaseIo :io) (MonadIoThread :rt :t :io) (MonadIo :m)
+  (declare park-in-set-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
                              => :io Boolean -> ParkingSet -> :m Unit))
   (define (park-in-set-if should-park? pset)
     "Parks the current thread in PSET if SHOULD-PARK? returns True. Will park the thread

@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/classes/monad-io-file
+(defpackage :io/classes/files
   (:use
    #:coalton
    #:coalton-prelude
@@ -15,8 +15,8 @@
    (:file #:coalton-library/file))
   (:export
    ;; Library Public
-   #:MonadIoFile
-   #:derive-monad-io-file
+   #:Files
+   #:derive-files
    #:exists?
    #:file-exists?
    #:directory-exists?
@@ -49,12 +49,12 @@
    #:create-temp-directory%
    #:create-temp-file%
    ))
-(in-package :io/classes/monad-io-file)
+(in-package :io/classes/files)
 
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (define-class (MonadIo :m => MonadIoFile :m)
+  (define-class (MonadIo :m => Files :m)
     (exists?
      "Returns whether a file or directory exists."
      (Into :a file:Pathname => :a -> :m (Result file:FileError Boolean)))
@@ -152,12 +152,12 @@
 
   )
 
-(defmacro derive-monad-io-file (monad-param monadT-form)
-  "Derive a `MonadIoFile` instance for MONADT-FORM by lifting into the base instance.
+(defmacro derive-files (monad-param monadT-form)
+  "Derive a `Files` instance for MONADT-FORM by lifting into the base instance.
 
 Example:
-  (derive-monad-io-file :m (st:StateT :s :m))"
-  `(define-instance (MonadIoFile ,monad-param => MonadIoFile ,monadT-form)
+  (derive-files :m (st:StateT :s :m))"
+  `(define-instance (Files ,monad-param => Files ,monadT-form)
      (define exists? (compose lift exists?))
      (define file-exists? (compose lift file-exists?))
      (define directory-exists? (compose lift directory-exists?))
@@ -193,7 +193,7 @@ Example:
      (define set-file-position (compose2 lift set-file-position))))
 
 (coalton-toplevel
-  (derive-monad-io-file :m (st:StateT :s :m))
-  (derive-monad-io-file :m (env:EnvT :e :m))
-  (derive-monad-io-file :m (LoopT :m))
+  (derive-files :m (st:StateT :s :m))
+  (derive-files :m (env:EnvT :e :m))
+  (derive-files :m (LoopT :m))
   )

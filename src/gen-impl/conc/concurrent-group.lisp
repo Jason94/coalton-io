@@ -6,10 +6,10 @@
    #:coalton-library/types
    #:coalton-library/monad/classes
    #:io/utils
-   #:io/thread-exceptions
-   #:io/classes/monad-exception
+   #:io/threads-exceptions
+   #:io/classes/exceptions
    #:io/classes/monad-io
-   #:io/classes/monad-io-thread
+   #:io/classes/threads
    #:io/resource
    )
   (:local-nicknames
@@ -65,7 +65,7 @@ Concurrent:
   (define (value-prx _)
     Proxy)
 
-  (declare fork-group ((MonadIoThread :rt :t :m) (Concurrent :c :a)
+  (declare fork-group ((Threads :rt :t :m) (Concurrent :c :a)
                        => List (:m :c) -> :m (ConcurrentGroup :c :a)))
   (define (fork-group fork-concurrents)
     "Run a list of IO operations that each forks a Concurrent. Enclose the forked Concurrents in a
@@ -78,7 +78,7 @@ Concurrent:
      (concurrents <- (sequence fork-concurrents))
      (pure (ConcurrentGroup concurrents (lk:new)))))
 
-  (declare enclose-group ((MonadIoThread :rt :t :m) (Concurrent :c :a)
+  (declare enclose-group ((Threads :rt :t :m) (Concurrent :c :a)
                        => List :c -> :m (ConcurrentGroup :c :a)))
   (define (enclose-group concurrents)
     "Enclose already forked Concurrents in a ConcurrentGroup.
@@ -87,7 +87,7 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     (wrap-io (ConcurrentGroup concurrents (lk:new))))
 
   (inline)
-  (declare await% ((MonadIoThread :rt :t :m) (MonadException :m) (Concurrent :c :a)
+  (declare await% ((Threads :rt :t :m) (Exceptions :m) (Concurrent :c :a)
                    => ConcurrentGroup :c :a -> :m (List :a)))
   (define (await% group)
     ;; CONCURRENT: Doesn't mask because (1) await blocks, and (2) await doesn't modify
@@ -95,7 +95,7 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     (do-collect (t (.pool group))
       (await t)))
 
-  (declare stop% ((MonadIoThread :rt :t :m) (Concurrent :c :a) (MonadException :m)
+  (declare stop% ((Threads :rt :t :m) (Concurrent :c :a) (Exceptions :m)
                   => ConcurrentGroup :c :a -> :m Unit))
   (define (stop% group)
     ;; CONCURRENT: Masks entire operation to guarantee enclosed threads are left in a
@@ -109,7 +109,7 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
        (foreach (.pool group) (as-proxy-of stop
                                            (proxy-with-arg cnc-prx))))))
 
-  (declare mask% ((MonadIoThread :rt :t :m) (Concurrent :c :a) (MonadException :m)
+  (declare mask% ((Threads :rt :t :m) (Concurrent :c :a) (Exceptions :m)
                   => ConcurrentGroup :c :a -> :m Unit))
   (define (mask% group)
     ;; CONCURRENT: Masks entire operation to guarantee enclosed threads are left in a
@@ -123,7 +123,7 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
        (foreach (.pool group) (as-proxy-of mask
                                            (proxy-with-arg cnc-prx))))))
 
-  (declare unmask% ((MonadIoThread :rt :t :m) (Concurrent :c :a) (MonadException :m)
+  (declare unmask% ((Threads :rt :t :m) (Concurrent :c :a) (Exceptions :m)
                   => ConcurrentGroup :c :a -> :m Unit))
   (define (unmask% group)
     ;; CONCURRENT: Masks entire operation to guarantee enclosed threads are left in a
@@ -137,8 +137,8 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
        (foreach (.pool group) (as-proxy-of unmask
                                            (proxy-with-arg cnc-prx))))))
 
-  (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r) (MonadException :m)
-                            (Concurrent :c :a) (MonadIoThread :rt :t :m)
+  (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r) (Exceptions :m)
+                            (Concurrent :c :a) (Threads :rt :t :m)
                             => ConcurrentGroup :c :a -> (UnmaskFinallyMode -> :r :b) -> :m Unit))
   (define (unmask-finally% group callback)
     ;; CONCURRENT: Masks entire operation to guarantee enclosed threads are left in a

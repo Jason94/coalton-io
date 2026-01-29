@@ -4,17 +4,17 @@
    #:coalton
    #:coalton-prelude
    #:io/monad-io
-   #:io/term)
+   #:io/terminal)
   (:local-nicknames
    (:l #:coalton-library/list)
    (:f #:coalton-library/monad/free)
    (:ft #:coalton-library/monad/freet)
    (:id #:coalton-library/monad/identity)
    (:io-rand #:io/random)
-   (:io-file #:io/file)
-   (:io-mut #:io/mut)
-   (:io-thd #:io/thread)
-   (:io-unq #:io/unique)
+   (:io-file #:io/files)
+   (:io-mut #:io/mutable-var)
+   (:io-thd #:io/threads)
+   (:io-unq #:io/unique-gen)
    )
   (:export
    #:TermStubM
@@ -46,7 +46,7 @@
   (define-type-alias TermStubM (ft:FreeT TermStubF))
   (define-type-alias TermStub (TermStubM id:Identity))
 
-  (define-instance (MonadIo :m => MonadIoTerm (TermStubM :m))
+  (define-instance (MonadIo :m => Terminal (TermStubM :m))
     (inline)
     (define (write into-str)
       (f:liftF (Write% (into into-str) Unit)))
@@ -57,18 +57,18 @@
     (define read-line
       (f:liftF (ReadLine% id))))
 
-  ;; These implementations allow MonadIoTerm to sit on top of the normal IO
-  ;; monad. MonadIoTerm will "intercept" any MonadIoTerm behavior, and pass
+  ;; These implementations allow Terminal to sit on top of the normal IO
+  ;; monad. Terminal will "intercept" any Terminal behavior, and pass
   ;; any other effects down the transformer stack to IO.
   ;;
   ;; I *think* the one problem with this will be any calls that require IO's,
   ;; like foreach-io.
   (derive-monad-io :m (TermStubM :m))
-  (io-rand:derive-monad-io-random :m (TermStubM :m))
-  (io-file:derive-monad-io-file :m (TermStubM :m))
-  (io-mut:derive-monad-var :m (termstubm :m))
-  (io-thd:derive-monad-io-thread :m (TermStubM :m))
-  (io-unq:derive-monad-io-unique :m (TermStubM :m))
+  (io-rand:derive-random :m (TermStubM :m))
+  (io-file:derive-files :m (TermStubM :m))
+  (io-mut:derive-mutable-var :m (termstubm :m))
+  (io-thd:derive-threads :m (TermStubM :m))
+  (io-unq:derive-unique-gen :m (TermStubM :m))
 
   (declare run-term-stubM (Monad :m => TermStubM :m :a -> List String -> :m (Tuple (List String) :a)))
   (define (run-term-stubM opm read-line-inputs)

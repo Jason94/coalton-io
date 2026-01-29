@@ -5,7 +5,7 @@
    #:coalton-prelude
    #:io/classes/monad-io
    #:io/gen-impl/conc/parking
-   #:io/thread-impl/runtime
+   #:io/threads-impl/runtime
    #:io/io-impl/simple-io
    )
   (:export

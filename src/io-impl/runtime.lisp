@@ -3,8 +3,8 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:io/classes/monad-io-thread
-   #:io/thread-impl/runtime
+   #:io/classes/threads
+   #:io/threads-impl/runtime
    )
   (:export
    #:IoRuntime

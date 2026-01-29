@@ -7,10 +7,10 @@
    #:coalton-library/monad/classes
    #:coalton-library/experimental/do-control-core
    #:io/utils
-   #:io/thread-exceptions
-   #:io/classes/monad-exception
+   #:io/threads-exceptions
+   #:io/classes/exceptions
    #:io/classes/monad-io
-   #:io/classes/monad-io-thread
+   #:io/classes/threads
    #:io/gen-impl/conc/mvar
    )
   (:export
@@ -42,8 +42,8 @@ Concurrent:
     (unmask-finally-callback ((UnmaskFinallyMode -> Unit) -> Unit)))
 
   (inline)
-  (declare fork-future ((MonadException :r) (LiftTo :r :m) (UnliftIo :r :i)
-                        (MonadIoThread :rt :t :r) (MonadIoThread :rt :t :m)
+  (declare fork-future ((Exceptions :r) (LiftTo :r :m) (UnliftIo :r :i)
+                        (Threads :rt :t :r) (Threads :rt :t :m)
                         => :r :a -> :m (Future :a)))
   (define (fork-future task)
     "Spawn a new future, which will run and eventually return the result
@@ -74,7 +74,7 @@ the produced :m is run."
      m-prx))
 
   (inline)
-  (declare await% ((MonadIoThread :rt :t :m) (MonadException :m) => Future :a -> :m :a))
+  (declare await% ((Threads :rt :t :m) (Exceptions :m) => Future :a -> :m :a))
   (define (await% future)
     (matchM (read-mvar (.value-mvar future))
       ((Ok a)
@@ -83,7 +83,7 @@ the produced :m is run."
        (raise-dynamic dyn-e))))
 
   (inline)
-  (declare try-read-future ((MonadIoThread :rt :t :m) (MonadException :m)
+  (declare try-read-future ((Threads :rt :t :m) (Exceptions :m)
                             => Future :a -> :m (Optional :a)))
   (define (try-read-future future)
     "Try to read the current value from FUTURE, returning NONE

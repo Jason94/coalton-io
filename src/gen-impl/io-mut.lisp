@@ -4,14 +4,14 @@
    #:coalton
    #:coalton-prelude
    #:io/classes/monad-io
-   #:io/classes/monad-io-var
+   #:io/classes/mutable-var
    )
   (:local-nicknames
    (:c #:coalton-library/cell)
    )
   (:export
    ;; Library Public
-   #:implement-monad-io-var
+   #:implement-mutable-var
 
    ;; Library Private
    #:new-var%
@@ -47,8 +47,8 @@
     "Modify the value in an Var and return the old value."
     (wrap-io (c:update-swap! f cel))))
 
-(defmacro implement-monad-io-var (monad)
-  `(define-instance (MonadIoVar ,monad)
+(defmacro implement-mutable-var (monad)
+  `(define-instance (MutableVar ,monad)
      (define new-var new-var%)
      (define read read%)
      (define write write%)

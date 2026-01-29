@@ -6,7 +6,7 @@
    #:coalton-library/cell
    #:coalton-library/types
    #:io/classes/monad-io
-   #:io/classes/monad-io-thread
+   #:io/classes/threads
    #:io/classes/runtime-utils
    )
   (:local-nicknames
@@ -249,13 +249,13 @@ Concurrent:
 (coalton-toplevel
 
   (inline)
-  (declare new-ring-buffer (MonadIoThread :rt :t :m => UFix -> :m (RingBuffer :a)))
+  (declare new-ring-buffer (Threads :rt :t :m => UFix -> :m (RingBuffer :a)))
   (define (new-ring-buffer capacity)
     "Create a new ring buffer with the given capacity."
     (wrap-io (new-ring-buffer% capacity)))
 
   (inline)
-  (declare enqueue-with (MonadIoThread :rt :t :m => :a -> TimeoutStrategy -> RingBuffer :a -> :m Unit))
+  (declare enqueue-with (Threads :rt :t :m => :a -> TimeoutStrategy -> RingBuffer :a -> :m Unit))
   (define (enqueue-with elt strategy buffer)
     "Add ELT to BUFFER.
 
@@ -265,7 +265,7 @@ Concurrent:
     (inject-runtime enqueue-with!% elt strategy buffer))
 
   (inline)
-  (declare enqueue (MonadIoThread :rt :t :m => :a -> RingBuffer :a -> :m Unit))
+  (declare enqueue (Threads :rt :t :m => :a -> RingBuffer :a -> :m Unit))
   (define (enqueue elt buffer)
     "Add ELT to BUFFER.
 
@@ -275,7 +275,7 @@ Concurrent:
     (inject-runtime enqueue!% elt buffer))
 
   (inline)
-  (declare try-enqueue (MonadIothread :rt :t :m => :a -> RingBuffer :a -> :m Boolean))
+  (declare try-enqueue (Threads :rt :t :m => :a -> RingBuffer :a -> :m Boolean))
   (define (try-enqueue elt buffer)
     "Attempt to add ELT to BUFFER. Returns True if equeue succeeded, False otherwise.
 
@@ -283,7 +283,7 @@ Concurrent: Can block acquiring lock on buffer."
     (inject-runtime try-enqueue!% elt buffer))
 
   (inline)
-  (declare dequeue-with (MonadIoThread :rt :t :m => TimeoutStrategy -> RingBuffer :a -> :m :a))
+  (declare dequeue-with (Threads :rt :t :m => TimeoutStrategy -> RingBuffer :a -> :m :a))
   (define (dequeue-with strategy buffer)
     "Pop an element from BUFFER.
 
@@ -293,7 +293,7 @@ Concurrent:
     (inject-runtime dequeue-with!% strategy buffer))
 
   (inline)
-  (declare dequeue (MonadIoThread :rt :t :m => RingBuffer :a -> :m :a))
+  (declare dequeue (Threads :rt :t :m => RingBuffer :a -> :m :a))
   (define (dequeue buffer)
     "Pop an element from BUFFER.
 

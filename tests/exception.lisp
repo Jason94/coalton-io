@@ -6,11 +6,11 @@
         #:io/tests/utils
         #:io/utils
         #:io/simple-io
-        #:io/exception
+        #:io/exceptions
         #:io/monad-io
-        #:io/thread)
+        #:io/threads)
   (:local-nicknames
-   (:m #:io/mut))
+   (:m #:io/mutable-var))
   )
 (in-package :coalton-io/tests/exception)
 

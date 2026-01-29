@@ -3,10 +3,10 @@
    #:io/utils
    #:io/monad-io
    #:io/simple-io
-   #:io/exception
-   #:io/mut
+   #:io/exceptions
+   #:io/mutable-var
    #:io/conc/mvar
-   #:io/thread
+   #:io/threads
    #:io/tests/utils
    )
   (:local-nicknames

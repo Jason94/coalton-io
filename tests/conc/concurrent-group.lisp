@@ -4,13 +4,13 @@
    #:io/tests/utils
    #:io/monad-io
    #:io/simple-io
-   #:io/exception
-   #:io/thread
+   #:io/exceptions
+   #:io/threads
    #:io/conc/future
    #:io/conc/group
-   #:io/mut)
+   #:io/mutable-var)
   (:local-nicknames
-   (:tm #:io/term)
+   (:tm #:io/terminal)
    (:at #:io/conc/atomic)))
 (in-package :coalton-io/tests/conc/group)
 

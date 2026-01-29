@@ -4,12 +4,12 @@
    #:coalton
    #:coalton-prelude
    #:io/classes/monad-io
-   #:io/classes/monad-io-unique)
+   #:io/classes/unique-gen)
   (:local-nicknames
-   (:at #:io/thread-impl/atomics)
+   (:at #:io/threads-impl/atomics)
    )
   (:export
-   #:implement-monad-io-unique
+   #:implement-unique-gen
    ))
 (in-package :io/gen-impl/unique)
 
@@ -25,7 +25,7 @@
   (define new-unique%
     (wrap-io (Unique% (at:atomic-update-swap counter% (+ 1))))))
 
-(defmacro implement-monad-io-unique (monad)
-  `(define-instance (MonadIoUnique ,monad)
+(defmacro implement-unique-gen (monad)
+  `(define-instance (UniqueGen ,monad)
      (define new-unique new-unique%)))
 

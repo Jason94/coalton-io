@@ -3,15 +3,15 @@
    #:io/monad-io
    #:io/utils
    #:io/simple-io
-   #:io/thread
-   #:io/mut
+   #:io/threads
+   #:io/mutable-var
    #:io/conc/mvar
    #:io/tests/utils
    )
   (:local-nicknames
    (:c #:coalton-library/cell)
    (:opt #:coalton-library/optional)
-   (:tm #:io/term))
+   (:tm #:io/terminal))
   )
 (in-package :coalton-io/tests/thread-impl/runtime/structured-conc)
 

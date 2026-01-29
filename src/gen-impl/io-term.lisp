@@ -4,9 +4,9 @@
    #:coalton
    #:coalton-prelude
    #:io/classes/monad-io
-   #:io/classes/monad-io-term)
+   #:io/classes/terminal)
   (:export
-   #:implement-monad-io-term
+   #:implement-terminal
    ))
 (in-package :io/gen-impl/term)
 
@@ -34,8 +34,8 @@
     (wrap-io (lisp :a ()
                (cl:read-line)))))
 
-(defmacro implement-monad-io-term (monad)
-  `(define-instance (MonadIoTerm ,monad)
+(defmacro implement-terminal (monad)
+  `(define-instance (Terminal ,monad)
      (define write write%)
      (define write-line write-line%)
      (define read-line read-line%)))

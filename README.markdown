@@ -93,15 +93,15 @@ _coalton-io_ has a several example programs to demonstrate how to use `IO`:
 
 _coalton-io_ provides the following features in these packages:
 
-* `io/exception` - Raise and handle exceptions within `IO`, automatically capture unhandled Lisp/Coalton errors, and easily convert between exceptions and `Result`/`Optional`
+* `io/exceptions` - Raise and handle exceptions within `IO`, automatically capture unhandled Lisp/Coalton errors, and easily convert between exceptions and `Result`/`Optional`
 * `io/resource`   - Operations to safely acquire, use, and release resources
-* `io/term`       - Read/write to the Console
-* `io/file`       - Read/write to files and interact with the file system
+* `io/terminal`       - Read/write to the Console
+* `io/files`       - Read/write to files and interact with the file system
 * `io/random`     - Generate random numbers
-* `io/mut`        - Use unsynchronized (non-thread safe) mutable variables in pure code
-* `io/unique`     - Generate guaranteed unique values (thread safe)
-* `io/thread`     - Fork new threads which run their own `IO` operations
-* `io/networking` - Connect sockets and send data over TCP/IP
+* `io/mutable-var`        - Use unsynchronized (non-thread safe) mutable variables in pure code
+* `io/unique-gen`     - Generate guaranteed unique values (thread safe)
+* `io/threads`     - Fork new threads which run their own `IO` operations
+* `io/sockets` - Connect sockets and send data over TCP/IP
 * `io/conc/future`- Futures that run an `IO` computation in another thread and return the value to the calling thread
 * `io/conc/atomic`- Atomic mutable variables for sharing state across threads
 * `io/conc/mvar`  - Provides `MVar`s (synchronized single-value mutable stores to hand off data between threads) and `MChan`s (thread safe FIFO queues to stream data between threads)
@@ -208,7 +208,7 @@ The `fork` family of functions & macros spawn new threads that run an IO operati
    (write-line "Hello from main thread"))
 ```
 
-Mutable variables can be shared across threads. Plain mutable variables from the `io/mut` package are **not** threadsafe, so this should generally be avoided. _coalton-io_ provides several other forms of mutable state that are suitable for sharing between threads.
+Mutable variables can be shared across threads. Plain mutable variables from the `io/mutable-var` package are **not** threadsafe, so this should generally be avoided. _coalton-io_ provides several other forms of mutable state that are suitable for sharing between threads.
 
 ```lisp
   (do

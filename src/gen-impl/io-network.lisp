@@ -4,14 +4,14 @@
    #:coalton
    #:coalton-prelude
    #:io/classes/monad-io
-   #:io/classes/monad-exception
-   #:io/classes/monad-io-network
-   #:io/classes/monad-io-thread
+   #:io/classes/exceptions
+   #:io/classes/sockets
+   #:io/classes/threads
    #:io/resource
    )
   (:export
    ;; Library Public
-   #:implement-monad-io-network
+   #:implement-sockets
 
    #:socket-listen-with
    #:do-socket-listen-with
@@ -162,8 +162,8 @@
            buf)))))
   )
 
-(defmacro implement-monad-io-network (monad)
-  `(define-instance (MonadIoNetwork ,monad)
+(defmacro implement-sockets (monad)
+  `(define-instance (Sockets ,monad)
      (define socket-listen socket-listen%)
      (define socket-accept socket-accept%)
      (define socket-connect socket-connect%)
@@ -188,7 +188,7 @@
 (coalton-toplevel
 
   ;; TODO: Convert these to use MonadIo
-  (declare socket-listen-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+  (declare socket-listen-with ((Sockets :m) (Threads :rt :t :m) (Exceptions :m)
                                => String -> UFix -> (ServerSocket -> :m :a) -> :m :a))
   (define (socket-listen-with hostname port op)
     "Run operation OP with a new server socket, listening on HOSTNAME and PORT. Guarantees
@@ -200,7 +200,7 @@ that the socket will close on cleanup."
 
   ;; TODO: Switch these to use a non-masking bracket combinator once I write one.
   ;; It shouldn't be masked while blocking on the socket connection.
-  (declare socket-connect-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+  (declare socket-connect-with ((Sockets :m) (Threads :rt :t :m) (Exceptions :m)
                                 => String -> UFix -> (ConnectionSocket -> :m :a) -> :m :a))
   (define (socket-connect-with hostname port op)
     "Run operation OP with a connection to an open server socket at HOSTNAME and PORT.
@@ -210,7 +210,7 @@ Guarantees that the socket will close on cleanup."
      close-connection
      op))
 
-  (declare socket-accept-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+  (declare socket-accept-with ((Sockets :m) (Threads :rt :t :m) (Exceptions :m)
                                => ServerSocket -> (ConnectionSocket -> :m :a) -> :m :a))
   (define (socket-accept-with server-socket op)
     "Accept a connection with a new client and run operation OP. Guarantees that the
@@ -226,7 +226,7 @@ socket-accept-fork-with."
 
   ;; TODO: Bracket the top-level forking once I write a bracket combinator that uses a
   ;; non-type specific ExitCase.
-  (declare socket-accept-fork-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+  (declare socket-accept-fork-with ((Sockets :m) (Threads :rt :t :m) (Exceptions :m)
                                     (UnliftIo :m :m)
                                     => ServerSocket -> (ConnectionSocket -> :m :a) -> :m :t))
   (define (socket-accept-fork-with server-socket op)
@@ -240,7 +240,7 @@ Guarantees that the socket will close on cleanup. Returns a handle to the forked
         close-connection
         op))))
 
-  (declare byte-socket-listen-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+  (declare byte-socket-listen-with ((Sockets :m) (Threads :rt :t :m) (Exceptions :m)
                                     => String -> UFix -> (ByteServerSocket -> :m :a) -> :m :a))
   (define (byte-socket-listen-with hostname port op)
     "Run operation OP with a new byte-stream server socket, listening on HOSTNAME and PORT.
@@ -250,7 +250,7 @@ Guarantees that the socket will close on cleanup."
      close-byte-server
      op))
 
-  (declare byte-socket-connect-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+  (declare byte-socket-connect-with ((Sockets :m) (Threads :rt :t :m) (Exceptions :m)
                                      => String -> UFix -> (ByteConnectionSocket -> :m :a) -> :m :a))
   (define (byte-socket-connect-with hostname port op)
     "Run operation OP with a byte-stream connection to an open server socket at HOSTNAME and PORT.
@@ -260,7 +260,7 @@ Guarantees that the socket will close on cleanup."
      close-byte-connection
      op))
 
-  (declare byte-socket-accept-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+  (declare byte-socket-accept-with ((Sockets :m) (Threads :rt :t :m) (Exceptions :m)
                                     => ByteServerSocket -> (ByteConnectionSocket -> :m :a) -> :m :a))
   (define (byte-socket-accept-with server-socket op)
     "Accept a byte-stream connection with a new client and run operation OP. Guarantees that the
@@ -274,7 +274,7 @@ byte-socket-accept-fork-with."
      close-byte-connection
      op))
 
-  (declare byte-socket-accept-fork-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+  (declare byte-socket-accept-fork-with ((Sockets :m) (Threads :rt :t :m) (Exceptions :m)
                                          (UnliftIo :m :m)
                                          => ByteServerSocket -> (ByteConnectionSocket -> :m :a) -> :m :t))
   (define (byte-socket-accept-fork-with server-socket op)

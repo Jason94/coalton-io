@@ -1,13 +1,13 @@
 (cl:in-package :cl-user)
-(defpackage :io/file
+(defpackage :io/files
   (:use
-   #:io/classes/monad-io-file
+   #:io/classes/files
    #:io/io-impl/file
    #:io/gen-impl/file)
   (:export
-   ;; Re-exports from io/classes/monad-io-file
-   #:MonadIoFile
-   #:derive-monad-io-file
+   ;; Re-exports from io/classes/files
+   #:Files
+   #:derive-files
    #:exists?
    #:file-exists?
    #:directory-exists?
@@ -56,6 +56,6 @@
    #:do-with-temp-directory
 
    ;; Re-exports from io/gen-impl/file
-   #:implement-monad-io-file
+   #:implement-files
    ))
-(in-package :io/file)
+(in-package :io/files)

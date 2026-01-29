@@ -5,9 +5,9 @@
         #:io/simple-io
         #:io/monad-io)
   (:local-nicknames
-   (:tm #:io/term)
-   (:exc #:io/exception)
-   (:mt #:io/mut)
+   (:tm #:io/terminal)
+   (:exc #:io/exceptions)
+   (:mt #:io/mutable-var)
    (:r #:coalton-library/result)
    (:opt #:coalton-library/optional)
    (:l #:coalton-library/list)

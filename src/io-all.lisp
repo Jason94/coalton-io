@@ -3,46 +3,49 @@
   (:use #:coalton #:coalton-prelude)
   (:import-from #:io/monad-io
    #:derive-monad-io)
-  (:import-from #:io/thread
-   #:implement-monad-io-thread
-   #:derive-monad-io-thread)
-  (:import-from #:io/mut
-   #:implement-monad-io-var
-   #:derive-monad-var)
-  (:import-from #:io/file
-   #:implement-monad-io-file
-   #:derive-monad-io-file)
+  (:import-from #:io/threads
+   #:implement-threads
+   #:derive-threads)
+  (:import-from #:io/mutable-var
+   #:implement-mutable-var
+   #:derive-mutable-var)
+  (:import-from #:io/files
+   #:implement-files
+   #:derive-files)
   (:import-from #:io/random
-   #:implement-monad-io-random
-   #:derive-monad-io-random)
-  (:import-from #:io/term
-   #:implement-monad-io-term
-   #:derive-monad-io-term)
-  (:import-from #:io/unique
-   #:implement-monad-io-unique
-   #:derive-monad-io-unique)
+   #:implement-random
+   #:derive-random)
+  (:import-from #:io/terminal
+   #:implement-terminal
+   #:derive-terminal)
+  (:import-from #:io/unique-gen
+   #:implement-unique-gen
+   #:derive-unique-gen)
+  (:import-from #:io/sockets
+   #:implement-sockets
+   #:derive-sockets)
   (:export
-   #:implement-monad-io-all
+   #:implement-io-all
    #:derive-monad-io-all))
 (in-package :io/io-all)
 
 (defmacro derive-monad-io-all (monad-param monadT-form)
   `(progn
      (derive-monad-io ,monad-param ,monadT-form)
-     (derive-monad-io-thread ,monad-param ,monadT-form)
-     (derive-monad-var ,monad-param ,monadT-form)
-     (derive-monad-io-file ,monad-param ,monadT-form)
-     (derive-monad-io-random ,monad-param ,monadT-form)
-     (derive-monad-io-term ,monad-param ,monadT-form)
-     (derive-monad-io-unique ,monad-param ,monadT-form)
-     (derive-monad-io-network ,monad-param ,monadT-form)))
+     (derive-threads ,monad-param ,monadT-form)
+     (derive-mutable-var ,monad-param ,monadT-form)
+     (derive-files ,monad-param ,monadT-form)
+     (derive-random ,monad-param ,monadT-form)
+     (derive-terminal ,monad-param ,monadT-form)
+     (derive-unique-gen ,monad-param ,monadT-form)
+     (derive-sockets ,monad-param ,monadT-form)))
 
-(defmacro implement-monad-io-all (monad)
+(defmacro implement-io-all (monad)
   `(progn
-     (implement-monad-io-thread ,monad)
-     (implement-monad-io-var ,monad)
-     (implement-monad-io-file ,monad)
-     (implement-monad-io-random ,monad)
-     (implement-monad-io-term ,monad)
-     (implement-monad-io-unique ,monad)
-     (implement-monad-io-network ,monad)))
+     (implement-threads ,monad)
+     (implement-mutable-var ,monad)
+     (implement-files ,monad)
+     (implement-random ,monad)
+     (implement-terminal ,monad)
+     (implement-unique-gen ,monad)
+     (implement-sockets ,monad)))

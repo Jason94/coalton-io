@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/classes/monad-io-unique
+(defpackage :io/classes/unique-gen
   (:use
    #:coalton
    #:coalton-prelude
@@ -13,14 +13,14 @@
   (:export
    ;; Library Public
    #:Unique
-   #:MonadIoUnique
-   #:derive-monad-io-unique
+   #:UniqueGen
+   #:derive-unique-gen
    #:new-unique
    #:to-int
 
    ;; Library Private
    #:Unique%))
-(in-package :io/classes/monad-io-unique)
+(in-package :io/classes/unique-gen)
 
 (named-readtables:in-readtable coalton:coalton)
 
@@ -44,19 +44,19 @@ It is guaranteed that: (/= (to-int a) (to-int b))
 for any two different Unique instances."
     i)
 
-  (define-class (Monad :m => MonadIoUnique :m)
+  (define-class (Monad :m => UniqueGen :m)
     (new-unique
      "Generate a value that will be unique within this run of the program.
 Threadsafe - calling from different threads will still result in unique
 values across all threads."
      (:m Unique))))
 
-(defmacro derive-monad-io-unique (monad-param monadT-form)
-  "Automatically derive an instance of MonadIoUnique for a monad transformer.
+(defmacro derive-unique-gen (monad-param monadT-form)
+  "Automatically derive an instance of UniqueGen for a monad transformer.
 
 Example:
-  (derive-monad-io-unique :m (st:StateT :s :m))"
-  `(define-instance (MonadIoUnique ,monad-param => MonadIoUnique ,monadT-form)
+  (derive-unique-gen :m (st:StateT :s :m))"
+  `(define-instance (UniqueGen ,monad-param => UniqueGen ,monadT-form)
      (define new-unique (lift new-unique))))
 
 (coalton-toplevel
@@ -64,6 +64,6 @@ Example:
   ;; Std. Library Transformer Instances
   ;;
 
-  (derive-monad-io-unique :m (st:StateT :s :m))
-  (derive-monad-io-unique :m (env:EnvT :e :m))
-  (derive-monad-io-unique :m (LoopT :m)))
+  (derive-unique-gen :m (st:StateT :s :m))
+  (derive-unique-gen :m (env:EnvT :e :m))
+  (derive-unique-gen :m (LoopT :m)))

@@ -4,10 +4,10 @@
    #:coalton
    #:coalton-prelude
    #:io/utils
-   #:io/classes/monad-exception
+   #:io/classes/exceptions
    #:io/classes/monad-io
-   #:io/classes/monad-io-file
-   #:io/classes/monad-io-thread
+   #:io/classes/files
+   #:io/classes/threads
    #:io/resource)
   (:import-from #:coalton-library/types
    #:RuntimeRepr)
@@ -18,7 +18,7 @@
    )
   (:export
    ;; Library Public
-   #:implement-monad-io-file
+   #:implement-files
    #:with-open-file
    #:with-temp-file
    #:with-temp-directory
@@ -162,8 +162,8 @@
     (wrap-io (f_:set-file-position fs pos)))
 )
 
-(defmacro implement-monad-io-file (monad)
-  `(define-instance (MonadIoFile ,monad)
+(defmacro implement-files (monad)
+  `(define-instance (Files ,monad)
      (define exists? exists?%)
      (define file-exists? file-exists?%)
      (define directory-exists? directory-exists?%)
@@ -199,12 +199,12 @@
      (define set-file-position set-file-position%)))
 
 ;;
-;; Functions Using MonadIoFile
+;; Functions Using Files
 ;;
 
 (coalton-toplevel
-  (declare with-open-file ((f_:File :a) (MonadIoFile :i) (UnliftIo :r :i)
-                           (LiftTo :r :m) (MonadException :i) (MonadIoThread :rt :t :i)
+  (declare with-open-file ((f_:File :a) (Files :i) (UnliftIo :r :i)
+                           (LiftTo :r :m) (Exceptions :i) (Threads :rt :t :i)
                            => f_:StreamOptions
                            -> ((f_:FileStream :a) -> :r :b)
                            -> :m :b))
@@ -222,8 +222,8 @@ in some cases. Try WITH-OPEN-FILE_ if you have issues."
                          (fn (file)
                            (run (k file)))))))))
 
-  (declare with-temp-file ((f_:File :a) (MonadIoFile :i) (MonadIoThread :rt :t :i)
-                           (UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
+  (declare with-temp-file ((f_:File :a) (Files :i) (Threads :rt :t :i)
+                           (UnliftIo :r :i) (LiftTo :r :m) (Exceptions :i)
                            => String
                            -> ((f_:FileStream :a) -> :r :b)
                            -> :m :b))
@@ -242,8 +242,8 @@ in some cases. Try WITH-TEMP-FILE_ if you have issues."
                            (fn (file)
                              (run (k file))))))))))
 
-  (declare with-temp-directory ((UnliftIo :r :i) (LiftTo :r :m) (MonadException :i)
-                                (MonadIoFile :i) (MonadIoThread :rt :t :i)
+  (declare with-temp-directory ((UnliftIo :r :i) (LiftTo :r :m) (Exceptions :i)
+                                (Files :i) (Threads :rt :t :i)
                                 => (f_:Pathname -> :r :a)
                                 -> :m :a))
   (define (with-temp-directory k)

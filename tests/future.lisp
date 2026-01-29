@@ -1,10 +1,10 @@
 (defpackage :coalton-io/tests/future
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:io/simple-io
-        #:io/exception
-        #:io/thread
+        #:io/exceptions
+        #:io/threads
         #:io/conc/future
-        #:io/mut))
+        #:io/mutable-var))
 (in-package :coalton-io/tests/future)
 
 (named-readtables:in-readtable coalton:coalton)
