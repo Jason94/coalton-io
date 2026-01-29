@@ -173,7 +173,9 @@ mutable variables, multithreading, and several data structures to safely share s
                 ((:file "channels-threading")
                  (:file "hangman")
                  (:file "fork-laws")
-                 (:file "network-demo"))))
+                 (:file "network-demo")
+                 (:file "redis/protocol")
+                 (:file "redis/redis"))))
   :description "Example programs for coalton-io.")
 
 (defsystem "coalton-io/benchmarks"

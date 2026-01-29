@@ -5,7 +5,9 @@
         #:io/simple-io
         #:io/monad-io)
   (:local-nicknames
+   (:tm #:io/term)
    (:exc #:io/exception)
+   (:mt #:io/mut)
    (:r #:coalton-library/result)
    (:opt #:coalton-library/optional)
    (:l #:coalton-library/list)
@@ -66,12 +68,18 @@
 
 (define-test test-foreach-io ()
   (let run-ints = (c:new Nil))
-  (run-io!
-   (do-foreach-io_ (x (make-list 0 10 20 30))
-     (wrap-io
-       (c:push! run-ints x))))
+  (let last-var =
+    (run-io!
+     (do
+      (last-var <- (mt:new-var -1))
+      (do-foreach-io_ (x (make-list 0 10 20 30))
+        (mt:write last-var x)
+        (wrap-io
+         (c:push! run-ints x)))
+      (mt:read last-var))))
   (is (== (make-list 0 10 20 30)
-          (l:reverse (c:read run-ints)))))
+          (l:reverse (c:read run-ints))))
+  (is (== 30 last-var)))
 
 ;;;
 ;;; Test Exceptions
