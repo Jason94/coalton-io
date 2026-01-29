@@ -52,8 +52,6 @@
     (c:read result))
   )
 
-;; If this test is failing, make sure you're exceuting the tests from the
-;; repository's root directory. If you're in Slime/Sly, use ,cd at the REPL.
 (define-test test-stop-outside-wrap-io ()
   ;; See simple-io.lisp
   (lisp Void ()
