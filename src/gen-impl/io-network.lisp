@@ -21,6 +21,14 @@
    #:do-socket-accept-with
    #:socket-accept-fork-with
    #:do-socket-accept-fork-with
+   #:byte-socket-listen-with
+   #:do-byte-socket-listen-with
+   #:byte-socket-connect-with
+   #:do-byte-socket-connect-with
+   #:byte-socket-accept-with
+   #:do-byte-socket-accept-with
+   #:byte-socket-accept-fork-with
+   #:do-byte-socket-accept-fork-with
 
    ;; Library Private
    #:socket-listen%
@@ -231,6 +239,54 @@ Guarantees that the socket will close on cleanup. Returns a handle to the forked
         (pure conn)
         close-connection
         op))))
+
+  (declare byte-socket-listen-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+                                    => String -> UFix -> (ByteServerSocket -> :m :a) -> :m :a))
+  (define (byte-socket-listen-with hostname port op)
+    "Run operation OP with a new byte-stream server socket, listening on HOSTNAME and PORT.
+Guarantees that the socket will close on cleanup."
+    (bracket-io_
+     (byte-socket-listen hostname port)
+     close-byte-server
+     op))
+
+  (declare byte-socket-connect-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+                                     => String -> UFix -> (ByteConnectionSocket -> :m :a) -> :m :a))
+  (define (byte-socket-connect-with hostname port op)
+    "Run operation OP with a byte-stream connection to an open server socket at HOSTNAME and PORT.
+Guarantees that the socket will close on cleanup."
+    (bracket-io_
+     (byte-socket-connect hostname port)
+     close-byte-connection
+     op))
+
+  (declare byte-socket-accept-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+                                    => ByteServerSocket -> (ByteConnectionSocket -> :m :a) -> :m :a))
+  (define (byte-socket-accept-with server-socket op)
+    "Accept a byte-stream connection with a new client and run operation OP. Guarantees that the
+socket will close on cleanup.
+
+Note: If you fork a thread inside this, the operation on this thread will probably finish
+and close the socket before you intend. For multithreaded uses, use
+byte-socket-accept-fork-with."
+    (bracket-io_
+     (byte-socket-accept server-socket)
+     close-byte-connection
+     op))
+
+  (declare byte-socket-accept-fork-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+                                         (UnliftIo :m :m)
+                                         => ByteServerSocket -> (ByteConnectionSocket -> :m :a) -> :m :t))
+  (define (byte-socket-accept-fork-with server-socket op)
+    "Accept a byte-stream connection with a new client and run operation OP on a new thread.
+Guarantees that the socket will close on cleanup. Returns a handle to the forked thread."
+    (do
+     (conn <- (byte-socket-accept server-socket))
+     (fork-thread
+       (bracket-io_
+        (pure conn)
+        close-byte-connection
+        op))))
   )
 
 (defmacro do-socket-listen-with ((socket-sym (hostname port)) cl:&body body)
@@ -264,5 +320,39 @@ socket-accept-fork-with."
   "Accept a connection with a new client and run operation OP on a new thread.
 Guarantees that the socket will close on cleanup. Returns a handle to the forked thread."
   `(socket-accept-fork-with ,server-socket
+     (fn (,socket-sym)
+       ,@body)))
+
+(defmacro do-byte-socket-listen-with ((socket-sym (hostname port)) cl:&body body)
+  "Run operation OP with a new byte-stream server socket, listening on HOSTNAME and PORT. Guarantees
+that the socket will close on cleanup."
+  `(byte-socket-listen-with ,hostname ,port
+     (fn (,socket-sym)
+       (do
+        ,@body))))
+
+(defmacro do-byte-socket-connect-with ((socket-sym (hostname port)) cl:&body body)
+  "Run operation OP with a byte-stream connection to an open server socket at HOSTNAME and PORT.
+Guarantees that the socket will close on cleanup."
+  `(byte-socket-connect-with ,hostname ,port
+     (fn (,socket-sym)
+       (do
+        ,@body))))
+
+(defmacro do-byte-socket-accept-with ((socket-sym (server-socket)) cl:&body body)
+  "Accept a byte-stream connection with a new client and run operation OP. Guarantees that the
+socket will close on cleanup.
+
+Note: If you fork a thread inside this, the operation on this thread will probably finish
+and close the socket before you intend. For multithreaded uses, use
+byte-socket-accept-fork-with."
+  `(byte-socket-accept-with ,server-socket
+     (fn (,socket-sym)
+      ,@body)))
+
+(defmacro do-byte-socket-accept-fork-with ((socket-sym (server-socket)) cl:&body body)
+  "Accept a byte-stream connection with a new client and run operation OP on a new thread.
+Guarantees that the socket will close on cleanup. Returns a handle to the forked thread."
+  `(byte-socket-accept-fork-with ,server-socket
      (fn (,socket-sym)
        ,@body)))

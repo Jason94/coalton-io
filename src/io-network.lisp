@@ -40,5 +40,14 @@
    #:do-socket-accept-with
    #:socket-accept-fork-with
    #:do-socket-accept-fork-with
+
+   #:byte-socket-listen-with
+   #:do-byte-socket-listen-with
+   #:byte-socket-connect-with
+   #:do-byte-socket-connect-with
+   #:byte-socket-accept-with
+   #:do-byte-socket-accept-with
+   #:byte-socket-accept-fork-with
+   #:do-byte-socket-accept-fork-with
    ))
 (in-package :io/network)

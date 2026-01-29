@@ -296,14 +296,13 @@
                    (do-command cmd conn)
                    (match cmd
                      ((Quit)
-                      (nt:close-byte-connection conn))
+                      (pure Unit))
                      (_
                       (%)))))))))))))
 
   (declare client-main (IO Unit))
   (define client-main
-    (do
-     (conn <- (nt:byte-socket-connect hostname port))
+    (nt:do-byte-socket-connect-with (conn (hostname port))
      (tm:write-line (<> "connected to " (<> hostname (<> ":" (as String port)))))
      (tm:write-line "Type --help for commands.")
      (client-repl conn))))
@@ -444,18 +443,18 @@ it was missing."
   (declare accept-loop (nt:ByteServerSocket -> Database -> IO Unit))
   (define (accept-loop server db)
     (do
-      (conn <- (nt:byte-socket-accept server))
-      (tm:write-line "client connected")
-      (fork-thread_ (handle-client conn db))
+      (nt:do-byte-socket-accept-fork-with (conn (server))
+        (the (IO Unit) (tm:write-line "client connected"))
+        (handle-client conn db))
       (accept-loop server db)))
 
   (declare server-main (IO Unit))
   (define server-main
     (do
       (db <- (new-database 16))
-      (server <- (nt:byte-socket-listen hostname port))
-      (tm:write-line (<> "listening on " (<> hostname (<> ":" (as String port)))))
-      (accept-loop server db)))
+      (nt:do-byte-socket-listen-with (server (hostname port))
+        (tm:write-line (<> "listening on " (<> hostname (<> ":" (as String port)))))
+        (accept-loop server db))))
   )
 
 (cl:defun run-server ()
