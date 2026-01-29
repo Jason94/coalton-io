@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/classes/monad-io-network
+(defpackage :io/classes/sockets
   (:use
    #:coalton
    #:coalton-prelude
@@ -16,7 +16,7 @@
    #:ConnectionSocket
    #:ByteServerSocket
    #:ByteConnectionSocket
-   #:MonadIoNetwork
+   #:Sockets
    #:socket-listen
    #:socket-accept
    #:socket-connect
@@ -33,11 +33,11 @@
    #:write-bytes
    #:read-exactly
 
-   #:derive-monad-io-network
+   #:derive-sockets
 
    ;; Library Private
    ))
-(in-package :io/classes/monad-io-network)
+(in-package :io/classes/sockets)
 
 (named-readtables:in-readtable coalton:coalton)
 
@@ -59,7 +59,7 @@
   (define-type ByteConnectionSocket
     "A socket connecting a client and server using a byte stream.")
 
-  (define-class (MonadIo :m => MonadIoNetwork :m)
+  (define-class (MonadIo :m => Sockets :m)
     (socket-listen
      "Start a new server socket, listening on HOSTNAME and PORT."
      (String -> UFix -> :m ServerSocket))
@@ -106,12 +106,12 @@
 
   )
 
-(defmacro derive-monad-io-network (monad-param monadT-form)
-  "Automatically derive an instance of MonadIoNetwork for a monad transformer.
+(defmacro derive-sockets (monad-param monadT-form)
+  "Automatically derive an instance of Sockets for a monad transformer.
 
 Example:
-  (derive-monad-io-network :m (st:StateT :s :m))"
-  `(define-instance (MonadIoNetwork ,monad-param => MonadIoNetwork ,monadT-form)
+  (derive-sockets :m (st:StateT :s :m))"
+  `(define-instance (Sockets ,monad-param => Sockets ,monadT-form)
      (define socket-listen (compose2 lift socket-listen))
      (define socket-accept (compose lift socket-accept))
      (define socket-connect (compose2 lift socket-connect))
@@ -134,6 +134,6 @@ Example:
 ;;
 
 (coalton-toplevel
-  (derive-monad-io-network :m (st:StateT :s :m))
-  (derive-monad-io-network :m (env:EnvT :e :m))
-  (derive-monad-io-network :m (LoopT :m)))
+  (derive-sockets :m (st:StateT :s :m))
+  (derive-sockets :m (env:EnvT :e :m))
+  (derive-sockets :m (LoopT :m)))

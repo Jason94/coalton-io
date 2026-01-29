@@ -3,16 +3,16 @@
         #:io/utils
         #:io/monad-io
         #:io/simple-io
-        #:io/exception
-        #:io/thread
-        #:io/mut
+        #:io/exceptions
+        #:io/threads
+        #:io/mutable-var
         #:io/conc/mvar
         #:io/tests/utils
         )
   (:import-from #:io/gen-impl/thread
     #:write-line-sync)
   (:local-nicknames
-   (:tm #:io/term)
+   (:tm #:io/terminal)
    (:opt #:coalton-library/optional)
    (:lk #:coalton-threads/lock))
   )
@@ -25,7 +25,7 @@
 
 ;; NOTE: These are really tests for IoRuntime specifically. They probably
 ;; shouldn't live here. Some of this might be testing the (small amount of)
-;; monad-io-thread generic machinery. But all of the IoRuntime specific tests
+;; threads generic machinery. But all of the IoRuntime specific tests
 ;; should be moved into a runtime specific test suite.
 
 (coalton-toplevel
@@ -471,4 +471,3 @@
       (pure (Tuple finished-after-stale finished-after-fresh)))))
   (is (== (Tuple False True)
           result)))
-

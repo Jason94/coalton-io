@@ -2,8 +2,8 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:io/simple-io
         #:io/conc/atomic
-        #:io/exception
-        #:io/thread)
+        #:io/exceptions
+        #:io/threads)
   (:local-nicknames
    (:l #:coalton-library/list))
   )

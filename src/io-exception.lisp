@@ -1,12 +1,12 @@
 (cl:in-package :cl-user)
-(defpackage :io/exception
+(defpackage :io/exceptions
   (:use
    #:coalton
    #:coalton-prelude
-   #:io/classes/monad-exception)
+   #:io/classes/exceptions)
   (:export
-   ;; Re-exports from io/classes/monad-exception
-   #:MonadException
+   ;; Re-exports from io/classes/exceptions
+   #:Exceptions
    #:raise
    #:raise-dynamic
    #:reraise
@@ -25,4 +25,4 @@
    #:do-handle
    #:do-handle-all
    ))
-(in-package :io/exception)
+(in-package :io/exceptions)

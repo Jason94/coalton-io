@@ -7,10 +7,10 @@
    #:coalton-library/experimental/do-control-core
    #:coalton-library/experimental/do-control-loops
    #:io/utils
-   #:io/thread-exceptions
-   #:io/classes/monad-exception
+   #:io/threads-exceptions
+   #:io/classes/exceptions
    #:io/classes/monad-io
-   #:io/classes/monad-io-thread
+   #:io/classes/threads
    #:io/classes/conc/scheduler
    #:io/gen-impl/conc/group
    )
@@ -37,7 +37,7 @@
     (threads (ConcurrentGroup :t Unit))
     (scheduler (:s (Optional (:i Unit)))))
 
-  (declare worker-op ((BaseIo :i) (MonadIoThread :rt :t :i) (Scheduler :s)
+  (declare worker-op ((BaseIo :i) (Threads :rt :t :i) (Scheduler :s)
                       => UFix -> :s (Optional (:i Unit)) -> :i Unit))
   (define (worker-op thread-index scheduler)
     (do-matchM (take-item thread-index scheduler)
@@ -47,15 +47,15 @@
        task
        (worker-op thread-index scheduler))))
 
-  (declare fork-worker-op ((MonadIoThread :rt :t :i) (UnliftIo :i :i) (MonadException :i)
+  (declare fork-worker-op ((Threads :rt :t :i) (UnliftIo :i :i) (Exceptions :i)
                            (Scheduler :s)
                            => UFix -> :s (Optional (:i Unit)) -> :i :t))
   (define (fork-worker-op thread-index scheduler)
     (fork-thread (worker-op thread-index scheduler)))
 
-  (declare new-worker-pool ((MonadIoThread :rt :t :m) (UnliftIo :i :i) (MonadIoThread :rt :t :i)
-                            (MonadException :i)
-                            (MonadException :m) (Concurrent :t Unit) (LiftIo :i :m)
+  (declare new-worker-pool ((Threads :rt :t :m) (UnliftIo :i :i) (Threads :rt :t :i)
+                            (Exceptions :i)
+                            (Exceptions :m) (Concurrent :t Unit) (LiftIo :i :m)
                             (Scheduler :s)
                             => UFix -> :s (Optional (:i Unit)) -> :m (WorkerPool :s :i :t)))
   (define (new-worker-pool n-threads scheduler)
@@ -72,8 +72,8 @@
                                 (l:range 0 (1- n-threads))))))
      (pure (WorkerPool n-threads threads scheduler))))
 
-  (declare submit-job-with ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :i)
-                            (MonadException :i) (Scheduler :s)
+  (declare submit-job-with ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :i)
+                            (Exceptions :i) (Scheduler :s)
                             => TimeoutStrategy -> WorkerPool :s :i :t -> :r :a -> :m Unit))
   (define (submit-job-with strategy pool job)
     "Submit a job to the worker pool. Any jobs submitted after a shutdown request will
@@ -90,8 +90,8 @@ Concurrent:
                       (.scheduler pool))))))
 
   (inline)
-  (declare submit-job ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :i)
-                       (MonadException :i) (Scheduler :s)
+  (declare submit-job ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :i)
+                       (Exceptions :i) (Scheduler :s)
                        => WorkerPool :s :i :t -> :r :a -> :m Unit))
   (define (submit-job pool job)
     "Submit a job to the worker pool. Any jobs submitted after a shutdown request will
@@ -102,7 +102,7 @@ Concurrent:
     while the scheduler is full."
     (submit-job-with NoTimeout pool job))
 
-  (declare request-shutdown ((MonadIoThread :rt :t :m) (MonadException :m) (Scheduler :s)
+  (declare request-shutdown ((Threads :rt :t :m) (Exceptions :m) (Scheduler :s)
                              => WorkerPool :s :i :t -> :m Unit))
   (define (request-shutdown pool)
     "Request a shutdown. The threads in the pool will shutdown when all of the jobs already

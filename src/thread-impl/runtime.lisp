@@ -1,15 +1,15 @@
 (cl:in-package :cl-user)
-(defpackage :io/thread-impl/runtime
+(defpackage :io/threads-impl/runtime
   (:use
    #:coalton
    #:coalton-prelude
    #:coalton-library/monad/classes
    #:coalton-library/types
    #:io/utils
-   #:io/thread-exceptions
+   #:io/threads-exceptions
    #:io/classes/monad-io
-   #:io/classes/monad-exception
-   #:io/classes/monad-io-thread
+   #:io/classes/exceptions
+   #:io/classes/threads
    #:io/classes/runtime-utils
    )
   (:local-nicknames
@@ -54,18 +54,18 @@
 
    #:write-line-sync%
    ))
-(in-package :io/thread-impl/runtime)
+(in-package :io/threads-impl/runtime)
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 1)))
 
 (named-readtables:in-readtable coalton:coalton)
 
-;;; This package provides all of the "runtime" features for the canonical MonadIoThread
+;;; This package provides all of the "runtime" features for the canonical Threads
 ;;; implementation. For example, killing threads, masking, etc.
 ;;;
 ;;; If you wanted to build your own effect type that used a fundamentally different
 ;;; concurrency model, such as green threads on top of an m:n scheduler, you wouldn't
-;;; ues any of this, and you'd provide your own implementation of the MonadIoThread interface.
+;;; ues any of this, and you'd provide your own implementation of the Threads interface.
 
 (coalton-toplevel
 
@@ -498,7 +498,7 @@ was stopping/stopped and the child should not start."
      (lisp IoThread ()
        *current-thread*)))
 
-  ;; TODO: Merge this with unmask-current-thread-finally!% when MonadIoThread
+  ;; TODO: Merge this with unmask-current-thread-finally!% when Threads
   ;; loses the unmask other thread functions
   (declare unmask-finally!% (IoThread -> (UnmaskFinallyMode -> :a) -> Unit))
   (define (unmask-finally!% thread thunk)
@@ -733,7 +733,7 @@ just be limited to implementing only solutions #2 or #3.
 ;;;
 
 ;; TODO: Try to move this to a later file, where it can re-open the package
-;; and base the instance on the machinery already provided by MonadIoThread.
+;; and base the instance on the machinery already provided by Threads.
 ;; I tried this and got some type inference errors that I *think* were a
 ;; Coalton bug on the fundeps, but need more investigation.
 (coalton-toplevel

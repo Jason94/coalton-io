@@ -3,19 +3,19 @@
         #:coalton-library/experimental/do-control-core
         #:io/utils
         #:io/simple-io
-        #:io/exception
-        #:io/mut
+        #:io/exceptions
+        #:io/mutable-var
         #:io/conc/mvar
-        #:io/thread
+        #:io/threads
         #:io/conc/future
         #:io/conc/stm)
-  (:import-from #:io/term
+  (:import-from #:io/terminal
    #:write-line)
   (:import-from #:io/gen-impl/conc/stm
    #:tx-io!%)
   (:local-nicknames
    (:l #:coalton-library/list)
-   (:tm #:io/term))
+   (:tm #:io/terminal))
   )
 (in-package :coalton-io/tests/conc/stm)
 

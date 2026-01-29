@@ -1,17 +1,17 @@
 (cl:in-package :cl-user)
-(defpackage :io/unique
+(defpackage :io/unique-gen
   (:use
-   #:io/classes/monad-io-unique
+   #:io/classes/unique-gen
    #:io/gen-impl/unique)
   (:export
-   ;; Re-exports from io/classes/monad-io-unique
-   #:MonadIoUnique
-   #:derive-monad-io-unique
+   ;; Re-exports from io/classes/unique-gen
+   #:UniqueGen
+   #:derive-unique-gen
    #:Unique
    #:new-unique
    #:to-int
 
    ;; Re-exports from io/gen-impl/unique
-   #:implement-monad-io-unique
+   #:implement-unique-gen
    ))
-(in-package :io/unique)
+(in-package :io/unique-gen)

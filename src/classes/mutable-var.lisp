@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/classes/monad-io-var
+(defpackage :io/classes/mutable-var
   (:use
    #:coalton
    #:coalton-prelude
@@ -14,8 +14,8 @@
   (:export
    ;; Library Public
    #:Var
-   #:MonadIoVar
-   #:derive-monad-var
+   #:MutableVar
+   #:derive-mutable-var
    #:new-var
    #:read
    #:write
@@ -23,7 +23,7 @@
 
    ;; Library Private
    #:Var%))
-(in-package :io/classes/monad-io-var)
+(in-package :io/classes/mutable-var)
 
 (named-readtables:in-readtable coalton:coalton)
 
@@ -33,7 +33,7 @@
   (define-type (Var :a)
     (Var% (c:Cell :a)))
 
-  (define-class (Monad :m => MonadIoVar :m)
+  (define-class (Monad :m => MutableVar :m)
     (new-var
      "Create a new variable with an initial value."
      (:a -> :m (Var :a)))
@@ -47,12 +47,12 @@
      "Modify the value in a variable by applying F, and return the old value."
      (Var :a -> (:a -> :a) -> :m :a))))
 
-(defmacro derive-monad-var (monad-param monadT-form)
-  "Automatically derive an instance of MonadIoVar for a monad transformer.
+(defmacro derive-mutable-var (monad-param monadT-form)
+  "Automatically derive an instance of MutableVar for a monad transformer.
 
 Example:
-  (derive-monad-var :m (st:StateT :s :m))"
-  `(define-instance (MonadIoVar ,monad-param => MonadIoVar ,monadT-form)
+  (derive-mutable-var :m (st:StateT :s :m))"
+  `(define-instance (MutableVar ,monad-param => MutableVar ,monadT-form)
      (define new-var (compose lift new-var))
      (define read (compose lift read))
      (define write (compose2 lift write))
@@ -64,6 +64,6 @@ Example:
   ;; Std. Library Transformer Instances
   ;;
 
-  (derive-monad-var :m (st:StateT :s :m))
-  (derive-monad-var :m (env:EnvT :e :m))
-  (derive-monad-var :m (LoopT :m)))
+  (derive-mutable-var :m (st:StateT :s :m))
+  (derive-mutable-var :m (env:EnvT :e :m))
+  (derive-mutable-var :m (LoopT :m)))

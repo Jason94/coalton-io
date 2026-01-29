@@ -3,12 +3,12 @@
         #:io/monad-io
         #:io/utils
         #:io/simple-io
-        #:io/thread
-        #:io/mut
+        #:io/threads
+        #:io/mutable-var
         #:io/conc/mvar)
   (:import-from #:io/io-impl/simple-io
     #:run-io-no-cleanup!)
-  (:import-from #:io/thread-impl/runtime
+  (:import-from #:io/threads-impl/runtime
     #:write-line-sync%)
   (:local-nicknames
    (:c #:coalton-library/cell)

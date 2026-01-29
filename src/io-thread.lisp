@@ -1,21 +1,21 @@
 (cl:in-package :cl-user)
 
-(defpackage :io/thread
+(defpackage :io/threads
   (:use
-   #:io/thread-exceptions
-   #:io/thread-impl/runtime
-   #:io/classes/monad-io-thread
+   #:io/threads-exceptions
+   #:io/threads-impl/runtime
+   #:io/classes/threads
    #:io/io-impl/thread
    #:io/gen-impl/thread)
   (:export
-   ;; Re-exports from io/thread-impl/runtime
+   ;; Re-exports from io/threads-impl/runtime
    #:UnmaskFinallyMode
    #:Stopped
    #:Running
 
    #:IoThread
 
-   ;; Re-exports from io/classes/monad-io-thread
+   ;; Re-exports from io/classes/threads
    #:Generation
    #:TimeoutStrategy
    #:Timeout
@@ -55,8 +55,8 @@
    #:unmask
    #:unmask-finally
 
-   #:MonadIoThread
-   #:derive-monad-io-thread
+   #:Threads
+   #:derive-threads
    #:current-thread
    #:fork-thread-with
    #:fork-thread
@@ -86,6 +86,6 @@
 
    ;; Re-exports from io/gen-impl/thread
    #:write-line-sync
-   #:implement-monad-io-thread))
+   #:implement-threads))
 
-(in-package :io/thread)
+(in-package :io/threads)

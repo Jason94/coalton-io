@@ -10,9 +10,9 @@
    #:coalton-library/experimental/do-control-loops
    #:io/utils
    #:io/simple-io
-   #:io/term
+   #:io/terminal
    #:io/random
-   #:io/exception)
+   #:io/exceptions)
   (:local-nicknames
    (:lp #:coalton-library/experimental/do-control-loops-adv)
    (:itr #:coalton-library/iterator)
@@ -21,8 +21,8 @@
    (:s #:coalton-library/string)
    (:f_ #:coalton-library/file)
    (:r #:coalton-library/result)
-   (:f #:io/file)
-   (:m #:io/mut)
+   (:f #:io/files)
+   (:m #:io/mutable-var)
    ))
 
 (in-package :io/examples/hangman)
@@ -165,7 +165,7 @@
   ;; it out.
   (declare write-status ((MonadState HangmanState :m)
                          (MonadEnvironment HangmanConf :m)
-                         (MonadIoTerm :m) => String -> :m Unit))
+                         (Terminal :m) => String -> :m Unit))
   (define (write-status secret-word)
     (do
      ((HangmanState guessed n-wrong) <- get)

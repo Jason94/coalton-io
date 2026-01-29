@@ -13,18 +13,18 @@
                                    (find-package p)
                                    :reexported-symbols t))
                                 (list
-                                 'io/thread-exceptions
-                                 'io/exception
+                                 'io/threads-exceptions
+                                 'io/exceptions
                                  'io/monad-io
                                  'io/simple-io
                                  'io/resource
-                                 'io/mut
-                                 'io/term
+                                 'io/mutable-var
+                                 'io/terminal
                                  'io/random
-                                 'io/thread
-                                 'io/file
-                                 'io/unique
-                                 'io/network
+                                 'io/threads
+                                 'io/files
+                                 'io/unique-gen
+                                 'io/sockets
                                  'io/conc/parking
                                  'io/conc/scheduler
                                  'io/conc/future

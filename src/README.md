@@ -17,7 +17,7 @@ The project is broadly organized into two kinds of sub-directories:
 
 ### `src/classes/`
 
-Contains packages defining the core `MonadIo` classes, the `MonadException` class, and the effect classes. Contains essentially no implementation.
+Contains packages defining the core `MonadIo` classes, the `Exceptions` class, and the effect classes. Contains essentially no implementation.
 
 ### `src/thread-impl/`
 
@@ -28,10 +28,10 @@ This folder has a few files defining some of the low-level concurrency tools use
 Contains two types of packages:
 
 1. Packages providing default implementations of the capability classes that support them (most)
-   and the associated `implement-monad-x` macros.
+   and the associated `implement-*` macros.
 2. Packages that provide features that build off of one or more of the capability classes.
     * _Example:_ `src/gen-impl/conc/io-future` provides futures for any `:m` implementing
-    both `MonadException` and `MonadIoThread`.
+    both `Exceptions` and `Threads`.
 
 #### `src/gen-impl/conc/`
 

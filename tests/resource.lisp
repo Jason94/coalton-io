@@ -3,13 +3,13 @@
    #:coalton-library/experimental/do-control-core
    #:io/monad-io
    #:io/simple-io
-   #:io/mut
+   #:io/mutable-var
    #:io/resource
-   #:io/thread
-   #:io/thread-exceptions
+   #:io/threads
+   #:io/threads-exceptions
    #:io/conc/mvar
-   #:io/exception)
-  (:import-from #:io/term
+   #:io/exceptions)
+  (:import-from #:io/terminal
    #:write-line)
   (:local-nicknames
    (:s #:coalton-threads/semaphore)

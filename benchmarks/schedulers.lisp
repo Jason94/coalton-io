@@ -11,12 +11,12 @@
    #:coalton-library/experimental/do-control-loops
    #:io/monad-io
    #:io/simple-io
-   #:io/thread
+   #:io/threads
    #:io/conc/scheduler
    #:io/conc/group
    #:io/conc/worker-pool
    )
-  (:import-from #:io/term
+  (:import-from #:io/terminal
    #:write-line)
   (:import-from #:coalton-library/math/real
    #:round/)

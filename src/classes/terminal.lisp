@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/classes/monad-io-term
+(defpackage :io/classes/terminal
   (:use
    #:coalton
    #:coalton-prelude
@@ -11,17 +11,17 @@
   (:import-from #:coalton-library/experimental/do-control-loops-adv
    #:LoopT)
   (:export
-   #:MonadIoTerm
-   #:derive-monad-io-term
+   #:Terminal
+   #:derive-terminal
    #:write
    #:write-line
    #:read-line))
-(in-package :io/classes/monad-io-term)
+(in-package :io/classes/terminal)
 
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (define-class (MonadIo :m => MonadIoTerm :m)
+  (define-class (MonadIo :m => Terminal :m)
     (write
      "Write a string to standard output."
      (Into :a String => :a -> :m Unit))
@@ -32,12 +32,12 @@
      "Read a line from standard input."
      (:m String))))
 
-(defmacro derive-monad-io-term (monad-param monadT-form)
-  "Automatically derive an instance of MonadIoTerm for a monad transformer.
+(defmacro derive-terminal (monad-param monadT-form)
+  "Automatically derive an instance of Terminal for a monad transformer.
 
 Example:
-  (derive-monad-io-term :m (st:StateT :s :m))"
-  `(define-instance (MonadIoTerm ,monad-param => MonadIoTerm ,monadT-form)
+  (derive-terminal :m (st:StateT :s :m))"
+  `(define-instance (Terminal ,monad-param => Terminal ,monadT-form)
      (define write (compose lift write))
      (define write-line (compose lift write-line))
      (define read-line (lift read-line))))
@@ -47,6 +47,6 @@ Example:
 ;;
 
 (coalton-toplevel
-  (derive-monad-io-term :m (StateT :s :m))
-  (derive-monad-io-term :m (EnvT :e :m))
-  (derive-monad-io-term :m (loopt :m)))
+  (derive-terminal :m (StateT :s :m))
+  (derive-terminal :m (EnvT :e :m))
+  (derive-terminal :m (loopt :m)))

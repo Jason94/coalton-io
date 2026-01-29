@@ -7,11 +7,11 @@
    #:coalton-library/types
    #:coalton-library/experimental/do-control-core
    #:io/utils
-   #:io/thread-exceptions
-   #:io/classes/monad-exception
+   #:io/threads-exceptions
+   #:io/classes/exceptions
    #:io/classes/monad-io
    #:io/io-impl/runtime
-   #:io/thread-impl/runtime
+   #:io/threads-impl/runtime
    )
   (:import-from #:coalton-library/experimental/loops
    #:dolist
@@ -96,7 +96,7 @@ See >>="
   (declare run-io-handled!% (IO :a -> Result IoError :a))
   (define (run-io-handled!% (IO% f->a?))
     "Run an IO, but instead of raising, pass on any exceptions. Used internally to
-implement MonadException and handle asynchronous exception signals."
+implement Exceptions and handle asynchronous exception signals."
     (catch-thunk f->a?))
 
   (inline)
@@ -294,10 +294,10 @@ as the global thread for structured concurrency, and exits any child threads on 
                  (Err e)))))))))
 
   ;;
-  ;; MonadException Instance
+  ;; Exceptions Instance
   ;;
 
-  (define-instance (MonadException IO)
+  (define-instance (Exceptions IO)
     (define raise raise-io)
     (define raise-dynamic raise-dynamic-io)
     (define reraise reraise-io)
@@ -418,10 +418,10 @@ to the value of the element in the iterator."
 ;;;
 
 (coalton-toplevel
-  (io/gen-impl/thread:implement-monad-io-thread IO IoRuntime IoThread)
-  (io/gen-impl/mut:implement-monad-io-var IO)
-  (io/gen-impl/file:implement-monad-io-file IO)
-  (io/gen-impl/random:implement-monad-io-random IO)
-  (io/gen-impl/term:implement-monad-io-term IO)
-  (io/gen-impl/network:implement-monad-io-network IO)
+  (io/gen-impl/thread:implement-threads IO IoRuntime IoThread)
+  (io/gen-impl/mut:implement-mutable-var IO)
+  (io/gen-impl/file:implement-files IO)
+  (io/gen-impl/random:implement-random IO)
+  (io/gen-impl/term:implement-terminal IO)
+  (io/gen-impl/network:implement-sockets IO)
   )

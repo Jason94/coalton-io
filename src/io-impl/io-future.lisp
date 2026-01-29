@@ -4,8 +4,8 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/monad/classes
-   #:io/classes/monad-io-thread
-   #:io/thread-impl/runtime
+   #:io/classes/threads
+   #:io/threads-impl/runtime
    #:io/gen-impl/conc/future
    #:io/io-impl/runtime
    #:io/io-impl/simple-io
@@ -20,7 +20,7 @@
 
 (coalton-toplevel
 
-  (declare fork-future_ ((MonadIoThread IoRuntime IoThread :m) (LiftTo IO :m)
+  (declare fork-future_ ((Threads IoRuntime IoThread :m) (LiftTo IO :m)
                          => IO :a -> :m (Future :a)))
   (define fork-future_
     "Spawn a new future, which will run and eventually return the result

@@ -6,9 +6,9 @@
    #:coalton-library/types
    #:coalton-library/experimental/do-control-core
    #:io/utils
-   #:io/classes/monad-exception
+   #:io/classes/exceptions
    #:io/classes/monad-io
-   #:io/classes/monad-io-thread
+   #:io/classes/threads
    #:io/classes/runtime-utils
    #:io/gen-impl/conc/parking
    )
@@ -18,7 +18,7 @@
    (:c #:coalton-library/cell)
    (:lk  #:coalton-threads/lock)
    (:cv  #:coalton-threads/condition-variable)
-   (:at #:io/thread-impl/atomics)
+   (:at #:io/threads-impl/atomics)
    )
   (:export
    ;; Library Public
@@ -207,7 +207,7 @@ conditions. DONT USE THIS!"
     (define (>>= m f)
       (flatmap-tx% m f)))
 
-  (define-instance ((MonadException :io) (MonadIo :io) => MonadException (STM :io))
+  (define-instance ((Exceptions :io) (MonadIo :io) => Exceptions (STM :io))
     (inline)
     (define (raise e)
       (tx-const-io!% (raise e)))
@@ -610,7 +610,7 @@ value."
             (map (const val)
                  (inner-write-tvar% tvar result tx-data))))))))
 
-  (declare tx-commit-io% (MonadIoThread :rt :t :m => TxData% -> :m Boolean))
+  (declare tx-commit-io% (Threads :rt :t :m => TxData% -> :m Boolean))
   (define (tx-commit-io% tx-data)
     ;; CONCURRENT:
     ;; - Function is a no-op for read-only transactions, so no need to mask
@@ -709,7 +709,7 @@ retry, then the entire transaction retries."
             (merge-read-log-into-parent-tx% a-tx-data)
             (run-stm% tx-data tx-b)))))))
 
-  (declare run-tx ((MonadIoThread :rt :t :m) (MonadException :m) => STM :m :a -> :m :a))
+  (declare run-tx ((Threads :rt :t :m) (Exceptions :m) => STM :m :a -> :m :a))
   (define (run-tx tx)
      "Run an atomic transaction. If the transaction raises an exception, the transaction
 is aborted and the exception is re-raised.

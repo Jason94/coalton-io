@@ -1,17 +1,17 @@
 (cl:in-package :cl-user)
-(defpackage :io/term
+(defpackage :io/terminal
   (:use
-   #:io/classes/monad-io-term
+   #:io/classes/terminal
    #:io/gen-impl/term)
   (:export
-   ;; Re-exports from io/classes/monad-io-term
-   #:MonadIoTerm
-   #:derive-monad-io-term
+   ;; Re-exports from io/classes/terminal
+   #:Terminal
+   #:derive-terminal
    #:write
    #:write-line
    #:read-line
 
    ;; Re-exports from io/gen-impl/term
-   #:implement-monad-io-term
+   #:implement-terminal
    ))
-(in-package :io/term)
+(in-package :io/terminal)

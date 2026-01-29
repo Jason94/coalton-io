@@ -4,8 +4,8 @@
    #:coalton
    #:coalton-prelude
    #:io/simple-io
-   #:io/thread
-   #:io/term
+   #:io/threads
+   #:io/terminal
    #:io/conc/future
    #:io/conc/mvar)
   (:local-nicknames

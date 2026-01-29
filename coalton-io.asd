@@ -15,17 +15,17 @@
                  (:file "utils")
                  (:file "thread-exceptions")
                  ;; Load the two main "core classes" files first, before thread-impl/
-                 (:file "classes/monad-exception")
+                 (:file "classes/exceptions")
                  (:file "classes/monad-io")
                  (:module "classes"
                   :serial t
-                  :components ((:file "monad-io-term")
-                               (:file "monad-io-file")
-                               (:file "monad-io-thread")
-                               (:file "monad-io-unique")
-                               (:file "monad-io-random")
-                               (:file "monad-io-var")
-                               (:file "monad-io-network")
+                  :components ((:file "terminal")
+                               (:file "files")
+                               (:file "threads")
+                               (:file "unique-gen")
+                               (:file "random")
+                               (:file "mutable-var")
+                               (:file "sockets")
                                (:file "runtime-utils")
                                (:file "conc/scheduler")
                                ))
@@ -39,7 +39,7 @@
                  ;;;
                  ;;; Library Public Packages
                  ;;;
-                 ;; These files don't define new, full MonadIoX capability classes. They just
+                 ;; These files don't define new, full capability classes. They just
                  ;; do useful things with the capabilities provided by the classes in classes/
                  (:file "io-resource")
 

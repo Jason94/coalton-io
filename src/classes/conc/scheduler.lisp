@@ -3,7 +3,7 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:io/classes/monad-io-thread
+   #:io/classes/threads
    )
   (:export
    #:Scheduler
@@ -44,24 +44,24 @@ should be 0-indexed, from [0, n-threads)."
 
 Concurrent:
   - Blocks if the Scheduler is full. Only bounded Schedulers will ever be full."
-    (MonadIoThread :rt :t :m => :a -> :s :a -> :m Unit))
+    (Threads :rt :t :m => :a -> :s :a -> :m Unit))
    (submit-with
     "Submit a new item to the Scheduler.
 
 Concurrent:
   - Blocks if the Scheduler is full, possibly timing out based on STRATEGY. Only bounded
 Schedulers will ever be full."
-    (MonadIoThread :rt :t :m => :a -> TimeoutStrategy -> :s :a -> :m Unit))
+    (Threads :rt :t :m => :a -> TimeoutStrategy -> :s :a -> :m Unit))
    (try-submit
     "Attempt to submit a new item to the Scheduler. Returns `True` if the item was added,
 or `False` if the Scheduler was full. Only bounded Schedulers can be full."
-    (MonadIothread :rt :t :m => :a -> :s :a -> :m Boolean))
+    (Threads :rt :t :m => :a -> :s :a -> :m Boolean))
    (take-item
     "Take the next item from the Scheduler for the given thread.
 
 Concurrent:
   - May block, sleep, spin, or do anything else to the requesting thread, except
     (1) leave it masked after returning, or (2) stop the thread."
-    (MonadIoThread :rt :t :m => UFix -> :s :a -> :m :a)))
+    (Threads :rt :t :m => UFix -> :s :a -> :m :a)))
 
   )

@@ -2,8 +2,8 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
    #:coalton-library/types
    #:io/simple-io
-   #:io/thread
-   #:io/exception
+   #:io/threads
+   #:io/exceptions
    #:io/conc/ring-buffer
    )
   )

@@ -4,8 +4,8 @@
    #:coalton
    #:coalton-prelude
    #:io/classes/monad-io
-   #:io/classes/monad-exception
-   #:io/classes/monad-io-thread
+   #:io/classes/exceptions
+   #:io/classes/threads
    #:io/classes/conc/scheduler
    #:io/gen-impl/conc/ring-buffer
    )
@@ -38,7 +38,7 @@ MChanScheduler is bounded."
     (RingBufferScheduler% (RingBuffer :a)))
 
   (inline)
-  (declare new-ring-buffer-scheduler ((MonadIoThread :rt :t :m) (MonadException :m)
+  (declare new-ring-buffer-scheduler ((Threads :rt :t :m) (Exceptions :m)
                                       => UFix -> :m (RingBufferScheduler :a)))
   (define (new-ring-buffer-scheduler capacity)
     (if (== 0 capacity)

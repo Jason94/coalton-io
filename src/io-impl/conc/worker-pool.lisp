@@ -5,10 +5,10 @@
    #:coalton-prelude
    #:coalton-library/monad/classes
    #:io/classes/monad-io
-   #:io/classes/monad-exception
-   #:io/classes/monad-io-thread
+   #:io/classes/exceptions
+   #:io/classes/threads
    #:io/classes/conc/scheduler
-   #:io/thread-impl/runtime
+   #:io/threads-impl/runtime
    #:io/gen-impl/conc/worker-pool
    #:io/io-impl/runtime
    #:io/io-impl/simple-io
@@ -25,17 +25,17 @@
 
 (coalton-toplevel
 
-  (declare new-worker-pool_ ((MonadIoThread IoRuntime IoThread :m) (MonadException :m)
+  (declare new-worker-pool_ ((Threads IoRuntime IoThread :m) (Exceptions :m)
                              (LiftIo IO :m) (Scheduler :s)
                              => UFix -> :s (Optional (IO Unit)) -> :m (WorkerPool :s IO IoThread)))
   (define new-worker-pool_ new-worker-pool)
 
-  (declare submit-job_ ((MonadIoThread IoRuntime IoThread :m)
+  (declare submit-job_ ((Threads IoRuntime IoThread :m)
                         (LiftTo IO :m) (Scheduler :s)
                         => WorkerPool :s IO IoThread -> IO :a -> :m Unit))
   (define submit-job_ submit-job)
 
-  (declare submit-job-with_ ((MonadIoThread IoRuntime IoThread :m)
+  (declare submit-job-with_ ((Threads IoRuntime IoThread :m)
                              (LiftTo IO :m) (Scheduler :s)
                              => TimeoutStrategy -> WorkerPool :s IO IoThread -> IO :a -> :m Unit))
   (define submit-job-with_ submit-job-with)

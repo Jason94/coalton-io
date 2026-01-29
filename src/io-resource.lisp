@@ -4,8 +4,8 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/experimental/do-control-core
-   #:io/classes/monad-io-thread
-   #:io/classes/monad-exception
+   #:io/classes/threads
+   #:io/classes/exceptions
    #:coalton-library/types)
   (:export
    #:ExitCase
@@ -28,7 +28,7 @@
 
 (coalton-toplevel
 
-  (declare with-mask ((MonadIoThread :rt :t :m) (MonadException :m)
+  (declare with-mask ((Threads :rt :t :m) (Exceptions :m)
                       => :m :a -> :m :a))
   (define (with-mask op)
     "Mask the current thread while running OP, automatically unmasking
@@ -61,14 +61,14 @@ afterward."
     (Errored :e))
 
   (inline)
-  (declare try-result ((MonadException :m) (RuntimeRepr :e)
+  (declare try-result ((Exceptions :m) (RuntimeRepr :e)
                        => :m :a -> :m (Result :e :a)))
   (define (try-result op)
     (handle
      (map Ok op)
      (compose pure Err)))
 
-  (declare bracket-io ((MonadException :m) (MonadIoThread :rt :t :m) (RuntimeRepr :e) (Signalable :e)
+  (declare bracket-io ((Exceptions :m) (Threads :rt :t :m) (RuntimeRepr :e) (Signalable :e)
                        => :m :r
                        -> (:r -> ExitCase :e -> :m :a)
                        -> (:r -> :m :b)
@@ -99,7 +99,7 @@ Concurrent:
             (release-op resource (Errored e))
             (raise e))))))
 
-  (declare bracket-io-masked ((MonadException :m) (MonadIoThread :rt :t :m) (RuntimeRepr :e) (Signalable :e)
+  (declare bracket-io-masked ((Exceptions :m) (Threads :rt :t :m) (RuntimeRepr :e) (Signalable :e)
                               => :m :r
                               -> (:r -> ExitCase :e -> :m :a)
                               -> (:r -> :m :b)
@@ -123,7 +123,7 @@ Masks the thread during the entire operation, including the computation."
         (release-op resource (Errored e))
         (raise e)))))
 
-  (declare bracket-io_ ((MonadException :m) (MonadIoThread :rt :t :m)
+  (declare bracket-io_ ((Exceptions :m) (Threads :rt :t :m)
                         => :m :r
                         -> (:r -> :m :a)
                         -> (:r -> :m :b)
@@ -146,7 +146,7 @@ will release before the thread is stopped."
               (fn (_)
                 (with-mask (release-op resource))))))
 
-  (declare bracket-io-masked_ ((MonadException :m) (MonadIoThread :rt :t :m)
+  (declare bracket-io-masked_ ((Exceptions :m) (Threads :rt :t :m)
                                => :m :r
                                -> (:r -> :m :a)
                                -> (:r -> :m :b)

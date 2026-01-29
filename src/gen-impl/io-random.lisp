@@ -5,10 +5,10 @@
    #:coalton-prelude
    #:io/utils
    #:io/classes/monad-io
-   #:io/classes/monad-io-random
+   #:io/classes/random
    )
   (:export
-   #:implement-monad-io-random
+   #:implement-random
    ))
 (in-package :io/gen-impl/random)
 
@@ -48,8 +48,8 @@
                (cl:random limit))))
   )
 
-(defmacro implement-monad-io-random (monad)
-  `(define-instance (MonadIoRandom ,monad)
+(defmacro implement-random (monad)
+  `(define-instance (Random ,monad)
      (define make-random-state make-random-state%)
      (define copy-random-state copy-random-state%)
      (define get-current-random-state get-current-random-state%)

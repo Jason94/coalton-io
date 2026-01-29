@@ -4,11 +4,11 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/monad/classes
-   #:io/thread-exceptions
-   #:io/thread-impl/runtime
+   #:io/threads-exceptions
+   #:io/threads-impl/runtime
    #:io/classes/monad-io
-   #:io/classes/monad-exception
-   #:io/classes/monad-io-thread
+   #:io/classes/exceptions
+   #:io/classes/threads
    #:io/io-impl/runtime
    #:io/io-impl/simple-io
    )
@@ -28,24 +28,24 @@
 (coalton-toplevel
 
   (inline)
-  (declare fork-thread_ ((MonadIoThread IoRuntime IoThread :m) (LiftTo IO :m)
+  (declare fork-thread_ ((Threads IoRuntime IoThread :m) (LiftTo IO :m)
                   => IO :a -> :m IoThread))
   (define fork-thread_ fork-thread)
 
   (inline)
-  (declare fork-thread-with_ ((MonadIoThread IoRuntime IoThread :m) (LiftTo IO :m)
+  (declare fork-thread-with_ ((Threads IoRuntime IoThread :m) (LiftTo IO :m)
                   => ForkStrategy IoThread -> IO :a -> :m IoThread))
   (define fork-thread-with_ fork-thread-with)
 
   (inline)
-  (declare unmask-thread-finally_ ((LiftTo IO :m) (MonadException :m)
-                            (MonadIoThread IoRuntime IoThread :m)
+  (declare unmask-thread-finally_ ((LiftTo IO :m) (Exceptions :m)
+                            (Threads IoRuntime IoThread :m)
                             => IoThread -> (UnmaskFinallyMode -> IO :b) -> :m Unit))
   (define unmask-thread-finally_ unmask-thread-finally)
 
   (inline)
-  (declare unmask-finally_ ((LiftTo IO :m) (MonadException :m) (Concurrent :c :a)
-                            (MonadIoThread IoRuntime IoThread :m)
+  (declare unmask-finally_ ((LiftTo IO :m) (Exceptions :m) (Concurrent :c :a)
+                            (Threads IoRuntime IoThread :m)
                             => :c -> (UnmaskFinallyMode -> IO :b) -> :m Unit))
   (define unmask-finally_ unmask-finally)
 

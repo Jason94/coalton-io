@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/classes/monad-io-thread
+(defpackage :io/classes/threads
   (:use
    #:coalton
    #:coalton-prelude
@@ -7,12 +7,12 @@
    #:coalton-library/monad/classes
    #:coalton-library/experimental/do-control-core
    #:io/utils
-   #:io/thread-exceptions
-   #:io/classes/monad-exception
+   #:io/threads-exceptions
+   #:io/classes/exceptions
    #:io/classes/monad-io
-   #:io/classes/monad-io-term
+   #:io/classes/terminal
    )
-   ;; #:io/thread-impl/runtime)
+   ;; #:io/threads-impl/runtime)
   (:import-from #:coalton-library/experimental/do-control-loops-adv
    #:LoopT)
   (:local-nicknames
@@ -60,8 +60,8 @@
    #:unmask
    #:unmask-finally
 
-   #:MonadIoThread
-   #:derive-monad-io-thread
+   #:Threads
+   #:derive-threads
    #:current-thread
    #:fork-thread-with
    #:fork-thread
@@ -96,7 +96,7 @@
    (:at #:coalton-threads/atomic)
    )
   )
-(in-package :io/classes/monad-io-thread)
+(in-package :io/classes/threads)
 
 (named-readtables:in-readtable coalton:coalton)
 
@@ -158,14 +158,14 @@ ThreadingException.
 
   (define-class (Runtime :r :t (:r -> :t))
     "This class doesn't represent data, but the type tells a Concurrent and
-a MonadIoThread how to hook into the native threading implementations that
+a Threads how to hook into the native threading implementations that
 a runtime provides.  A runtime has a 'base' concurrent, which is the underlying
 thread/fiber/etc. that the runtime produces to run concurrently. All other
 Concurrents are built by composing on the base concurrent somehow.
 
 Runtime is a low-level type that operates inside the normal MonadIo layer.
 It should not be used by normal application code. Its two main purposes are:
-(1) to make MonadIoThread generic over the type of thread it forks, and
+(1) to make Threads generic over the type of thread it forks, and
 (2) to build low-level, efficient concurrency tools that are generic
 over the underlying thread type."
     (current-thread!
@@ -268,19 +268,19 @@ input."
 masked, this will pend a stop on the Concurrent. When/if the Concurrent becomes completely unmaksed,
 it will stop iself. Regardless of whether the target Concurrent is masked, STOP does not block or
 wait for the target to complete."
-     ((MonadException :m) (MonadIoThread :rt :t :m) => :c -> :m Unit))
+     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Unit))
     (await
      "Block the current thread until the target Concurrent is completed, and retrieve its value.
 Re-raises if the target Concurrent raised an unhandled exception"
-     ((MonadException :m) (MonadIoThread :rt :t :m) => :c -> :m :a))
+     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m :a))
     (mask
      "Mask the Concurrent so it can't be stopped."
-     ((MonadException :m) (MonadIoThread :rt :t :m) => :c -> :m Unit))
+     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Unit))
     (unmask
      "Unmask the Concurrent so it can be stopped. Unmask respects nested masks - if the
 Concurrent has been masked N times, it can only be stopped after being unmasked N times. When the
 Concurrent unmasks, if there are any pending stops, it will immediately stop itself."
-     ((MonadException :m) (MonadIoThread :rt :t :m) => :c -> :m Unit))
+     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Unit))
     (unmask-finally
      "Unmask the thread, run the provided action, and then honor any pending stop for that
 thread after the action finishes.
@@ -290,8 +290,8 @@ inconsistent with whether the Concurrent is ultimately stopped. Regardless of th
 callback should leave any resources in a valid state. An example of a valid callback: closing a log
 file if the thread is stopped, or closing the log file with a final message if the thread is
 continuing."
-     ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r) (MonadException :m)
-      (MonadIoThread :rt :t :m)
+     ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r) (Exceptions :m)
+      (Threads :rt :t :m)
       => :c -> (UnmaskFinallyMode -> :r :b) -> :m Unit)))
 
   (inline)
@@ -304,7 +304,7 @@ continuing."
   (define (value-concurrent-prx _)
     Proxy)
 
-  (define-class ((MonadIo :m) (Runtime :rt :t) => MonadIoThread :rt :t :m (:m -> :rt))
+  (define-class ((MonadIo :m) (Runtime :rt :t) => Threads :rt :t :m (:m -> :rt))
     "A MonadIo which can spawn :t's. Other :t's error
 separately. A spawned :t erroring will not cause the parent
 :t to fail. :t can be any 'thread-like' object, depending on the
@@ -313,29 +313,29 @@ threads, etc."
     )
 
   (inline)
-  (declare runtime-for (MonadIoThread :rt :t :m => Proxy (:m :a) -> Proxy :rt))
+  (declare runtime-for (Threads :rt :t :m => Proxy (:m :a) -> Proxy :rt))
   (define (runtime-for _)
-    "Get the Runtime type for a MonadIoThread type."
+    "Get the Runtime type for a Threads type."
     Proxy)
 
   (inline)
-  (declare as-runtime-prx (MonadIoThread :rt :t :m => :m :a -> Proxy :rt -> :m :a))
+  (declare as-runtime-prx (Threads :rt :t :m => :m :a -> Proxy :rt -> :m :a))
   (define (as-runtime-prx op _rt-prx)
-    "Get the Runtime type for a MonadIoThread operation."
+    "Get the Runtime type for a Threads operation."
     op)
 
   (inline)
-  (declare get-runtime-for (MonadIoThread :rt :t :m => :m :a -> Proxy :rt))
+  (declare get-runtime-for (Threads :rt :t :m => :m :a -> Proxy :rt))
   (define (get-runtime-for op)
-    "Get the Runtime type for a MonadIoThread operation."
+    "Get the Runtime type for a Threads operation."
     (runtime-for (proxy-of op))))
 
-(defmacro derive-monad-io-thread (monad-param monadT-form)
-  "Automatically derive an instance of MonadIoThread for a monad transformer.
+(defmacro derive-threads (monad-param monadT-form)
+  "Automatically derive an instance of Threads for a monad transformer.
 
 Example:
-  (derive-monad-io-thread :m (st:StateT :s :m))"
-  `(define-instance (MonadIoThread :runtime :thread ,monad-param => MonadIoThread :runtime :thread ,monadT-form)
+  (derive-threads :m (st:StateT :s :m))"
+  `(define-instance (Threads :runtime :thread ,monad-param => Threads :runtime :thread ,monadT-form)
      ))
 
 (coalton-toplevel
@@ -344,14 +344,14 @@ Example:
   ;; Std. Library Transformer Instances
   ;;
 
-  (derive-monad-io-thread :m (st:statet :s :m))
-  (derive-monad-io-thread :m (env:EnvT :e :m))
-  (derive-monad-io-thread :m (LoopT :m))
+  (derive-threads :m (st:statet :s :m))
+  (derive-threads :m (env:EnvT :e :m))
+  (derive-threads :m (LoopT :m))
   )
 
 (defmacro inject-runtime (f cl:&rest args)
   "Weave proxies to inject the runtime proxy as the first argument of f.
-Assumes the output has type :m :a for some MonadIoThread :m."
+Assumes the output has type :m :a for some Threads :m."
   `(progn
      (let m-prx = Proxy)
      (as-proxy-of
@@ -373,7 +373,7 @@ Assumes the output has type :m :a for some MonadIoThread :m."
 ;;; put the implementations into gen-impl/io-thread
 (coalton-toplevel
   (inline)
-  (declare fork-thread-with ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :r)
+  (declare fork-thread-with ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :r)
                              => ForkStrategy :t -> :r :a -> :m :t))
   (define (fork-thread-with strat op)
     "Spawn a new thread using STRAT.
@@ -390,7 +390,7 @@ causes inference issues in some cases."
                     (run-handled! (run op)))))))))
 
   (inline)
-  (declare fork-thread ((UnliftIo :r :i) (LiftTo :r :m) (MonadIoThread :rt :t :r)
+  (declare fork-thread ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :r)
                         => :r :a -> :m :t))
   (define (fork-thread op)
     "Spawn a new thread, which starts running immediately. Returns
@@ -402,7 +402,7 @@ This is the default fork behavior: structured + log-and-swallow."
     (fork-thread-with (ForkStrategy LogAndSwallow Structured) op))
 
   (inline)
-  (declare join-thread ((MonadIoThread :rt :t :m) (MonadException :m) => :t -> :m Unit))
+  (declare join-thread ((Threads :rt :t :m) (Exceptions :m) => :t -> :m Unit))
   (define (join-thread thread)
     "Block the current thread until the target thread is completed.
 Does not a retrieve value. Raises an exception if the target thread
@@ -420,31 +420,31 @@ thread's termination."
      m-prx))
 
   (inline)
-  (declare stop-thread (MonadIoThread :rt :t :m => :t -> :m Unit))
+  (declare stop-thread (Threads :rt :t :m => :t -> :m Unit))
   (define (stop-thread thread)
     "Stop a thread. If the thread has already stopped, does nothing."
     (inject-runtime stop! thread))
 
   (inline)
-  (declare sleep (MonadIoThread :rt :t :m => UFix -> :m Unit))
+  (declare sleep (Threads :rt :t :m => UFix -> :m Unit))
   (define (sleep msec)
     "Sleep the current thread for MSECS milliseconds."
     (inject-runtime sleep! msec))
 
   (inline)
-  (declare current-thread (MonadIoThread :rt :t :m => :m :t))
+  (declare current-thread (Threads :rt :t :m => :m :t))
   (define current-thread
     "Get the current thread."
     (inject-runtime current-thread!))
 
   (inline)
-  (declare mask-thread (MonadIoThread :rt :t :m => :t -> :m Unit))
+  (declare mask-thread (Threads :rt :t :m => :t -> :m Unit))
   (define (mask-thread thread)
      "Mask the thread so it can't be stopped."
     (inject-runtime mask! thread))
 
   (inline)
-  (declare mask-current-thread (MonadIoThread :rt :t :m => :m Unit))
+  (declare mask-current-thread (Threads :rt :t :m => :m Unit))
   (define mask-current-thread
     "Mask the current thread so it can't be stopped."
     (let m-prx = Proxy)
@@ -456,7 +456,7 @@ thread's termination."
      m-prx))
 
   (inline)
-  (declare unmask-thread (MonadIoThread :rt :t :m => :t -> :m Unit))
+  (declare unmask-thread (Threads :rt :t :m => :t -> :m Unit))
   (define (unmask-thread thread)
     "Unmask the thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
@@ -464,7 +464,7 @@ stopped after being unmasked N times."
     (inject-runtime unmask! thread))
 
   (inline)
-  (declare unmask-current-thread (MonadIoThread :rt :t :m => :m Unit))
+  (declare unmask-current-thread (Threads :rt :t :m => :m Unit))
   (define unmask-current-thread
     "Unmask the current thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
@@ -477,7 +477,7 @@ stopped after being unmasked N times."
      m-prx))
 
   (inline)
-  (declare unmask-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r)
+  (declare unmask-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r)
                                   => :t -> (UnmaskFinallyMode -> :r :b) -> :m Unit))
   (define (unmask-thread-finally thread op-finally)
     "Unmask the thread, run the provided action, and then honor any
@@ -498,7 +498,7 @@ continuing."
   ;; BUG: These kinds of inner wrap-io nested run! calls may not propogate errors
   ;; correctly, or might have other problems.
   (inline)
-  (declare unmask-current-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (MonadIoThread :rt :t :r)
+  (declare unmask-current-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r)
                                           => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-current-thread-finally op-finally)
     "Unmask the current thread, run the provided action, and then honor any pending stop
@@ -523,7 +523,7 @@ the log file with a final message if the thread is continuing."
   ;; without existential qualifiers for the with-run-in-io type. Figure that out and
   ;; replace BaseIo here.
   (inline)
-  (declare park-current-thread-if ((BaseIo :io) (MonadIoThread :rt :t :io) (MonadIo :m)
+  (declare park-current-thread-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
                                    => (Generation -> :io Unit) -> :io Boolean -> :m Unit))
   (define (park-current-thread-if with-gen should-park?)
     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
@@ -542,7 +542,7 @@ Concurrent:
                                (fn () (run! should-park?)))))
 
   (inline)
-  (declare park-current-thread-if-with ((BaseIo :io) (MonadIoThread :rt :t :io) (MonadIo :m)
+  (declare park-current-thread-if-with ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
                                         => (Generation -> :io Unit)
                                         -> :io Boolean
                                         -> TimeoutStrategy
@@ -565,7 +565,7 @@ Concurrent:
                                     strategy)))
 
   (inline)
-  (declare unpark-thread (MonadIoThread :rt :t :m => Generation -> :t -> :m Unit))
+  (declare unpark-thread (Threads :rt :t :m => Generation -> :t -> :m Unit))
   (define (unpark-thread gen thread)
     "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread
@@ -588,8 +588,8 @@ Concurrent:
 
 (coalton-toplevel
   (inline)
-  (declare prxs-same-runtime ((MonadIoThread :rt :t :m1) (MonadIoThread :rt :t :m2)
+  (declare prxs-same-runtime ((Threads :rt :t :m1) (Threads :rt :t :m2)
                               => Proxy (:m1 :a) -> Proxy (:m2 :b) -> Unit))
   (define (prxs-same-runtime _ _)
-    "Force two MonadIoThread's to have the same runtime and thread type."
+    "Force two Threads's to have the same runtime and thread type."
     Unit))

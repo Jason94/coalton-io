@@ -3,9 +3,9 @@
         #:io/utils
         #:io/monad-io
         #:io/simple-io
-        #:io/exception
-        #:io/thread
-        #:io/mut
+        #:io/exceptions
+        #:io/threads
+        #:io/mutable-var
         #:io/conc/mvar
         #:io/tests/utils
         )

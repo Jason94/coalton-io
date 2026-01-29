@@ -12,7 +12,7 @@ Most Common Lisp implementations _do_ support this feature, and it's thoroughly 
 
 ## The Runtime Class
 
-`Runtime` is defined in `src/classes/monad-io-thread.lisp`. In the definition, `:r` is the runtime and `:t` is the underlying "thread." A runtime object (`:r`) is never actually created. It's simply a type that is passed around to tell the compiler which versions of the class's functions should be used.
+`Runtime` is defined in `src/classes/threads.lisp`. In the definition, `:r` is the runtime and `:t` is the underlying "thread." A runtime object (`:r`) is never actually created. It's simply a type that is passed around to tell the compiler which versions of the class's functions should be used.
 
 ```lisp
   (define-class (Runtime :r :t (:r -> :t))
@@ -67,7 +67,7 @@ The `IoRuntime` uses system threads, as provided by the underlying Common Lisp i
 
 `join!` blocks the current thread until a target thread has completed, encountered an unraised exception, or been stopped. Joining a thread that has already completed is only guaranteed to complete in a reasonable amount of time, but could block for a small time. In `IoRuntime`, joining a completed thread is defined by the corresponding behavior of the underlying Common Lisp implementation.
 
-`join!` returns a `Result Dynamic Unit`, where the Dynamic error case is an error that was raised and unhandled by the target thread. A common idiom is to use `(raise-result (join-thread thread))` (see `MonadIoThread` for the `MonadIo` wrapped version of `join!`), to simply re-raise any unhandled exceptions.
+`join!` returns a `Result Dynamic Unit`, where the Dynamic error case is an error that was raised and unhandled by the target thread. A common idiom is to use `(raise-result (join-thread thread))` (see `Threads` for the `MonadIo` wrapped version of `join!`), to simply re-raise any unhandled exceptions.
 
 ### Structured Concurrency
 
@@ -167,7 +167,7 @@ Here is an example of a comprehensive `Concurrent:` docstring from the MVar impl
 
 ```lisp
   (inline)
-  (declare take-mvar-masked (MonadIoThread :rt :t :m => MVar :a -> :m :a))
+  (declare take-mvar-masked (Threads :rt :t :m => MVar :a -> :m :a))
   (define (take-mvar-masked mvar)
     "Take a value from an MVar, blocking until one is available.
 

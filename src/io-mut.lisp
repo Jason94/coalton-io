@@ -1,19 +1,19 @@
 (cl:in-package :cl-user)
-(defpackage :io/mut
+(defpackage :io/mutable-var
   (:use
-   #:io/classes/monad-io-var
+   #:io/classes/mutable-var
    #:io/gen-impl/mut
    )
   (:export
-   ;; Re-exports from io/classes/monad-io-var
+   ;; Re-exports from io/classes/mutable-var
    #:Var
-   #:MonadIoVar
-   #:derive-monad-var
+   #:MutableVar
+   #:derive-mutable-var
    #:new-var
    #:read
    #:write
    #:modify
 
    ;; Re-exports from io/gen-impl/mut
-   #:implement-monad-io-var))
-(in-package :io/mut)
+   #:implement-mutable-var))
+(in-package :io/mutable-var)

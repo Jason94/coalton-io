@@ -4,9 +4,9 @@
      #:io/tests/utils
      #:io/utils
      #:io/simple-io
-     #:io/exception
+     #:io/exceptions
      #:io/conc/mvar
-     #:io/thread
+     #:io/threads
      #:io/conc/future
      #:io/conc/mchan-scheduler
      #:io/conc/worker-pool)

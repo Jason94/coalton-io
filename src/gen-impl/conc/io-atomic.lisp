@@ -5,10 +5,10 @@
    #:coalton-prelude
    #:io/utils
    #:io/classes/monad-io
-   #:io/classes/monad-exception
+   #:io/classes/exceptions
    )
   (:local-nicknames
-   (:at #:io/thread-impl/atomics)
+   (:at #:io/threads-impl/atomics)
    )
   (:export
    ;; Library Public
@@ -66,11 +66,11 @@
     (wrap-io (at:atomic-write (unwrap-atvar atm) val)))
 
   (inline)
-  (declare modify ((MonadIo :m) (MonadException :m) => AtVar :a -> (:a -> :a) -> :m :a))
+  (declare modify ((MonadIo :m) (Exceptions :m) => AtVar :a -> (:a -> :a) -> :m :a))
   (define (modify atm f)
     "Atomically modify `atm` by applying `f` and return the new value. `f` must be a pure
 function. If `f` throws an error, `atm` will be unchanged and the error will be handleable
-via `MonadException`.
+via `Exceptions`.
 
 Concurrent:
   - WARNING: `f` will be retried each time the calling thread loses the race to update
@@ -82,7 +82,7 @@ Concurrent:
   (define (modify-swap atm f)
     "Atomically modify `atm` by applying `f` and return the old value. `f` must be a pure
 function. If `f` throws an error, `atm` will be unchanged and the error will be handleable
-via `MonadException`.
+via `Exceptions`.
 
 Concurrent:
   - WARNING: `f` will be retried each time the calling thread loses the race to update

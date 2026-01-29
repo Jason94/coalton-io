@@ -1,16 +1,16 @@
 (cl:in-package :cl-user)
-(defpackage :io/network
+(defpackage :io/sockets
   (:use
-   #:io/classes/monad-io-network
+   #:io/classes/sockets
    #:io/gen-impl/network
    )
   (:export
-   ;; Re-exports from io/classes/monad-io-network
+   ;; Re-exports from io/classes/sockets
    #:ServerSocket
    #:ConnectionSocket
    #:ByteServerSocket
    #:ByteConnectionSocket
-   #:MonadIoNetwork
+   #:Sockets
    #:socket-listen
    #:socket-accept
    #:socket-connect
@@ -27,10 +27,10 @@
    #:write-bytes
    #:read-exactly
 
-   #:derive-monad-io-network
+   #:derive-sockets
 
    ;; Re-exports from io/gen-impl/network
-   #:implement-monad-io-network
+   #:implement-sockets
 
    #:socket-listen-with
    #:do-socket-listen-with
@@ -50,4 +50,4 @@
    #:byte-socket-accept-fork-with
    #:do-byte-socket-accept-fork-with
    ))
-(in-package :io/network)
+(in-package :io/sockets)

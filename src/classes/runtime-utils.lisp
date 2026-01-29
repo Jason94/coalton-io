@@ -6,8 +6,8 @@
    #:coalton-prelude
    #:coalton-library/types
    #:io/utils
-   #:io/thread-exceptions
-   #:io/classes/monad-io-thread
+   #:io/threads-exceptions
+   #:io/classes/threads
    )
   (:local-nicknames
    (:lk #:coalton-threads/lock)

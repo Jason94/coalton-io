@@ -4,8 +4,8 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/monad/classes
-   #:io/thread-impl/runtime
-   #:io/classes/monad-io-thread
+   #:io/threads-impl/runtime
+   #:io/classes/threads
    #:io/gen-impl/conc/mvar
    #:io/io-impl/runtime
    #:io/io-impl/simple-io
@@ -20,7 +20,7 @@
 
 (coalton-toplevel
 
-  (declare with-mvar_ ((MonadIoThread IoRuntime IoThread :m) (LiftTo IO :m)
+  (declare with-mvar_ ((Threads IoRuntime IoThread :m) (LiftTo IO :m)
                        => MVar :a -> (:a -> IO :b) -> :m :b))
   (define with-mvar_
     "Run an operation with the value from an MVar, blocking until one is available.
