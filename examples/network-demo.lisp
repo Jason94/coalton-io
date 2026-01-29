@@ -6,6 +6,7 @@
    #:coalton-prelude
    #:io/thread
    #:io/simple-io
+   #:io/resource
    #:coalton-library/experimental/do-control-core)
   (:local-nicknames
    (:tm #:io/term)
@@ -61,10 +62,13 @@
 
   (declare client-main (IO Unit))
   (define client-main
-    (do
-      (conn <- (nt:socket-connect hostname port))
-      (tm:write-line (<> "connected to " (<> hostname (<> ":" (as String port)))))
-      (client-loop conn)))
+    (bracket-io_
+     (nt:socket-connect hostname port)
+     nt:close-connection
+     (fn (conn)
+       (do
+        (tm:write-line (<> "connected to " (<> hostname (<> ":" (as String port)))))
+        (client-loop conn)))))
   )
 
 (cl:defun run-server ()

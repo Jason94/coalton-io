@@ -31,5 +31,14 @@
 
    ;; Re-exports from io/gen-impl/network
    #:implement-monad-io-network
+
+   #:with-socket-listen
+   #:do-with-socket-listen
+   #:with-socket-connect
+   #:do-with-socket-connect
+   #:with-socket-accept
+   #:do-with-socket-accept
+   #:with-socket-accept-fork
+   #:do-with-socket-accept-fork
    ))
 (in-package :io/network)
