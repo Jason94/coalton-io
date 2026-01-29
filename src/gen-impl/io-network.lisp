@@ -149,7 +149,7 @@
     (wrap-io
      (lisp (Vector U8) (n connection-socket)
        (cl:let* ((stream (usocket:socket-stream connection-socket))
-                 (buf (cl:make-array n :element-type '(cl:unsigned-byte 8))))
+                 (buf (cl:make-array n)))
          ;; Wait for at least some input, then keep reading until we've
          ;; filled the whole buffer.
          (usocket:wait-for-input connection-socket)
