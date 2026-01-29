@@ -4,7 +4,6 @@
    #:coalton
    #:coalton-prelude
    #:io/utils
-   #:io/resource
    #:io/classes/monad-io)
   (:import-from #:coalton-library/experimental/do-control-loops-adv
    #:LoopT)

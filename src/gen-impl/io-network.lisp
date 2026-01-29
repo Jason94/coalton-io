@@ -13,14 +13,14 @@
    ;; Library Public
    #:implement-monad-io-network
 
-   #:with-socket-listen
-   #:do-with-socket-listen
-   #:with-socket-connect
-   #:do-with-socket-connect
-   #:with-socket-accept
-   #:do-with-socket-accept
-   #:with-socket-accept-fork
-   #:do-with-socket-accept-fork
+   #:socket-listen-with
+   #:do-socket-listen-with
+   #:socket-connect-with
+   #:do-socket-connect-with
+   #:socket-accept-with
+   #:do-socket-accept-with
+   #:socket-accept-fork-with
+   #:do-socket-accept-fork-with
 
    ;; Library Private
    #:socket-listen%
@@ -180,9 +180,9 @@
 (coalton-toplevel
 
   ;; TODO: Convert these to use MonadIo
-  (declare with-socket-listen ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+  (declare socket-listen-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
                                => String -> UFix -> (ServerSocket -> :m :a) -> :m :a))
-  (define (with-socket-listen hostname port op)
+  (define (socket-listen-with hostname port op)
     "Run operation OP with a new server socket, listening on HOSTNAME and PORT. Guarantees
 that the socket will close on cleanup."
     (bracket-io_
@@ -192,9 +192,9 @@ that the socket will close on cleanup."
 
   ;; TODO: Switch these to use a non-masking bracket combinator once I write one.
   ;; It shouldn't be masked while blocking on the socket connection.
-  (declare with-socket-connect ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+  (declare socket-connect-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
                                 => String -> UFix -> (ConnectionSocket -> :m :a) -> :m :a))
-  (define (with-socket-connect hostname port op)
+  (define (socket-connect-with hostname port op)
     "Run operation OP with a connection to an open server socket at HOSTNAME and PORT.
 Guarantees that the socket will close on cleanup."
     (bracket-io_
@@ -202,15 +202,15 @@ Guarantees that the socket will close on cleanup."
      close-connection
      op))
 
-  (declare with-socket-accept ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+  (declare socket-accept-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
                                => ServerSocket -> (ConnectionSocket -> :m :a) -> :m :a))
-  (define (with-socket-accept server-socket op)
+  (define (socket-accept-with server-socket op)
     "Accept a connection with a new client and run operation OP. Guarantees that the
 socket will close on cleanup.
 
 Note: If you fork a thread inside this, the operation on this thread will probably finish
 and close the socket before you intend. For multithreaded uses, use
-with-socket-accept-fork."
+socket-accept-fork-with."
     (bracket-io_
      (socket-accept server-socket)
      close-connection
@@ -218,10 +218,10 @@ with-socket-accept-fork."
 
   ;; TODO: Bracket the top-level forking once I write a bracket combinator that uses a
   ;; non-type specific ExitCase.
-  (declare with-socket-accept-fork ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
+  (declare socket-accept-fork-with ((MonadIoNetwork :m) (MonadIoThread :rt :t :m) (MonadException :m)
                                     (UnliftIo :m :m)
                                     => ServerSocket -> (ConnectionSocket -> :m :a) -> :m :t))
-  (define (with-socket-accept-fork server-socket op)
+  (define (socket-accept-fork-with server-socket op)
     "Accept a connection with a new client and run operation OP on a new thread.
 Guarantees that the socket will close on cleanup. Returns a handle to the forked thread."
     (do
@@ -233,36 +233,36 @@ Guarantees that the socket will close on cleanup. Returns a handle to the forked
         op))))
   )
 
-(defmacro do-with-socket-listen ((socket-sym (hostname port)) cl:&body body)
+(defmacro do-socket-listen-with ((socket-sym (hostname port)) cl:&body body)
   "Run operation OP with a new server socket, listening on HOSTNAME and PORT. Guarantees
 that the socket will close on cleanup."
-  `(with-socket-listen ,hostname ,port
+  `(socket-listen-with ,hostname ,port
      (fn (,socket-sym)
        (do
         ,@body))))
 
-(defmacro do-with-socket-connect ((socket-sym (hostname port)) cl:&body body)
+(defmacro do-socket-connect-with ((socket-sym (hostname port)) cl:&body body)
   "Run operation OP with a connection to an open server socket at HOSTNAME and PORT.
 Guarantees that the socket will close on cleanup."
-  `(with-socket-connect ,hostname ,port
+  `(socket-connect-with ,hostname ,port
      (fn (,socket-sym)
        (do
         ,@body))))
 
-(defmacro do-with-socket-accept ((socket-sym (server-socket)) cl:&body body)
+(defmacro do-socket-accept-with ((socket-sym (server-socket)) cl:&body body)
   "Accept a connection with a new client and run operation OP. Guarantees that the
 socket will close on cleanup.
 
 Note: If you fork a thread inside this, the operation on this thread will probably finish
 and close the socket before you intend. For multithreaded uses, use
-with-socket-accept-fork."
-  `(with-socket-accept ,server-socket
+socket-accept-fork-with."
+  `(socket-accept-with ,server-socket
      (fn (,socket-sym)
-       ,@body)))
+      ,@body)))
 
-(defmacro do-with-socket-accept-fork ((socket-sym (server-socket)) cl:&body body)
+(defmacro do-socket-accept-fork-with ((socket-sym (server-socket)) cl:&body body)
   "Accept a connection with a new client and run operation OP on a new thread.
 Guarantees that the socket will close on cleanup. Returns a handle to the forked thread."
-  `(with-socket-accept-fork ,server-socket
+  `(socket-accept-fork-with ,server-socket
      (fn (,socket-sym)
        ,@body)))
