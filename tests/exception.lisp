@@ -21,7 +21,7 @@
 (coalton-fiasco-init #:coalton-io/tests/exception-fiasco)
 
 ;;;
-;;; MonadIoException Utility Tests
+;;; Exception Utility Tests
 ;;;
 
 (coalton-toplevel

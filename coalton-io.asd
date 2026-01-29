@@ -39,7 +39,7 @@
                  ;;;
                  ;;; Library Public Packages
                  ;;;
-                 ;; These files don't define new, full MonadIoX capability classes. They just
+                 ;; These files don't define new, full capability classes. They just
                  ;; do useful things with the capabilities provided by the classes in classes/
                  (:file "io-resource")
 
