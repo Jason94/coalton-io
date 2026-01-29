@@ -14,7 +14,7 @@ _coalton-io_ provides tools to write safe, functional programs in Coalton that c
   - Masking to protect critical areas
 * Safely sharing data between threads (_coalton-io_ provides Atomic variables, MVars, MChans, a Software Transactional Memory, Futures, Thread Pools, and more)
 
-`IO` is fast. Even in high-frequency hot loops, [benchmarks](benchmarks/bench.csv) show that `IO` is competitive (_within 50%-80% speed of impure Coalton_) with iterative, non-pure Coalton code. If hot loops don't need to execute effects inside the loop, then `IO` runs with no significant overhead.
+`IO` is fast. Even in high-frequency hot loops, [benchmarks](benchmarks/benchmark_simple_io.csv) show that `IO` is competitive (_within 50%-80% speed of impure Coalton_) with iterative, non-pure Coalton code. If hot loops don't need to execute effects inside the loop, then `IO` runs with no significant overhead.
 
 _coalton-io_ also allows you to extend all of this functionality for free if you want to write your own underlying effect type.
 
@@ -78,11 +78,16 @@ Once you have the latest version of Coalton, you can install `coalton-io` from [
 
 ## Examples
 
-_coalton-io_ has a few example programs to demonstrate how to use `IO`:
+_coalton-io_ has a several example programs to demonstrate how to use `IO`:
 
+* [Redis](examples/redis/) - A CLI client and multithreaded key/value server that implement a small portion of the RESP binary protocol.
+  - _Demonstrates_: Resource handling, terminal IO, multithreading, networking, STM usage
 * [Hangman](examples/hangman.lisp) - Play a game of hangman in the terminal. Shows `IO` basics and terminal IO.
-* [Channels & Threading](examples/channels-threading.lisp) - Multithreaded application to process an input data file. Shows how to mix different `IO` effects, multithreading, and passing data safely between threads.
-* [Networking](examples/networking-demo.lisp) - Run a simple client and server that allows the client to send messages to the server.
+  - _Demonstrates_: Terminal IO, file IO, how to implement the common "ReaderT" pattern for structuring functional programs, how to use "capability class" style to increase flexibility of IO functions
+* [Channels & Threading](examples/channels-threading.lisp) - Multithreaded application to process an input data file.
+  - _Demonstrates_: Multithreading, file IO, passing data safely between threads at a low level using channels and MVar's
+* [Networking](examples/network-demo.lisp) - Run a simple client and server that allows the client to send messages to the server.
+  - _Demonstrates_: Networking, resource safety, terminal IO
 
 ## Feature Breakdown
 

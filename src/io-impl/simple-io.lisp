@@ -404,11 +404,8 @@ to the value of the element in the iterator."
     `(foreach-io_ ,into-itr
       (fn (,cell-sym)
         (do
-         ,@(cl-maptree (cl:lambda (sym)
-                         (cl:if (cl:eq sym var-sym)
-                            `(c:read ,cell-sym)
-                            sym))
-                       body))))))
+         (,var-sym <- (wrap-io (c:read ,cell-sym)))
+         ,@body)))))
 
 (defmacro do-times-io_ (n cl:&body body)
   "Efficiently perform an IO operation N times."

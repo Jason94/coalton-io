@@ -32,13 +32,13 @@
 ;;; Future to await the final sum produced by the summer-thread.
 
 (coalton-toplevel
-  (define data-filename "~/rands.txt")
+  (define data-filename "rands.txt")
 
   (declare data-pathname f_:Pathname)
   (define data-pathname (into data-filename))
 
   (declare data-rows UFix)
-  (define data-rows 10000000)
+  (define data-rows 1000)
   (declare data-max UFix)
   (define data-max 500000000)
   (declare n-workers UFix)

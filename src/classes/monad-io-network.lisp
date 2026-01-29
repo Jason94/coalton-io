@@ -14,6 +14,8 @@
    ;; Library Public
    #:ServerSocket
    #:ConnectionSocket
+   #:ByteServerSocket
+   #:ByteConnectionSocket
    #:MonadIoNetwork
    #:socket-listen
    #:socket-accept
@@ -22,6 +24,14 @@
    #:close-server
    #:write-line
    #:read-line
+
+   #:byte-socket-listen
+   #:byte-socket-accept
+   #:byte-socket-connect
+   #:close-byte-connection
+   #:close-byte-server
+   #:write-bytes
+   #:read-exactly
 
    #:derive-monad-io-network
 
@@ -40,6 +50,14 @@
   (repr :native usocket:stream-usocket)
   (define-type ConnectionSocket
     "A socket connecting a client and server.")
+
+  (repr :native usocket:stream-server-usocket)
+  (define-type ByteServerSocket
+    "A server socket listening for new byte-stream connections.")
+
+  (repr :native usocket:stream-usocket)
+  (define-type ByteConnectionSocket
+    "A socket connecting a client and server using a byte stream.")
 
   (define-class (MonadIo :m => MonadIoNetwork :m)
     (socket-listen
@@ -62,6 +80,28 @@
     (read-line
      "Read the next line from the socket. Blocks until data is sent!"
      (ConnectionSocket -> :m String))
+
+    (byte-socket-listen
+     "Start a new server socket for byte-stream connections, listening on HOSTNAME and PORT."
+     (String -> UFix -> :m ByteServerSocket))
+    (byte-socket-accept
+     "Accept a byte-stream connection with a new client."
+     (ByteServerSocket -> :m ByteConnectionSocket))
+    (byte-socket-connect
+     "Connect to a server at HOSTNAME and PORT using a byte stream, returning a new connection."
+     (String -> UFix -> :m ByteConnectionSocket))
+    (close-byte-connection
+     "Close an open byte-stream connection socket."
+     (ByteConnectionSocket -> :m Unit))
+    (close-byte-server
+     "Close an open byte-stream server socket."
+     (ByteServerSocket -> :m Unit))
+    (write-bytes
+     "Write all bytes in the vector to the socket."
+     (Vector U8 -> ByteConnectionSocket -> :m Unit))
+    (read-exactly
+     "Read exactly N bytes from the socket. Blocks until N bytes are available."
+     (UFix -> ByteConnectionSocket -> :m (Vector U8)))
     )
 
   )
@@ -79,6 +119,14 @@ Example:
      (define close-server (compose lift close-server))
      (define write-line (compose2 lift write-line))
      (define read-line (compose lift read-line))
+
+     (define byte-socket-listen (compose2 lift byte-socket-listen))
+     (define byte-socket-accept (compose lift byte-socket-accept))
+     (define byte-socket-connect (compose2 lift byte-socket-connect))
+     (define close-byte-connection (compose lift close-byte-connection))
+     (define close-byte-server (compose lift close-byte-server))
+     (define write-bytes (compose2 lift write-bytes))
+     (define read-exactly (compose2 lift read-exactly))
      ))
 
 ;;
