@@ -7,7 +7,8 @@
    #:io/thread
    #:io/simple-io
    #:io/resource
-   #:coalton-library/experimental/do-control-core)
+   #:coalton-library/experimental/do-control-core
+   )
   (:local-nicknames
    (:tm #:io/term)
    (:nt  #:io/network))
@@ -30,7 +31,7 @@
       (if (== msg "")
           (do
             (tm:write-line "client disconnected")
-            (nt:close-connection conn))
+            (pure Unit))
           (do
             (tm:write-line (<> "client> " msg))
             (handle-client conn)))))
@@ -38,15 +39,14 @@
   (declare accept-loop (nt:ServerSocket -> IO Unit))
   (define (accept-loop server)
     (do
-      (conn <- (nt:socket-accept server))
-      (tm:write-line "client connected")
-      (fork-thread_ (handle-client conn))
-      (accept-loop server)))
+     (nt:do-socket-accept-fork-with (conn (server))
+       (the (IO Unit) (tm:write-line "client connected"))
+       (handle-client conn))
+     (accept-loop server)))
 
   (declare server-main (IO Unit))
   (define server-main
-    (do
-      (server <- (nt:socket-listen hostname port))
+    (nt:do-socket-listen-with (server (hostname port))
       (tm:write-line (<> "listening on " (<> hostname (<> ":" (as String port)))))
       (accept-loop server)))
 
@@ -57,18 +57,14 @@
       (line <- tm:read-line)
       (nt:write-line line conn)
       (if (== line "")
-          (nt:close-connection conn)
+          (pure Unit)
           (client-loop conn))))
 
   (declare client-main (IO Unit))
   (define client-main
-    (bracket-io_
-     (nt:socket-connect hostname port)
-     nt:close-connection
-     (fn (conn)
-       (do
-        (tm:write-line (<> "connected to " (<> hostname (<> ":" (as String port)))))
-        (client-loop conn)))))
+    (nt:do-socket-connect-with (conn (hostname port))
+      (tm:write-line (<> "connected to " (<> hostname (<> ":" (as String port)))))
+      (client-loop conn)))
   )
 
 (cl:defun run-server ()

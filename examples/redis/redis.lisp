@@ -440,33 +440,6 @@ it was missing."
            (pure Unit))
           (_
            (handle-client conn db)))))))
-     ;; (msg <- (nt:read-line conn))
-     ;; (do-match (msg->command? msg)
-     ;;   ((Err e)
-     ;;    (tm:write-line e)
-     ;;    (handle-client conn db))
-     ;;   ((Ok command)
-     ;;    (tm:write-line (<> "Received command: " msg))
-     ;;    (do-match command
-     ;;      ((Ping)
-     ;;       (nt:write-line "PingPong" conn)
-     ;;       (handle-client conn db))
-     ;;      ((GetKey key)
-     ;;       (value? <- (read-key key db))
-     ;;       (let value =
-     ;;         (match value?
-     ;;           ((Some s)
-     ;;            s)
-     ;;           ((None)
-     ;;            "<Missing Key>")))
-     ;;       (nt:write-line value conn)
-     ;;       (handle-client conn db))
-     ;;      ((SetKey key value)
-     ;;       (tm:write-line (build-str "Setting <" key "> to: " value))
-     ;;       (run-tx (write-key-tx key value db))
-     ;;       (handle-client conn db))
-     ;;      ((Close)
-     ;;       (pure Unit)))))))
 
   (declare accept-loop (nt:ByteServerSocket -> Database -> IO Unit))
   (define (accept-loop server db)
