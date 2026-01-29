@@ -131,7 +131,7 @@
 
   (declare resp->resp-bulk-str (Resp -> Optional String))
   (define (resp->resp-bulk-str resp)
-    "Get the (possible) stringh out of a RespBulkStr."
+    "Get the (possible) string out of a RespBulkStr."
     (match resp
       ((RespBulkString str)
        (Some str))
@@ -364,7 +364,7 @@ Example stream input, where the '_' type byte has already been read:
       ((Some str-payload)
        (match (resp->resp-bulk-str str-payload)
          ((None)
-          (Err "Bad type: Ping expuects bulk-str payload."))
+          (Err "Bad type: Ping expects bulk-str payload."))
          ((Some str)
           (Ok (Ping str)))))))
 
@@ -402,9 +402,9 @@ Example stream input, where the '_' type byte has already been read:
          ((Tuple (Some key) (Some new-key))
           (Ok (RenameKey key new-key)))
          (_
-          (Err "Bad type: Set expects bulk-str payloads."))))
+          (Err "Bad type: Rename expects bulk-str payloads."))))
       (_
-       (Err "Set missing payloads"))))
+       (Err "Rename missing payloads"))))
 
   (declare parse-quit (Vector Resp -> Result String Command))
   (define (parse-quit _)
@@ -423,7 +423,7 @@ Example stream input, where the '_' type byte has already been read:
          ((Some resp-1)
           (match (resp->resp-bulk-str resp-1)
             ((None)
-             (Err "Expected command string in initil position."))
+             (Err "Expected command string in initial position."))
             ((Some command-str)
              (cond
                ((== ping-command-str command-str)

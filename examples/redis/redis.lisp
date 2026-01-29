@@ -385,8 +385,6 @@ it was missing."
                        (Tuple None None))
                       ((Some val)
                        (Tuple None (Some val)))))))
-     (let _ = (traceobject "bucket-map2" bucket-map2))
-     (let _ = (traceobject "val?" val?))
      (do-match val?
        ((None)
         (pure False))
