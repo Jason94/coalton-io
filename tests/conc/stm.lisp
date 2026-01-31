@@ -4,9 +4,9 @@
         #:io/utils
         #:io/simple-io
         #:io/exceptions
-        #:io/mutable-var
+        #:io/mut
         #:io/conc/mvar
-        #:io/threads
+        #:io/thread
         #:io/conc/future
         #:io/conc/stm)
   (:import-from #:io/terminal

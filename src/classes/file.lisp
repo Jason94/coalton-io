@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/classes/files
+(defpackage :io/classes/file
   (:use
    #:coalton
    #:coalton-prelude
@@ -49,7 +49,7 @@
    #:create-temp-directory%
    #:create-temp-file%
    ))
-(in-package :io/classes/files)
+(in-package :io/classes/file)
 
 (named-readtables:in-readtable coalton:coalton)
 

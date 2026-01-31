@@ -18,13 +18,13 @@
                                  'io/monad-io
                                  'io/simple-io
                                  'io/resource
-                                 'io/mutable-var
+                                 'io/mut
                                  'io/terminal
                                  'io/random
-                                 'io/threads
-                                 'io/files
-                                 'io/unique-gen
-                                 'io/sockets
+                                 'io/thread
+                                 'io/file
+                                 'io/unique
+                                 'io/network
                                  'io/conc/parking
                                  'io/conc/scheduler
                                  'io/conc/future

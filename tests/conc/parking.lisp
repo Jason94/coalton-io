@@ -5,8 +5,8 @@
    #:io/utils
    #:io/monad-io
    #:io/simple-io
-   #:io/mutable-var
-   #:io/threads
+   #:io/mut
+   #:io/thread
    #:io/conc/parking
    #:io/tests/utils
    )

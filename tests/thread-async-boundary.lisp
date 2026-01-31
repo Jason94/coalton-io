@@ -3,8 +3,8 @@
         #:io/monad-io
         #:io/utils
         #:io/simple-io
-        #:io/threads
-        #:io/mutable-var
+        #:io/thread
+        #:io/mut
         #:io/conc/mvar)
   (:import-from #:io/io-impl/simple-io
     #:run-io-no-cleanup!)

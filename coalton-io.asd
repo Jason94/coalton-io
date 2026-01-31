@@ -20,12 +20,12 @@
                  (:module "classes"
                   :serial t
                   :components ((:file "terminal")
-                               (:file "files")
-                               (:file "threads")
-                               (:file "unique-gen")
+                               (:file "file")
+                               (:file "thread")
+                               (:file "unique")
                                (:file "random")
-                               (:file "mutable-var")
-                               (:file "sockets")
+                               (:file "mut")
+                               (:file "network")
                                (:file "runtime-utils")
                                (:file "conc/scheduler")
                                ))

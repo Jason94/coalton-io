@@ -4,14 +4,14 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:io/threads
+   #:io/thread
    #:io/simple-io
    #:io/resource
    #:coalton-library/experimental/do-control-core
    )
   (:local-nicknames
    (:tm #:io/terminal)
-   (:nt  #:io/sockets))
+   (:nt  #:io/network))
   (:export
    #:run-server
    #:run-client))

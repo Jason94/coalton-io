@@ -5,8 +5,8 @@
    #:coalton-prelude
    #:io/classes/monad-io
    #:io/classes/exceptions
-   #:io/classes/sockets
-   #:io/classes/threads
+   #:io/classes/network
+   #:io/classes/thread
    #:io/resource
    )
   (:export

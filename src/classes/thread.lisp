@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/classes/threads
+(defpackage :io/classes/thread
   (:use
    #:coalton
    #:coalton-prelude
@@ -96,7 +96,7 @@
    (:at #:coalton-threads/atomic)
    )
   )
-(in-package :io/classes/threads)
+(in-package :io/classes/thread)
 
 (named-readtables:in-readtable coalton:coalton)
 

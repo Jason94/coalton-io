@@ -21,8 +21,8 @@
    (:s #:coalton-library/string)
    (:f_ #:coalton-library/file)
    (:r #:coalton-library/result)
-   (:f #:io/files)
-   (:m #:io/mutable-var)
+   (:f #:io/file)
+   (:m #:io/mut)
    ))
 
 (in-package :io/examples/hangman)

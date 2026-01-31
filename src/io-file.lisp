@@ -1,11 +1,11 @@
 (cl:in-package :cl-user)
-(defpackage :io/files
+(defpackage :io/file
   (:use
-   #:io/classes/files
+   #:io/classes/file
    #:io/io-impl/file
    #:io/gen-impl/file)
   (:export
-   ;; Re-exports from io/classes/files
+   ;; Re-exports from io/classes/file
    #:Files
    #:derive-files
    #:exists?
@@ -58,4 +58,4 @@
    ;; Re-exports from io/gen-impl/file
    #:implement-files
    ))
-(in-package :io/files)
+(in-package :io/file)

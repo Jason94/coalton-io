@@ -4,7 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:io/classes/monad-io
-   #:io/classes/unique-gen)
+   #:io/classes/unique)
   (:local-nicknames
    (:at #:io/threads-impl/atomics)
    )

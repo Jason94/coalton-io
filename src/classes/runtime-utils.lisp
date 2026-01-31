@@ -7,7 +7,7 @@
    #:coalton-library/types
    #:io/utils
    #:io/threads-exceptions
-   #:io/classes/threads
+   #:io/classes/thread
    )
   (:local-nicknames
    (:lk #:coalton-threads/lock)

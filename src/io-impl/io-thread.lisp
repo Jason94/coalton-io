@@ -8,7 +8,7 @@
    #:io/threads-impl/runtime
    #:io/classes/monad-io
    #:io/classes/exceptions
-   #:io/classes/threads
+   #:io/classes/thread
    #:io/io-impl/runtime
    #:io/io-impl/simple-io
    )

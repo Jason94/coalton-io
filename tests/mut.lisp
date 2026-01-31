@@ -2,7 +2,7 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:io/simple-io
         #:io/monad-io
-        #:io/mutable-var))
+        #:io/mut))
 (in-package :coalton-io/tests/mut)
 
 (named-readtables:in-readtable coalton:coalton)

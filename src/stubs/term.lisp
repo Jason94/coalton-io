@@ -11,10 +11,10 @@
    (:ft #:coalton-library/monad/freet)
    (:id #:coalton-library/monad/identity)
    (:io-rand #:io/random)
-   (:io-file #:io/files)
-   (:io-mut #:io/mutable-var)
-   (:io-thd #:io/threads)
-   (:io-unq #:io/unique-gen)
+   (:io-file #:io/file)
+   (:io-mut #:io/mut)
+   (:io-thd #:io/thread)
+   (:io-unq #:io/unique)
    )
   (:export
    #:TermStubM

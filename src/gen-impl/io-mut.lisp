@@ -4,7 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:io/classes/monad-io
-   #:io/classes/mutable-var
+   #:io/classes/mut
    )
   (:local-nicknames
    (:c #:coalton-library/cell)

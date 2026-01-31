@@ -10,7 +10,7 @@
    #:io/threads-exceptions
    #:io/classes/exceptions
    #:io/classes/monad-io
-   #:io/classes/threads
+   #:io/classes/thread
    #:io/gen-impl/conc/mvar
    )
   (:export

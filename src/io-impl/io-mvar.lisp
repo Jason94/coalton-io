@@ -5,7 +5,7 @@
    #:coalton-prelude
    #:coalton-library/monad/classes
    #:io/threads-impl/runtime
-   #:io/classes/threads
+   #:io/classes/thread
    #:io/gen-impl/conc/mvar
    #:io/io-impl/runtime
    #:io/io-impl/simple-io

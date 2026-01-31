@@ -3,9 +3,9 @@
    #:coalton-library/experimental/do-control-core
    #:io/monad-io
    #:io/simple-io
-   #:io/mutable-var
+   #:io/mut
    #:io/resource
-   #:io/threads
+   #:io/thread
    #:io/threads-exceptions
    #:io/conc/mvar
    #:io/exceptions)

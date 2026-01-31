@@ -6,7 +6,7 @@
      #:io/simple-io
      #:io/exceptions
      #:io/conc/mvar
-     #:io/threads
+     #:io/thread
      #:io/conc/future
      #:io/conc/mchan-scheduler
      #:io/conc/worker-pool)

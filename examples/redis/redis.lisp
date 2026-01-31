@@ -9,7 +9,7 @@
    #:io/utils
    #:io/monad-io
    #:io/simple-io
-   #:io/threads
+   #:io/thread
    #:io/conc/stm
    #:io/examples/redis/protocol
    )
@@ -18,8 +18,8 @@
    (:v #:coalton-library/vector)
    (:hm #:coalton-library/hashmap)
    (:tm #:io/terminal)
-   (:mt #:io/mutable-var)
-   (:nt  #:io/sockets))
+   (:mt #:io/mut)
+   (:nt  #:io/network))
   (:export
    #:run-server
    #:run-client))

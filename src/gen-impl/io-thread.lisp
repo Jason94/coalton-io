@@ -8,7 +8,7 @@
    #:coalton-library/types
    #:io/utils
    #:io/classes/monad-io
-   #:io/classes/threads
+   #:io/classes/thread
    #:io/classes/terminal
    #:io/threads-impl/runtime
    )

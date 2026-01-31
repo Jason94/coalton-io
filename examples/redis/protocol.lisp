@@ -9,7 +9,7 @@
    #:io/utils
    #:io/monad-io
    #:io/simple-io
-   #:io/threads
+   #:io/thread
    #:io/conc/stm
    )
   (:local-nicknames
@@ -17,8 +17,8 @@
    (:s #:coalton-library/string)
    (:hm #:coalton-library/hashmap)
    (:tm #:io/terminal)
-   (:mt #:io/mutable-var)
-   (:nt  #:io/sockets))
+   (:mt #:io/mut)
+   (:nt  #:io/network))
   (:export
    #:Resp
    #:RespArray

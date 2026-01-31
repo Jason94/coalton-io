@@ -7,7 +7,7 @@
   (:local-nicknames
    (:tm #:io/terminal)
    (:exc #:io/exceptions)
-   (:mt #:io/mutable-var)
+   (:mt #:io/mut)
    (:r #:coalton-library/result)
    (:opt #:coalton-library/optional)
    (:l #:coalton-library/list)

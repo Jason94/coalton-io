@@ -4,7 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/monad/classes
-   #:io/classes/threads
+   #:io/classes/thread
    #:io/threads-impl/runtime
    #:io/gen-impl/conc/future
    #:io/io-impl/runtime

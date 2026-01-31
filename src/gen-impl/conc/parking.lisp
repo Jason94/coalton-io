@@ -6,7 +6,7 @@
    #:coalton-library/types
    #:io/utils
    #:io/classes/monad-io
-   #:io/classes/threads
+   #:io/classes/thread
    )
   (:local-nicknames
    (:at #:io/threads-impl/atomics)

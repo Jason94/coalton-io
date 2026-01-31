@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/classes/sockets
+(defpackage :io/classes/network
   (:use
    #:coalton
    #:coalton-prelude
@@ -37,7 +37,7 @@
 
    ;; Library Private
    ))
-(in-package :io/classes/sockets)
+(in-package :io/classes/network)
 
 (named-readtables:in-readtable coalton:coalton)
 

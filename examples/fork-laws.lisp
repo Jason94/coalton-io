@@ -4,7 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:io/simple-io
-   #:io/threads
+   #:io/thread
    #:io/terminal
    #:io/conc/future
    #:io/conc/mvar)

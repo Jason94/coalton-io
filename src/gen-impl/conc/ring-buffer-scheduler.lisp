@@ -5,7 +5,7 @@
    #:coalton-prelude
    #:io/classes/monad-io
    #:io/classes/exceptions
-   #:io/classes/threads
+   #:io/classes/thread
    #:io/classes/conc/scheduler
    #:io/gen-impl/conc/ring-buffer
    )
