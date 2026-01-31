@@ -4,7 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:io/classes/monad-io
-   #:io/classes/terminal)
+   #:io/classes/term)
   (:export
    #:implement-terminal
    ))

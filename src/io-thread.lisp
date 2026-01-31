@@ -1,10 +1,10 @@
 (cl:in-package :cl-user)
 
-(defpackage :io/threads
+(defpackage :io/thread
   (:use
    #:io/threads-exceptions
    #:io/threads-impl/runtime
-   #:io/classes/threads
+   #:io/classes/thread
    #:io/io-impl/thread
    #:io/gen-impl/thread)
   (:export
@@ -15,7 +15,7 @@
 
    #:IoThread
 
-   ;; Re-exports from io/classes/threads
+   ;; Re-exports from io/classes/thread
    #:Generation
    #:TimeoutStrategy
    #:Timeout
@@ -88,4 +88,4 @@
    #:write-line-sync
    #:implement-threads))
 
-(in-package :io/threads)
+(in-package :io/thread)

@@ -8,7 +8,7 @@
    #:io/threads-exceptions
    #:io/threads-impl/runtime
    #:io/classes/runtime-utils
-   #:io/classes/threads
+   #:io/classes/thread
    )
   (:local-nicknames
    (:lk  #:coalton-threads/lock)

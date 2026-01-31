@@ -1,11 +1,11 @@
 (cl:in-package :cl-user)
-(defpackage :io/sockets
+(defpackage :io/network
   (:use
-   #:io/classes/sockets
+   #:io/classes/network
    #:io/gen-impl/network
    )
   (:export
-   ;; Re-exports from io/classes/sockets
+   ;; Re-exports from io/classes/network
    #:ServerSocket
    #:ConnectionSocket
    #:ByteServerSocket
@@ -50,4 +50,4 @@
    #:byte-socket-accept-fork-with
    #:do-byte-socket-accept-fork-with
    ))
-(in-package :io/sockets)
+(in-package :io/network)

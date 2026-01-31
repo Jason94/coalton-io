@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/classes/mutable-var
+(defpackage :io/classes/mut
   (:use
    #:coalton
    #:coalton-prelude
@@ -23,7 +23,7 @@
 
    ;; Library Private
    #:Var%))
-(in-package :io/classes/mutable-var)
+(in-package :io/classes/mut)
 
 (named-readtables:in-readtable coalton:coalton)
 

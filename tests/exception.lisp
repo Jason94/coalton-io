@@ -8,9 +8,9 @@
         #:io/simple-io
         #:io/exceptions
         #:io/monad-io
-        #:io/threads)
+        #:io/thread)
   (:local-nicknames
-   (:m #:io/mutable-var))
+   (:m #:io/mut))
   )
 (in-package :coalton-io/tests/exception)
 

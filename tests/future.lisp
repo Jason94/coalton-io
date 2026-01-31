@@ -2,9 +2,9 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:io/simple-io
         #:io/exceptions
-        #:io/threads
+        #:io/thread
         #:io/conc/future
-        #:io/mutable-var))
+        #:io/mut))
 (in-package :coalton-io/tests/future)
 
 (named-readtables:in-readtable coalton:coalton)

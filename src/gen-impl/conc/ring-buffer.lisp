@@ -6,7 +6,7 @@
    #:coalton-library/cell
    #:coalton-library/types
    #:io/classes/monad-io
-   #:io/classes/threads
+   #:io/classes/thread
    #:io/classes/runtime-utils
    )
   (:local-nicknames

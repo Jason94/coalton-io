@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/classes/terminal
+(defpackage :io/classes/term
   (:use
    #:coalton
    #:coalton-prelude
@@ -16,7 +16,7 @@
    #:write
    #:write-line
    #:read-line))
-(in-package :io/classes/terminal)
+(in-package :io/classes/term)
 
 (named-readtables:in-readtable coalton:coalton)
 

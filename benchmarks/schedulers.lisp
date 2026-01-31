@@ -11,7 +11,7 @@
    #:coalton-library/experimental/do-control-loops
    #:io/monad-io
    #:io/simple-io
-   #:io/threads
+   #:io/thread
    #:io/conc/scheduler
    #:io/conc/group
    #:io/conc/worker-pool

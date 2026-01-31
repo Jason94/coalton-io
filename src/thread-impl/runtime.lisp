@@ -9,7 +9,7 @@
    #:io/threads-exceptions
    #:io/classes/monad-io
    #:io/classes/exceptions
-   #:io/classes/threads
+   #:io/classes/thread
    #:io/classes/runtime-utils
    )
   (:local-nicknames

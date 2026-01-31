@@ -4,15 +4,15 @@
         #:io/monad-io
         #:io/simple-io
         #:io/exceptions
-        #:io/threads
-        #:io/mutable-var
+        #:io/thread
+        #:io/mut
         #:io/conc/mvar
         #:io/tests/utils
         )
   (:import-from #:io/gen-impl/thread
     #:write-line-sync)
   (:local-nicknames
-   (:tm #:io/terminal)
+   (:tm #:io/term)
    (:opt #:coalton-library/optional)
    (:lk #:coalton-threads/lock))
   )

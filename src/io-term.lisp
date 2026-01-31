@@ -1,10 +1,10 @@
 (cl:in-package :cl-user)
-(defpackage :io/terminal
+(defpackage :io/term
   (:use
-   #:io/classes/terminal
+   #:io/classes/term
    #:io/gen-impl/term)
   (:export
-   ;; Re-exports from io/classes/terminal
+   ;; Re-exports from io/classes/term
    #:Terminal
    #:derive-terminal
    #:write
@@ -14,4 +14,4 @@
    ;; Re-exports from io/gen-impl/term
    #:implement-terminal
    ))
-(in-package :io/terminal)
+(in-package :io/term)

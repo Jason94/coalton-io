@@ -5,15 +5,15 @@
    #:io/utils
    #:io/monad-io
    #:io/simple-io
-   #:io/mutable-var
-   #:io/threads
+   #:io/mut
+   #:io/thread
    #:io/conc/parking
    #:io/tests/utils
    )
   (:import-from #:io/gen-impl/conc/parking
    #:num-waiters)
   (:local-nicknames
-   (:tm #:io/terminal)
+   (:tm #:io/term)
    )
   )
 (in-package :coalton-io/tests/conc/parking)

@@ -1,10 +1,10 @@
 (cl:in-package :cl-user)
-(defpackage :io/unique-gen
+(defpackage :io/unique
   (:use
-   #:io/classes/unique-gen
+   #:io/classes/unique
    #:io/gen-impl/unique)
   (:export
-   ;; Re-exports from io/classes/unique-gen
+   ;; Re-exports from io/classes/unique
    #:UniqueGen
    #:derive-unique-gen
    #:Unique
@@ -14,4 +14,4 @@
    ;; Re-exports from io/gen-impl/unique
    #:implement-unique-gen
    ))
-(in-package :io/unique-gen)
+(in-package :io/unique)

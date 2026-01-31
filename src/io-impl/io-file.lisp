@@ -5,7 +5,7 @@
    #:coalton-prelude
    #:coalton-library/monad/classes
    #:io/classes/monad-io
-   #:io/classes/files
+   #:io/classes/file
    #:io/gen-impl/file
    #:io/io-impl/simple-io
    )

@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/classes/unique-gen
+(defpackage :io/classes/unique
   (:use
    #:coalton
    #:coalton-prelude
@@ -20,7 +20,7 @@
 
    ;; Library Private
    #:Unique%))
-(in-package :io/classes/unique-gen)
+(in-package :io/classes/unique)
 
 (named-readtables:in-readtable coalton:coalton)
 

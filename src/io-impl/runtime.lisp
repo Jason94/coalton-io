@@ -3,7 +3,7 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:io/classes/threads
+   #:io/classes/thread
    #:io/threads-impl/runtime
    )
   (:export

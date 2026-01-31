@@ -3,7 +3,7 @@
         #:io/simple-io
         #:io/conc/atomic
         #:io/exceptions
-        #:io/threads)
+        #:io/thread)
   (:local-nicknames
    (:l #:coalton-library/list))
   )

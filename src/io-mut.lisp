@@ -1,11 +1,11 @@
 (cl:in-package :cl-user)
-(defpackage :io/mutable-var
+(defpackage :io/mut
   (:use
-   #:io/classes/mutable-var
+   #:io/classes/mut
    #:io/gen-impl/mut
    )
   (:export
-   ;; Re-exports from io/classes/mutable-var
+   ;; Re-exports from io/classes/mut
    #:Var
    #:MutableVar
    #:derive-mutable-var
@@ -16,4 +16,4 @@
 
    ;; Re-exports from io/gen-impl/mut
    #:implement-mutable-var))
-(in-package :io/mutable-var)
+(in-package :io/mut)

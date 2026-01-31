@@ -5,12 +5,12 @@
    #:io/monad-io
    #:io/simple-io
    #:io/exceptions
-   #:io/threads
+   #:io/thread
    #:io/conc/future
    #:io/conc/group
-   #:io/mutable-var)
+   #:io/mut)
   (:local-nicknames
-   (:tm #:io/terminal)
+   (:tm #:io/term)
    (:at #:io/conc/atomic)))
 (in-package :coalton-io/tests/conc/group)
 

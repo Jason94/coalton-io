@@ -4,18 +4,18 @@
         #:io/utils
         #:io/simple-io
         #:io/exceptions
-        #:io/mutable-var
+        #:io/mut
         #:io/conc/mvar
-        #:io/threads
+        #:io/thread
         #:io/conc/future
         #:io/conc/stm)
-  (:import-from #:io/terminal
+  (:import-from #:io/term
    #:write-line)
   (:import-from #:io/gen-impl/conc/stm
    #:tx-io!%)
   (:local-nicknames
    (:l #:coalton-library/list)
-   (:tm #:io/terminal))
+   (:tm #:io/term))
   )
 (in-package :coalton-io/tests/conc/stm)
 

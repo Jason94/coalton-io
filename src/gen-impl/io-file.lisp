@@ -6,8 +6,8 @@
    #:io/utils
    #:io/classes/exceptions
    #:io/classes/monad-io
-   #:io/classes/files
-   #:io/classes/threads
+   #:io/classes/file
+   #:io/classes/thread
    #:io/resource)
   (:import-from #:coalton-library/types
    #:RuntimeRepr)
@@ -278,4 +278,3 @@ Usage:
 (defmacro do-with-temp-directory ((dir) cl:&body body)
   "`do` sugar for `with-temp-directory`."
   `(with-temp-directory (fn (,dir) (do ,@body))))
-

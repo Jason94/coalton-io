@@ -4,7 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/experimental/do-control-core
-   #:io/classes/threads
+   #:io/classes/thread
    #:io/classes/exceptions
    #:coalton-library/types)
   (:export

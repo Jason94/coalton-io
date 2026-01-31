@@ -8,7 +8,7 @@
    #:io/utils
    #:io/classes/exceptions
    #:io/classes/monad-io
-   #:io/classes/threads
+   #:io/classes/thread
    #:io/classes/runtime-utils
    #:io/gen-impl/conc/parking
    )

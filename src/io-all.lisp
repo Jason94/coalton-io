@@ -3,25 +3,25 @@
   (:use #:coalton #:coalton-prelude)
   (:import-from #:io/monad-io
    #:derive-monad-io)
-  (:import-from #:io/threads
+  (:import-from #:io/thread
    #:implement-threads
    #:derive-threads)
-  (:import-from #:io/mutable-var
+  (:import-from #:io/mut
    #:implement-mutable-var
    #:derive-mutable-var)
-  (:import-from #:io/files
+  (:import-from #:io/file
    #:implement-files
    #:derive-files)
   (:import-from #:io/random
    #:implement-random
    #:derive-random)
-  (:import-from #:io/terminal
+  (:import-from #:io/term
    #:implement-terminal
    #:derive-terminal)
-  (:import-from #:io/unique-gen
+  (:import-from #:io/unique
    #:implement-unique-gen
    #:derive-unique-gen)
-  (:import-from #:io/sockets
+  (:import-from #:io/network
    #:implement-sockets
    #:derive-sockets)
   (:export

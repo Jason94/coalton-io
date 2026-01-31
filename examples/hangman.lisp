@@ -10,7 +10,7 @@
    #:coalton-library/experimental/do-control-loops
    #:io/utils
    #:io/simple-io
-   #:io/terminal
+   #:io/term
    #:io/random
    #:io/exceptions)
   (:local-nicknames
@@ -21,8 +21,8 @@
    (:s #:coalton-library/string)
    (:f_ #:coalton-library/file)
    (:r #:coalton-library/result)
-   (:f #:io/files)
-   (:m #:io/mutable-var)
+   (:f #:io/file)
+   (:m #:io/mut)
    ))
 
 (in-package :io/examples/hangman)

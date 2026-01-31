@@ -8,8 +8,8 @@
    #:coalton-library/types
    #:io/utils
    #:io/classes/monad-io
-   #:io/classes/threads
-   #:io/classes/terminal
+   #:io/classes/thread
+   #:io/classes/term
    #:io/threads-impl/runtime
    )
   (:export
