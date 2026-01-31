@@ -8,6 +8,7 @@
    #:coalton-library/experimental/do-control-loops
    #:io/utils
    #:io/monad-io
+   #:io/exception
    #:io/simple-io
    #:io/thread
    #:io/conc/stm
@@ -16,10 +17,14 @@
    (:v #:coalton-library/vector)
    (:s #:coalton-library/string)
    (:hm #:coalton-library/hashmap)
+   (:f #:coalton-library/file)
    (:tm #:io/term)
+   (:io-f #:io/file)
    (:mt #:io/mut)
    (:nt  #:io/network))
   (:export
+   #:ByteStream
+
    #:Resp
    #:RespArray
    #:RespInt
@@ -45,21 +50,69 @@
 
 (named-readtables:in-readtable coalton:coalton)
 
-;; NOTE There are more elegant ways to implement parsers like this, but for the sake
-;; of the example, this uses a simple - but pretty verbose - style of just manually
-;; unpacking a lot of options and results, and lots of iterative writes and reads from
-;; the socket connection.
+;;;;
+;;;; Protocol (Used on Client & Server)
+;;;;
+;;;;
+;;;; This file does three things:
+;;;; (1) It defines algebraic data types (ADTs) to represent the data types (RESP) used in a Redis application
+;;;;     and the different commands that can be executed on a Redis server.
+;;;; (2) It defines a codec to write/read RESP data to/from a byte stream. It also defines another codec to
+;;;;     write/read Redis commands to/from their RESP data representation. Combined, these two codecs allow the
+;;;;     client and server to send commands & data back and forth.
+;;;; (3) It sets up a ByteStream typeclass and implements it for both ByteConnectionSockets and FileStreams.
+;;;;     This allows the same codec to write data over the network or to/frome a file when saving the database.
+
+;;;; This program implements a (very small) subset of the RESP3 protocol.
+;;;; See https://redis.io/docs/latest/develop/reference/protocol-spec/#sending-commands-to-a-redis-server
+;;;;
+;;;; The biggest difference is that this only implements ASCII characters, not full UTF-8 strings. It
+;;;; would be easy to convert this to use UTF-8 using the Babel Common Lisp package.
 
 ;;;
-;;; Protocol (Used on Client & Server)
+;;; ByteStream Interface
 ;;;
 
 (coalton-toplevel
-  ;; Implement a (small) subset of the RESP3 protocol.
-  ;; See https://redis.io/docs/latest/develop/reference/protocol-spec/#sending-commands-to-a-redis-server
-  ;;
-  ;; The biggest difference is that this only implements ASCII characters, not full UTF-8 strings. It
-  ;; would be easy to convert this to use UTF-8 using the Babel Common Lisp package.
+
+  (define-class (ByteStream :s)
+    (read-exactly
+     (UFix -> :s -> IO (Vector U8)))
+    (write-bytes
+     (Vector U8 -> :s -> IO Unit)))
+
+  (define-instance (ByteStream nt:ByteConnectionSocket)
+    (define read-exactly nt:read-exactly)
+    (define write-bytes write-bytes))
+
+  (define-instance (ByteStream (f:FileStream U8))
+    ;; File operations return types as (Result FileError :a). Raise any error results.
+    (define (read-exactly n-bytes fstream)
+      (raise-result
+       (io-f:read-vector fstream n-bytes)))
+    (define (write-bytes data fstream)
+      (raise-result
+       (io-f:write-vector fstream data))))
+  )
+
+;;;
+;;; RESP Representation Definition
+;;;
+
+(coalton-toplevel
+  (define-type Resp
+    (RespArray (Vector Resp))
+    (RespInt Integer)
+    (RespSimpleString String)
+    (RespError String)
+    (RespBulkString String)
+    RespNull))
+
+;;;
+;;; Byte Stream -> RESP Parser
+;;;
+
+(coalton-toplevel
 
   (declare char->u8 (Char -> U8))
   (define (char->u8 c)
@@ -91,17 +144,17 @@
   (define bulk-str-type-char (char->u8 #\$))
   (define null-type-char (char->u8 #\_))
 
-  (declare read-one-byte (nt:ByteConnectionSocket -> IO U8))
+  (declare read-one-byte (ByteStream :s => :s -> IO U8))
   (define (read-one-byte conn)
     (do
-     (buffer <- (nt:read-exactly 1 conn))
+     (buffer <- (read-exactly 1 conn))
      (pure (v:index-unsafe 0 buffer))))
 
-  (declare read-until-terminator (nt:ByteConnectionSocket -> IO (Vector U8)))
+  (declare read-until-terminator (ByteStream :s => :s -> IO (Vector U8)))
   (define (read-until-terminator conn)
     (do
      (buffer <- (wrap-io (v:new)))
-     (bits-12 <- (nt:read-exactly 2 conn))
+     (bits-12 <- (read-exactly 2 conn))
      (rec % ((c1-val (v:index-unsafe 0 bits-12))
              (c2-val (v:index-unsafe 1 bits-12)))
        (if (and (== c1-val term-1)
@@ -109,16 +162,8 @@
            (pure buffer)
            (do
             (wrap-io (v:push! c1-val buffer))
-            (next-byte <- (nt:read-exactly 1 conn))
+            (next-byte <- (read-exactly 1 conn))
             (% c2-val (v:index-unsafe 0 next-byte)))))))
-
-  (define-type Resp
-    (RespArray (Vector Resp))
-    (RespInt Integer)
-    (RespSimpleString String)
-    (RespError String)
-    (RespBulkString String)
-    RespNull)
 
   (declare resp->resp-arry (Resp -> Optional (Vector Resp)))
   (define (resp->resp-arry resp)
@@ -138,7 +183,7 @@
       (_
        None)))
 
-  (declare read-resp-arry (nt:ByteConnectionSocket -> IO (Result String Resp)))
+  (declare read-resp-arry (ByteStream :s => :s -> IO (Result String Resp)))
   (define (read-resp-arry conn)
     "Read a resp-array. Assumes the first byte, signifying the type, has already been read.
 
@@ -169,7 +214,7 @@ Example stream input, where the '*' type byte has already been read:
           ((Ok _)
            (pure (Ok (RespArray buffer)))))))))
 
-  (declare read-simple-string (nt:ByteConnectionSocket -> IO (Result String Resp)))
+  (declare read-simple-string (ByteStream :s => :s -> IO (Result String Resp)))
   (define (read-simple-string conn)
     "Read a resp-simple-string. Assumes the first byte, signifying the type, has been read.
 
@@ -179,7 +224,7 @@ Example stream input, where the '+' type byte has already been read:
      (input <- (read-until-terminator conn))
      (pure (Ok (RespSimpleString (bytes->str input))))))
 
-  (declare read-simple-error (nt:ByteConnectionSocket -> IO (Result String Resp)))
+  (declare read-simple-error (ByteStream :s => :s -> IO (Result String Resp)))
   (define (read-simple-error conn)
     "Read a resp-simple-error. Assumes the first byte, signifying the type, has been read.
 
@@ -189,7 +234,7 @@ Example stream input, where the '-' type byte has already been read:
      (input <- (read-until-terminator conn))
      (pure (Ok (RespError (bytes->str input))))))
 
-  (declare read-integer (nt:ByteConnectionSocket -> IO (Result String Resp)))
+  (declare read-integer (ByteStream :s => :s -> IO (Result String Resp)))
   (define (read-integer conn)
     "Read a resp-integer. Assumes the first byte, signifying the type, has been read.
 
@@ -201,7 +246,7 @@ Example stream input, where the ':' type byte has already been read:
       (catch (Ok (RespInt (bytes->int input)))
         (_ (Err "Malformed integer"))))))
 
-  (declare read-bulk-string (nt:ByteConnectionSocket -> IO (Result String Resp)))
+  (declare read-bulk-string (ByteStream :s => :s -> IO (Result String Resp)))
   (define (read-bulk-string conn)
     "Read a length-defined bulk string that can include \r\n terminators.
 Assumes the first byte, signifying the type, has been read.
@@ -214,12 +259,12 @@ Example stream input, where the '$' type byte has already been read:
        ((Err e)
         (pure (Err (<> "Error parsing bulk string length: " e))))
        ((Ok length)
-        (str-bytes <- (nt:read-exactly length conn))
+        (str-bytes <- (read-exactly length conn))
         ;; Consume the trailing \r\n delimiter
         (read-until-terminator conn)
         (pure (Ok (RespBulkString (bytes->str str-bytes))))))))
 
-  (declare read-null (nt:ByteConnectionSocket -> IO (Result String Resp)))
+  (declare read-null (ByteStream :s => :s -> IO (Result String Resp)))
   (define (read-null conn)
     "Read a resp-null. Assumes the first byte, signifying the type, has been read.
 
@@ -229,7 +274,7 @@ Example stream input, where the '_' type byte has already been read:
      (read-until-terminator conn)
      (pure (Ok RespNull))))
 
-  (declare read-resp (nt:ByteConnectionSocket -> IO (Result String Resp)))
+  (declare read-resp (ByteStream :s => :s -> IO (Result String Resp)))
   (define (read-resp conn)
     (do
      (type-byte <- (read-one-byte conn))
@@ -249,6 +294,10 @@ Example stream input, where the '_' type byte has already been read:
        (True
         (pure (Err (build-str "Unknown type byte: " (force-string type-byte))))))))
   )
+
+;;;
+;;; RESP -> Byte Stream Serializer
+;;;
 
 (coalton-toplevel
   (declare int->bytes (Integer -> (Vector U8)))
@@ -272,58 +321,58 @@ Example stream input, where the '_' type byte has already been read:
                    (cl:the (cl:unsigned-byte 8)
                            (cl:char-code (cl:aref s i))))))))
 
-  (declare write-terminator (nt:ByteConnectionSocket -> IO Unit))
+  (declare write-terminator (ByteStream :s => :s -> IO Unit))
   (define (write-terminator conn)
-    (nt:write-bytes (v:make term-1 term-2) conn))
+    (write-bytes (v:make term-1 term-2) conn))
 
-  (declare write-resp-array (Vector Resp -> nt:ByteConnectionSocket -> IO Unit))
+  (declare write-resp-array (ByteStream :s => Vector Resp -> :s -> IO Unit))
   (define (write-resp-array data conn)
     (do
-     (nt:write-bytes (v:make array-type-char) conn)
-     (nt:write-bytes (int->bytes (into (v:length data)))
+     (write-bytes (v:make array-type-char) conn)
+     (write-bytes (int->bytes (into (v:length data)))
                      conn)
      (write-terminator conn)
      (do-foreach-io_ (x data)
        (write-resp x conn))))
 
-  (declare write-resp-int (Integer -> nt:ByteConnectionSocket -> IO Unit))
+  (declare write-resp-int (ByteStream :s => Integer -> :s -> IO Unit))
   (define (write-resp-int x conn)
     (do
-     (nt:write-bytes (v:make int-type-char) conn)
-     (nt:write-bytes (int->bytes x) conn)
+     (write-bytes (v:make int-type-char) conn)
+     (write-bytes (int->bytes x) conn)
      (write-terminator conn)))
 
-  (declare write-resp-simple-string (String -> nt:ByteConnectionSocket -> IO Unit))
+  (declare write-resp-simple-string (ByteStream :s => String -> :s -> IO Unit))
   (define (write-resp-simple-string str conn)
     (do
-     (nt:write-bytes (v:make simple-string-type-char) conn)
-     (nt:write-bytes (str->bytes str) conn)
+     (write-bytes (v:make simple-string-type-char) conn)
+     (write-bytes (str->bytes str) conn)
      (write-terminator conn)))
 
-  (declare write-resp-simple-error (String -> nt:ByteConnectionSocket -> IO Unit))
+  (declare write-resp-simple-error (ByteStream :s => String -> :s -> IO Unit))
   (define (write-resp-simple-error str conn)
     (do
-     (nt:write-bytes (v:make simple-error-type-char) conn)
-     (nt:write-bytes (str->bytes str) conn)
+     (write-bytes (v:make simple-error-type-char) conn)
+     (write-bytes (str->bytes str) conn)
      (write-terminator conn)))
 
-  (declare write-resp-bulk-string (String -> nt:ByteConnectionSocket -> IO Unit))
+  (declare write-resp-bulk-string (ByteStream :s => String -> :s -> IO Unit))
   (define (write-resp-bulk-string str conn)
     (do
-     (nt:write-bytes (v:make bulk-str-type-char) conn)
-     (nt:write-bytes (int->bytes (into (s:length str)))
+     (write-bytes (v:make bulk-str-type-char) conn)
+     (write-bytes (int->bytes (into (s:length str)))
                      conn)
      (write-terminator conn)
-     (nt:write-bytes (str->bytes str) conn)
+     (write-bytes (str->bytes str) conn)
      (write-terminator conn)))
 
-  (declare write-resp-null (nt:ByteConnectionSocket -> IO Unit))
+  (declare write-resp-null (ByteStream :s => :s -> IO Unit))
   (define (write-resp-null conn)
     (do
-     (nt:write-bytes (v:make null-type-char) conn)
+     (write-bytes (v:make null-type-char) conn)
      (write-terminator conn)))
 
-  (declare write-resp (Resp -> nt:ByteConnectionSocket -> IO Unit))
+  (declare write-resp (ByteStream :s => Resp -> :s -> IO Unit))
   (define (write-resp resp conn)
     (do
      (match resp
@@ -341,6 +390,10 @@ Example stream input, where the '_' type byte has already been read:
         (write-resp-null conn)))))
   )
 
+;;;
+;;; Redis Command Definitions
+;;;
+
 (coalton-toplevel
   (define-type Command
     (Ping String)
@@ -348,8 +401,13 @@ Example stream input, where the '_' type byte has already been read:
     (GetKey String)
     (SetKey String String)
     (RenameKey String String)
-    )
+    ))
 
+;;;
+;;; RESP Data -> Command Parser
+;;;
+
+(coalton-toplevel
   (define ping-command-str "PING")
   (define quit-command-str "QUIT")
   (define get-command-str "GET")
@@ -441,6 +499,7 @@ Example stream input, where the '_' type byte has already been read:
 
   (declare read-command (nt:ByteConnectionSocket -> IO (Result String Command)))
   (define (read-command conn)
+    "Read a command directly through a byte stream via an intermediate RESP representation"
     (do
      (resp <- (read-resp conn))
      (do-match resp
@@ -449,6 +508,10 @@ Example stream input, where the '_' type byte has already been read:
        ((Ok resp)
         (pure (parse-command resp))))))
   )
+
+;;;
+;;; Command -> RESP Data Serializer
+;;;
 
 (coalton-toplevel
   (declare command->resp (Command -> Resp))

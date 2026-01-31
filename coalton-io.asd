@@ -175,6 +175,7 @@ mutable variables, multithreading, and several data structures to safely share s
                  (:file "fork-laws")
                  (:file "network-demo")
                  (:file "redis/protocol")
+                 (:file "redis/client_cli")
                  (:file "redis/redis"))))
   :description "Example programs for coalton-io.")
 
