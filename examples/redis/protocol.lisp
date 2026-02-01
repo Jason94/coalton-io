@@ -8,7 +8,7 @@
    #:coalton-library/experimental/do-control-loops
    #:io/utils
    #:io/monad-io
-   #:io/exception
+   #:io/exceptions
    #:io/simple-io
    #:io/thread
    #:io/conc/stm
@@ -396,7 +396,7 @@ Example stream input, where the '_' type byte has already been read:
 
 (coalton-toplevel
   (define-type Command
-    (Ping String)
+    (Ping (Optional String))
     Quit
     (GetKey String)
     (SetKey String String)
@@ -418,13 +418,13 @@ Example stream input, where the '_' type byte has already been read:
   (define (parse-ping data)
     (match (v:index 1 data)
       ((None)
-       (Err "Ping missing string payload."))
+       (Ok (Ping None)))
       ((Some str-payload)
        (match (resp->resp-bulk-str str-payload)
          ((None)
           (Err "Bad type: Ping expects bulk-str payload."))
          ((Some str)
-          (Ok (Ping str)))))))
+          (Ok (Ping (Some str))))))))
 
   (declare parse-get (Vector Resp -> Result String Command))
   (define (parse-get data)
@@ -517,9 +517,13 @@ Example stream input, where the '_' type byte has already been read:
   (declare command->resp (Command -> Resp))
   (define (command->resp cmd)
     (match cmd
-      ((Ping ping-str)
-       (RespArray (v:make (RespBulkString ping-command-str)
-                          (RespBulkString ping-str))))
+      ((Ping ping-str?)
+       (match ping-str?
+         ((Some ping-str)
+          (RespArray (v:make (RespBulkString ping-command-str)
+                             (RespBulkString ping-str))))
+         ((None)
+          (RespArray (v:make (RespBulkString ping-command-str))))))
       ((GetKey key)
        (RespArray (v:make (RespBulkString get-command-str)
                           (RespBulkString key))))
