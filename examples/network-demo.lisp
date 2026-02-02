@@ -4,6 +4,7 @@
   (:use
    #:coalton
    #:coalton-prelude
+   #:io/utils
    #:io/thread
    #:io/simple-io
    #:io/resource
@@ -22,12 +23,13 @@
 
 (coalton-toplevel
   (define hostname "127.0.0.1")
-  (define port (the UFix 5555))
+  (define port (the UFix 5556))
 
   (declare handle-client (nt:ConnectionSocket -> IO Unit))
   (define (handle-client conn)
     (do
       (msg <- (nt:read-line conn))
+      (nt:write-line (build-str "Read message: '" msg "'") conn)
       (if (== msg "")
           (do
             (tm:write-line "client disconnected")
@@ -58,7 +60,10 @@
       (nt:write-line line conn)
       (if (== line "")
           (pure Unit)
-          (client-loop conn))))
+          (do
+           (response <- (nt:read-line conn))
+           (tm:write-line (build-str "  <response> " response))
+           (client-loop conn)))))
 
   (declare client-main (IO Unit))
   (define client-main

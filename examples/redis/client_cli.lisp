@@ -161,7 +161,11 @@
            (let cmdU = (str-upcase cmd))
            (cond
              ((== cmdU "PING")
-              (Ok (Some (Ping (join-with-space rest)))))
+              (Ok (Some (Ping (match rest
+                                ((Nil)
+                                 None)
+                                (_
+                                 (Some (join-with-space rest))))))))
              ((== cmdU "GET")
               (match rest
                 ((Cons key (Nil))

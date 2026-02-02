@@ -15,6 +15,7 @@
    #:IoError
    #:UnhandledError
    #:HandledError
+   #:throw-handled-error
    #:flatten-err
    #:catch-thunk
    #:force-string
@@ -70,7 +71,15 @@
     "An unhandled error that was thrown inside a wrap-io call."
     (UnhandledError Anything (Unit -> Unit)) ;; re-throw thunk
     (HandledError Dynamic (Unit -> Unit))) ;; error val, error thunk
-  
+  )
+
+(defmacro throw-handled-error (exception-form)
+  `(throw (HandledError
+           (to-dynamic ,exception-form)
+           (fn ()
+             (throw ,exception-form)))))
+
+(coalton-toplevel
   ;; (define-instance (Signalable (IoError :e))
   ;;   (define (error err)
   ;;     (match err

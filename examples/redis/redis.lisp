@@ -51,7 +51,7 @@
 
 (coalton-toplevel
   (define hostname "127.0.0.1")
-  (define port (the UFix 5555))
+  (define port (the UFix 5558))
   )
 
 ;;; ---------------------------------------------- ;;;
@@ -80,16 +80,25 @@
       ((RespArray xs)
        (tm:write-line (<> "(array) " (force-string xs))))))
 
-  (declare do-command (Command -> nt:ByteConnectionSocket -> IO Unit))
+  (declare do-command (Command -> nt:ByteConnectionSocket -> IO Boolean))
   (define (do-command cmd conn)
+    "Returns True if the client should continue, False if it should terminate."
     (do
      (write-resp (command->resp cmd) conn)
-     (resp? <- (read-resp conn))
-     (do-match resp?
-       ((Err e)
-        (tm:write-line (<> "Protocol error: " e)))
-       ((Ok resp)
-        (print-response resp)))))
+     (handle
+      (do
+       (resp? <- (read-resp conn))
+       (do-match resp?
+         ((Err e)
+          (tm:write-line (<> "Protocol error: " e)))
+         ((Ok resp)
+          (print-response resp)))
+       (pure True))
+      (fn (e)
+        (do-match e
+          ((nt:EndOfFileException _)
+           (tm:write-line "Error: Server closed the connection")
+           (pure False)))))))
 
   ;;;
   ;;; Prompt + REPL
@@ -106,32 +115,30 @@
 
   (declare client-repl (nt:ByteConnectionSocket -> IO Unit))
   (define (client-repl conn)
-    (rec % ()
-      (do
-       print-prompt
-       (line <- tm:read-line)
-       (if (is-help-line line)
-           (do
-            print-help
-            (%))
-           (do
-            (cmd? <- (pure (parse-cli-line line)))
-            (do-match cmd?
-              ((Err e)
-               (tm:write-line e)
-               (%))
-              ((Ok maybe-cmd)
-               (match maybe-cmd
-                 ((None)
-                  (%))
-                 ((Some cmd)
-                  (do
-                   (do-command cmd conn)
+    (do
+     print-prompt
+     (line <- tm:read-line)
+      (if (is-help-line line)
+          (do
+           print-help
+           (client-repl conn))
+          (do
+           (cmd? <- (pure (parse-cli-line line)))
+           (do-match cmd?
+             ((Err e)
+              (tm:write-line e)
+              (client-repl conn))
+             ((Ok maybe-cmd)
+              (match maybe-cmd
+                ((None)
+                 (client-repl conn))
+                ((Some cmd)
+                 (do-whenM (do-command cmd conn)
                    (match cmd
                      ((Quit)
                       (pure Unit))
                      (_
-                      (%)))))))))))))
+                      (client-repl conn))))))))))))
 
   (declare client-main (IO Unit))
   (define client-main
@@ -371,39 +378,41 @@ it was missing."
   (declare handle-client (nt:ByteConnectionSocket -> Database -> IO Unit))
   (define (handle-client conn db)
     (do
-     (cmd? <- (read-command conn))
-     (tm:write-line (<> "Received command: " (force-string cmd?)))
-     (do-match cmd?
-       ((Err _)
-        (handle-client conn db))
-       ((Ok cmd)
-        (resp <-
-          (do-match cmd
-            ((Ping ping-str?)
-             (handle-ping ping-str?))
-            ((GetKey key)
-             (value? <- (read-key key db))
-             (match value?
-               ((None)
-                (pure RespNull))
-               ((Some val)
-                (pure (RespBulkString val)))))
-            ((SetKey key val)
-             (run-tx (write-key-tx key val db))
-             (pure (RespSimpleString "OK")))
-            ((RenameKey key new-key)
-             (result <- (run-tx (rename-key key new-key db)))
-             (if result
-                 (pure (RespSimpleString "OK"))
-                 (pure (RespError (<> "Key not found: " key)))))
-            ((Quit)
-             (pure (RespSimpleString "OK")))))
-        (write-resp resp conn)
-        (match cmd
-          ((Quit)
-           (pure Unit))
-          (_
-           (handle-client conn db)))))))
+     (rec % ()
+       (do
+        (cmd? <- (read-command conn))
+        (do-match cmd?
+          ((Err _)
+           (%))
+          ((Ok cmd)
+           (resp <-
+                 (do-match cmd
+                   ((Ping ping-str?)
+                    (handle-ping ping-str?))
+                   ((GetKey key)
+                    (value? <- (read-key key db))
+                    (match value?
+                      ((None)
+                       (pure RespNull))
+                      ((Some val)
+                       (pure (RespBulkString val)))))
+                   ((SetKey key val)
+                    (run-tx (write-key-tx key val db))
+                    (pure (RespSimpleString "OK")))
+                   ((RenameKey key new-key)
+                    (result <- (run-tx (rename-key key new-key db)))
+                    (if result
+                        (pure (RespSimpleString "OK"))
+                        (pure (RespError (<> "Key not found: " key)))))
+                   ((Quit)
+                    (pure (RespSimpleString "OK")))))
+           (write-resp resp conn)
+           (match cmd
+             ((Quit)
+              (pure Unit))
+             (_
+              (%)))))))
+     (tm:write-line "client disconnected")))
 
   (declare accept-loop (nt:ByteServerSocket -> Database -> IO Unit))
   (define (accept-loop server db)
@@ -416,10 +425,14 @@ it was missing."
   (declare server-main (IO Unit))
   (define server-main
     (do
+     (do-fork-thread
       (db <- (new-database 16))
       (nt:do-byte-socket-listen-with (server (hostname port))
         (tm:write-line (<> "listening on " (<> hostname (<> ":" (as String port)))))
-        (accept-loop server db))))
+        (accept-loop server db)))
+     (tm:write-line "Press enter to close the server...")
+     tm:read-line
+     (pure Unit)))
   )
 
 (cl:defun run-server ()

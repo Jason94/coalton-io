@@ -83,7 +83,7 @@
 
   (define-instance (ByteStream nt:ByteConnectionSocket)
     (define read-exactly nt:read-exactly)
-    (define write-bytes write-bytes))
+    (define write-bytes nt:write-bytes))
 
   (define-instance (ByteStream (f:FileStream U8))
     ;; File operations return types as (Result FileError :a). Raise any error results.

@@ -6,6 +6,9 @@
    )
   (:export
    ;; Re-exports from io/classes/network
+   #:NetworkException
+   #:EndOfFileException
+
    #:ServerSocket
    #:ConnectionSocket
    #:ByteServerSocket

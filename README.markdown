@@ -225,7 +225,7 @@ The `fork` functions and macros return a handle to the thread object, which can 
 ```lisp
   (do
    (thread <-
-     (do-thread
+     (do-fork-thread
        (sleep 10)
        end-the-world))
    (stop thread)
