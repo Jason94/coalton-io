@@ -298,7 +298,9 @@ to retry."
     ;; vector should never be mutated!
     (buckets (Vector (TVar (hm:HashMap :k :v)))))
 
-  (define-type-alias Database (TStripedMap String String))
+  (define-struct Database
+    (data (TStripedMap String String))
+    (lock TRWLock))
 
   (declare new-database (UFix -> IO Database))
   (define (new-database n-buckets)
@@ -309,18 +311,20 @@ to retry."
        (bucket <- (new-tvar hm:empty))
        (wrap-io
         (v:push! bucket vector)))
-     (pure (TStripedMap vector))))
+     (lock <- new-trwlock)
+     (pure (Database (TStripedMap vector)
+                     lock))))
 
   (inline)
   (declare db-length (Database -> UFix))
   (define (db-length db)
-    (v:length (.buckets db)))
+    (v:length (.buckets (.data db))))
 
   (inline)
   (declare bucket-for (String -> Database -> TVar (hm:HashMap String String)))
   (define (bucket-for key db)
     (v:index-unsafe (mod-hash (hash key) (db-length db))
-                    (.buckets db)))
+                    (.buckets (.data db))))
 
   (declare write-key-tx (String -> String -> Database -> STM IO Unit))
   (define (write-key-tx key val db)
@@ -361,6 +365,18 @@ it was missing."
         (write-key-tx new-key val db)
         (pure True))))))
 
+;; Helper macros to use the DB's lock
+
+(defmacro do-with-reader-lock (db cl:&body body)
+  `(with-reader-lock (.lock ,db)
+     (do
+      ,@body)))
+
+(defmacro do-with-writer-lock (db cl:&body body)
+  `(with-writer-lock (.lock ,db)
+     (do
+      ,@body)))
+
 ;;;
 ;;; Implement the server that talks with the client and manages the database.
 ;;;
@@ -374,6 +390,33 @@ it was missing."
        (pure (RespSimpleString "PONG")))
       ((Some ping-str)
        (pure (RespBulkString ping-str)))))
+
+  (declare handle-get-key (String -> Database -> IO Resp))
+  (define (handle-get-key key db)
+    (do
+     (value? <-
+       (do-with-reader-lock db
+         (read-key key db)))
+     (match value?
+       ((None)
+        (pure RespNull))
+       ((Some val)
+        (pure (RespBulkString val))))))
+
+  (declare handle-set-key (String -> String -> Database -> IO Resp))
+  (define (handle-set-key key val db)
+    (do
+     (do-with-reader-lock db
+       (run-tx (write-key-tx key val db)))
+     (pure (RespSimpleString "OK"))))
+
+  (declare handle-rename-key (String -> String -> Database -> IO Resp))
+  (define (handle-rename-key key new-key db)
+    (do
+     (result <- (run-tx (rename-key key new-key db)))
+     (if result
+         (pure (RespSimpleString "OK"))
+         (pure (RespError (<> "Key not found: " key))))))
 
   (declare handle-client (nt:ByteConnectionSocket -> Database -> IO Unit))
   (define (handle-client conn db)
@@ -390,20 +433,11 @@ it was missing."
                    ((Ping ping-str?)
                     (handle-ping ping-str?))
                    ((GetKey key)
-                    (value? <- (read-key key db))
-                    (match value?
-                      ((None)
-                       (pure RespNull))
-                      ((Some val)
-                       (pure (RespBulkString val)))))
+                    (handle-get-key key db))
                    ((SetKey key val)
-                    (run-tx (write-key-tx key val db))
-                    (pure (RespSimpleString "OK")))
+                    (handle-set-key key val db))
                    ((RenameKey key new-key)
-                    (result <- (run-tx (rename-key key new-key db)))
-                    (if result
-                        (pure (RespSimpleString "OK"))
-                        (pure (RespError (<> "Key not found: " key)))))
+                    (handle-rename-key key new-key db))
                    ((Quit)
                     (pure (RespSimpleString "OK")))))
            (write-resp resp conn)
