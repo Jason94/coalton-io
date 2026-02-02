@@ -22,8 +22,10 @@
    (:s #:coalton-library/string)
    (:v #:coalton-library/vector)
    (:hm #:coalton-library/hashmap)
+   (:f #:coalton-library/file)
    (:tm #:io/term)
    (:mt #:io/mut)
+   (:io-f #:io/file)
    (:nt  #:io/network))
   (:export
    #:run-server
@@ -52,6 +54,8 @@
 (coalton-toplevel
   (define hostname "127.0.0.1")
   (define port (the UFix 5558))
+  (define filename "dump.rdb")
+  (define OK-Response (RespSimpleString "OK"))
   )
 
 ;;; ---------------------------------------------- ;;;
@@ -315,6 +319,13 @@ to retry."
      (pure (Database (TStripedMap vector)
                      lock))))
 
+  (declare copy-buckets (Database -> IO (List (hm:HashMap String String))))
+  (define (copy-buckets db)
+    "Retrieve a synchronized list of all the buckets in the database."
+    (run-tx
+     (do-collect (bucket-tvar (.buckets (.data db)))
+       (read-tvar bucket-tvar))))
+
   (inline)
   (declare db-length (Database -> UFix))
   (define (db-length db)
@@ -363,7 +374,35 @@ it was missing."
        ((Some val)
         (write-tvar bucket bucket-map2)
         (write-key-tx new-key val db)
-        (pure True))))))
+        (pure True)))))
+
+  (declare save-buckets (String -> List (hm:HashMap String String) -> IO Unit))
+  (define (save-buckets filename buckets)
+    "Dump the contents of BUCKETS into FILENAME. Saves the data in binary format. Each key
+value pair is encoded as a RespArray of two elements: the key and the value.
+
+Note: This is NOT the file format used by Redis. The file format used by Redis also stores
+key/value pairs as length encoded bytes. However, it also stores other metadata to support
+other features like typed values, expiration, etc.
+
+For more information on the Redis file format, for the curious:
+https://rdb.fnordig.de/file_format.html"
+    (io-f:do-with-open-file_ (f:Output (into filename) f:Overwrite) (fs)
+      ;; Peg type of FS to (FileStream U8)
+      (let _ = (the (f:FileStream U8) fs))
+      ;; For efficiency, allocate one buffer containing two Resp elements. Each loop,
+      ;; reuse it to create a new RespArray.
+      ;;
+      ;; Even though IO doesn't have a builtin mutable vector type, it's easy to use wrap-io
+      ;; to perform normal, side-effectul Coalton code.
+      (buffer <- (wrap-io (v:make RespNull RespNull)))
+      (do-foreach-io_ (bucket buckets)
+        (do-foreach-io_ ((Tuple key val) bucket)
+          (wrap-io
+           (v:set! 0 (RespBulkString key) buffer)
+           (v:set! 1 (RespBulkString val) buffer))
+          (write-resp (RespArray buffer) fs)))))
+  )
 
 ;; Helper macros to use the DB's lock
 
@@ -408,15 +447,22 @@ it was missing."
     (do
      (do-with-reader-lock db
        (run-tx (write-key-tx key val db)))
-     (pure (RespSimpleString "OK"))))
+     (pure OK-Response)))
 
   (declare handle-rename-key (String -> String -> Database -> IO Resp))
   (define (handle-rename-key key new-key db)
     (do
      (result <- (run-tx (rename-key key new-key db)))
      (if result
-         (pure (RespSimpleString "OK"))
+         (pure OK-Response)
          (pure (RespError (<> "Key not found: " key))))))
+
+  (declare handle-save (Database -> IO Resp))
+  (define (handle-save db)
+    (do-with-writer-lock db
+      (buckets <- (copy-buckets db))
+      (save-buckets filename buckets)
+      (pure OK-Response)))
 
   (declare handle-client (nt:ByteConnectionSocket -> Database -> IO Unit))
   (define (handle-client conn db)
@@ -439,7 +485,9 @@ it was missing."
                    ((RenameKey key new-key)
                     (handle-rename-key key new-key db))
                    ((Quit)
-                    (pure (RespSimpleString "OK")))))
+                    (pure OK-Response))
+                   ((Save)
+                    (handle-save db))))
            (write-resp resp conn)
            (match cmd
              ((Quit)

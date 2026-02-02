@@ -192,6 +192,10 @@
               (match rest
                 ((Nil) (Ok (Some Quit)))
                 (_     (Err "Usage: QUIT"))))
+            ((== cmdU "SAVE")
+              (match rest
+                ((Nil) (Ok (Some Save)))
+                (_     (Err "Usage: SAVE"))))
              (True
               (Err (<> "Unknown command: " cmd))))))))
   )

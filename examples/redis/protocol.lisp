@@ -39,6 +39,7 @@
    #:GetKey
    #:RenameKey
    #:Quit
+   #:Save
 
    #:read-resp
    #:read-command
@@ -401,6 +402,7 @@ Example stream input, where the '_' type byte has already been read:
     (GetKey String)
     (SetKey String String)
     (RenameKey String String)
+    Save
     ))
 
 ;;;
@@ -413,6 +415,7 @@ Example stream input, where the '_' type byte has already been read:
   (define get-command-str "GET")
   (define set-command-str  "SET")
   (define rename-command-str "RENAME")
+  (define save-command-str "SAVE")
 
   (declare parse-ping (Vector Resp -> Result String Command))
   (define (parse-ping data)
@@ -536,5 +539,7 @@ Example stream input, where the '_' type byte has already been read:
                           (RespBulkString key)
                           (RespBulkString new-key))))
       ((Quit)
-       (RespArray (v:make (RespBulkString quit-command-str))))))
+       (RespArray (v:make (RespBulkString quit-command-str))))
+      ((Save)
+       (RespArray (v:make (RespBulkString save-command-str))))))
   )
