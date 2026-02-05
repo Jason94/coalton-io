@@ -169,6 +169,7 @@ mutable variables, multithreading, and several data structures to safely share s
   :license "MIT"
   :depends-on ("coalton-io")
   :components ((:module "examples"
+                :serial t
                 :components
                 ((:file "channels-threading")
                  (:file "hangman")
@@ -184,6 +185,7 @@ mutable variables, multithreading, and several data structures to safely share s
   :license "MIT"
   :depends-on ("coalton-io" "trivial-benchmark" "yason")
   :components ((:module "benchmarks"
+                :serial t
                 :components
                 ((:file "benchmark-utils")
                  (:file "benchmarks")
