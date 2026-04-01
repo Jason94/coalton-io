@@ -54,6 +54,7 @@
      (tm:write-line "  GET <key>              Fetch a key (missing => (nil))")
      (tm:write-line "  SET <key> <value>      Set a key (value may be multiple words or quoted)")
      (tm:write-line "  RENAME <key> <new-key> Rename a key")
+     (tm:write-line "  SAVE                   Save the database")
      (tm:write-line "  QUIT                   Close the connection")
      (tm:write-line "")
      (tm:write-line "Input rules:")
