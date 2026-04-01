@@ -53,7 +53,7 @@
 
 (coalton-toplevel
   (define hostname "127.0.0.1")
-  (define port (the UFix 5558))
+  (define port (the UFix 5559))
   (define filename "dump.rdb")
   (define OK-Response (RespSimpleString "OK"))
   )
@@ -459,10 +459,12 @@ https://rdb.fnordig.de/file_format.html"
 
   (declare handle-save (Database -> IO Resp))
   (define (handle-save db)
-    (do-with-writer-lock db
-      (buckets <- (copy-buckets db))
-      (save-buckets filename buckets)
-      (pure OK-Response)))
+    (do
+     (buckets <-
+       (do-with-writer-lock db
+         (copy-buckets db)))
+     (save-buckets filename buckets)
+     (pure OK-Response)))
 
   (declare handle-client (nt:ByteConnectionSocket -> Database -> IO Unit))
   (define (handle-client conn db)
@@ -474,6 +476,7 @@ https://rdb.fnordig.de/file_format.html"
           ((Err _)
            (%))
           ((Ok cmd)
+           (tm:write-line (<> "Received command: " (force-string cmd)))
            (resp <-
                  (do-match cmd
                    ((Ping ping-str?)

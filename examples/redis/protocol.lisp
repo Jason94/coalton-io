@@ -467,6 +467,12 @@ Example stream input, where the '_' type byte has already been read:
       (_
        (Err "Rename missing payloads"))))
 
+  (declare parse-save (Vector Resp -> Result String Command))
+  (define (parse-save data)
+    (if (== (v:length data) 1)
+        (Ok Save)
+        (Err "SAVE takes no arguments")))
+
   (declare parse-quit (Vector Resp -> Result String Command))
   (define (parse-quit _)
     (Ok Quit))
@@ -495,6 +501,8 @@ Example stream input, where the '_' type byte has already been read:
                 (parse-set data))
                ((== rename-command-str command-str)
                 (parse-rename data))
+               ((== save-command-str command-str)
+                (parse-save data))
                ((== quit-command-str command-str)
                 (parse-quit data))
                (True
