@@ -185,7 +185,7 @@ conditions. DONT USE THIS!"
   (define-instance (Monad :io => Applicative (STM :io))
     (inline)
     (define pure pure-tx%)
-    (define lifta2 lifta2))
+    (define lifta2 lifta2-tx%))
 
   (inline)
   (declare flatmap-tx% (Monad :io => STM :io :a -> (:a -> STM :io :b) -> STM :io :b))
