@@ -45,13 +45,13 @@
        (lk:acquire lock)
        Unit)
       ((Timeout timeout-time)
-       (lisp Unit (lock timeout-time)
+       (lisp (-> Unit) (lock timeout-time)
          (cl:if (bt2:acquire-lock lock :timeout (cl:/ timeout-time 1000.0d0))
                 Unit
                 (coalton
                  (raise-timeout-exception
                   (build-str "Timed out acquiring lock after "
-                             (lisp Double-Float () timeout-time)
+                             (lisp (-> Double-Float) () timeout-time)
                              " milliseconds."))))))))
 
   (declare cv-await-with (cv:ConditionVariable -> lk:Lock -> TimeoutStrategy -> Unit))
@@ -62,13 +62,13 @@
        (cv:await cv lock)
        Unit)
       ((Timeout timeout-time)
-       (lisp Unit (cv lock timeout-time)
+       (lisp (-> Unit) (cv lock timeout-time)
          (cl:if (bt2:condition-wait cv lock :timeout (cl:/ timeout-time 1000.0d0))
                 Unit
                 (coalton
                  (raise-timeout-exception
                   (build-str "Timed out waiting on condition variable after "
-                             (lisp Double-Float () timeout-time)
+                             (lisp (-> Double-Float) () timeout-time)
                              " milliseconds."))))))))
 
   ;; TODO: Standardize usage of 'finally' throughout the library.

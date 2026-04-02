@@ -45,7 +45,7 @@ This type isn't really an exception, it's more of a message."
 IoError containing a ThreadingException."
     (let (Dynamic% val _) = dyn)
     (or
-     (lisp Boolean (val) (cl:typep val 'ThreadingException))
+     (lisp (-> Boolean) (val) (cl:typep val 'ThreadingException))
      (match (cast dyn)
        ((Some io-err)
         (is-threading-exception io-err))
@@ -60,7 +60,7 @@ IoError containing a ThreadingException."
                   e)
                  ((HandledError (Dynamic% e _) _)
                   e)))
-   (lisp Boolean (val) (cl:typep val 'ThreadingException)))
+   (lisp (-> Boolean) (val) (cl:typep val 'ThreadingException)))
 
   (define-exception SynchronousThreadException
     "Exceptions that a thread raises whenever it encounters a threading

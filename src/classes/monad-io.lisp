@@ -156,7 +156,7 @@ Supports any MonadIo instance.
 
 Example:
   (wrap-io
-    (lisp :a (str)
+    (lisp (-> :a) (str)
       (cl:print str))"
   `(wrap-io_ (fn () ,@body)))
 

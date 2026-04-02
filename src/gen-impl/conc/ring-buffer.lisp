@@ -82,7 +82,7 @@
     "Create a new ring buffer with the given capacity."
     (RingBuffer
      capacity
-     (lisp (Vector :a) (capacity)
+     (lisp (-> Vector :a) (capacity)
        (cl:make-array capacity :element-type cl:t :adjustable cl:nil :fill-pointer cl:nil))
      (new 0)
      (new 0)

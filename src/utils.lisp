@@ -78,7 +78,7 @@
   (inline)
   (declare anything-eq (Anything -> Anything -> Boolean))
   (define (anything-eq a b)
-    (lisp Boolean (a b)
+    (lisp (-> Boolean) (a b)
       (cl:eq a b)))
 
   (define-type Dynamic
@@ -87,19 +87,19 @@
   (inline)
   (declare to-anything (:a -> Anything))
   (define (to-anything a)
-    (lisp Anything (a)
+    (lisp (-> Anything) (a)
       a))
 
   (inline)
   (declare from-anything (Anything -> :a))
   (define (from-anything a)
-    (lisp :a (a)
+    (lisp (-> :a) (a)
       a))
 
   (inline)
   (declare from-anything-opt (Anything -> Optional :a))
   (define (from-anything-opt a)
-    (lisp (Optional :a) (a)
+    (lisp (-> Optional :a) (a)
       (cl:if a
              (Some a)
              None)))
@@ -125,7 +125,7 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
     (as-proxy-of
      (if (== dyn-repr
              (runtime-repr prx-b))
-         (Some (lisp :b (dyn-val) dyn-val))
+         (Some (lisp (-> :b) (dyn-val) dyn-val))
          None)
      (proxy-outer prx-b)))
 
@@ -179,7 +179,7 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
 as Err or Ok. Useful if you want to capture any thrown error, which is
 currently not possible natively in Coalton. Works even with custom
 Coalton exceptions via `define-exception`."
-    (lisp (Result IoError :a) (thunk)
+    (lisp (-> Result IoError :a) (thunk)
       (cl:handler-case (Ok (call-coalton-function thunk))
         (IoError/UnhandledError (e)
           (Err e))
@@ -188,7 +188,7 @@ Coalton exceptions via `define-exception`."
         (cl:error (e)
           (cl:let ((throw-thunk (coalton
                                  (fn ()
-                                   (lisp :a ()
+                                   (lisp (-> :a) ()
                                      (cl:error e))
                                    Unit))))
             (Err (UnhandledError e throw-thunk)))))))
@@ -196,7 +196,7 @@ Coalton exceptions via `define-exception`."
   (inline)
   (declare force-string (:a -> String))
   (define (force-string x)
-    (lisp String (x)
+    (lisp (-> String) (x)
       (cl:format cl:nil "~a" x)))
 
   (inline)

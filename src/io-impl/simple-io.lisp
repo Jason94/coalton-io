@@ -65,7 +65,7 @@
   "If environmental variable SIMPLE_IO_DEBUG_SLEEP = 'y', sleep for SLEEP-MS.
 See >>="
   (cl:if (cl:equalp (uiop:getenv "SIMPLE_IO_DEBUG_SLEEP") "y")
-         `(lisp Void ()
+         `(lisp (-> Void) ()
             (cl:format cl:t "~%Entering compile debug sleep~%")
             (cl:sleep ,(cl:/ sleep-ms 1000.0)))
          `Unit))
@@ -134,7 +134,7 @@ completion. Used for internal testing only."
                        (err-thunk)
                        (error "Malformed HandledError err-thunk"))))))
                result))
-    (lisp :a (f)
+    (lisp (-> :a) (f)
       ;; Only bind dynamic variables if at the top level
       (cl:if *global-thread*
              (call-coalton-function f)
@@ -163,7 +163,7 @@ as the global thread for structured concurrency, and exits any child threads on 
                (when toplevel?
                  (stop-and-join-children!% (current-thread!%)))
                result))
-    (lisp :a (f)
+    (lisp (-> :a) (f)
       ;; Only bind dynamic variables if at the top level
       (cl:if *global-thread*
              (call-coalton-function f False)

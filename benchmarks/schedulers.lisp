@@ -73,7 +73,7 @@
 (coalton-toplevel
   (declare force-ufix (Integer -> UFix))
   (define (force-ufix x)
-    (lisp UFix (x)
+    (lisp (-> UFix) (x)
       x))
   
   (declare benchmark-multi-producer-x-receives (Scheduler :s

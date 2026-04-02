@@ -33,17 +33,17 @@
 
   (declare str-upcase (String -> String))
   (define (str-upcase s)
-    (lisp String (s)
+    (lisp (-> String) (s)
       (cl:string-upcase s)))
 
   (declare join-with-space (List String -> String))
   (define (join-with-space xs)
-    (lisp String (xs)
+    (lisp (-> String) (xs)
       (cl:format cl:nil "~{~A~^ ~}" xs)))
 
   (declare trim (String -> String))
   (define (trim s)
-    (lisp String (s)
+    (lisp (-> String) (s)
       (cl:string-trim '(#\Space #\Tab #\Return #\Newline) s)))
 
   (declare print-help (IO Unit))
@@ -82,7 +82,7 @@
   ;; - supports backslash escapes inside quotes: \" \\ \n \r \t
   (declare tokenize-line (String -> (List String)))
   (define (tokenize-line line)
-    (lisp (List String) (line)
+    (lisp (-> List String) (line)
       (cl:labels
           ((ws? (c)
              (cl:or (cl:char= c #\Space)

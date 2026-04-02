@@ -44,7 +44,7 @@
 (in-package :io/gen-impl/conc/stm)
 
 (defmacro mem-barrier ()
-  `(lisp Void ()
+  `(lisp (-> Void) ()
      (sb-thread:barrier (:read))))
 
 (named-readtables:in-readtable coalton:coalton)
@@ -260,39 +260,39 @@ conditions. DONT USE THIS!"
   (inline)
   (declare read-entry-addr% (ReadEntry% -> Anything))
   (define (read-entry-addr% entr)
-    (lisp Anything (entr)
+    (lisp (-> Anything) (entr)
       (cl:car entr)))
 
   (inline)
   (declare read-entry-current-val% (ReadEntry% -> Anything))
   (define (read-entry-current-val% entr)
     (tvar-value%
-     (lisp (TVar Anything) (entr)
+     (lisp (-> TVar Anything) (entr)
        (cl:car entr))))
 
   (inline)
   (declare read-entry-pset% (ReadEntry% -> ParkingSet))
   (define (read-entry-pset% entr)
     (unwrap-tvar-pset%
-     (lisp (TVar Anything) (entr)
+     (lisp (-> TVar Anything) (entr)
        (cl:car entr))))
 
   (inline)
   (declare read-entry-cached-val% (ReadEntry% -> Anything))
   (define (read-entry-cached-val% entr)
-    (lisp Anything (entr)
+    (lisp (-> Anything) (entr)
       (cl:cdr entr)))
 
   (inline)
   (declare new-write-hash-table% (Unit -> WriteHashTable%))
   (define (new-write-hash-table%)
-    (lisp WriteHashTable% ()
+    (lisp (-> WriteHashTable%) ()
       (cl:make-hash-table :test 'cl:eq)))
 
   (inline)
   (declare logged-write-value% (WriteHashTable% -> :a -> Optional Anything))
   (define (logged-write-value% write-log key)
-     (lisp (Optional Anything) (write-log key)
+     (lisp (-> Optional Anything) (write-log key)
        (cl:multiple-value-bind (val found?) (cl:gethash key write-log)
          (cl:if found?
                 (Some val)
@@ -301,7 +301,7 @@ conditions. DONT USE THIS!"
   (inline)
   (declare logged-write-psets% (WriteHashTable% -> List ParkingSet))
   (define (logged-write-psets% write-log)
-    (lisp (List ParkingSet) (write-log)
+    (lisp (-> List ParkingSet) (write-log)
       (cl:loop :for addr :being :the :hash-keys :of write-log
                :collect (call-coalton-function unwrap-tvar-pset% addr))))
 
@@ -320,7 +320,7 @@ conditions. DONT USE THIS!"
   (inline)
   (declare log-write-value% (WriteHashTable% -> TVar :a -> :a -> Unit))
   (define (log-write-value% write-log addr val)
-    (lisp :a (write-log addr val)
+    (lisp (-> :a) (write-log addr val)
       (cl:setf (cl:gethash addr write-log) val))
     Unit)
 
@@ -328,7 +328,7 @@ conditions. DONT USE THIS!"
   (declare commit-logged-writes (WriteHashTable% -> Unit))
   (define (commit-logged-writes write-log)
     "Actually set the TVar's value to its corresponding logged write value."
-    (lisp Unit (write-log)
+    (lisp (-> Unit) (write-log)
       (cl:loop :for addr :being :the :hash-keys :of write-log
          :using (hash-value value)
          :do (call-coalton-function set-tvar% addr value)
@@ -380,7 +380,7 @@ For safety, disconnects the transactions when done."
                      (c:read (.read-log parent-tx))))
        (let tx-write-log = (.write-log tx-data))
        (let pt-write-log = (.write-log parent-tx))
-       (lisp Void (tx-write-log pt-write-log)
+       (lisp (-> Void) (tx-write-log pt-write-log)
          (cl:loop :for addr :being :the :hash-keys :of tx-write-log
             :using (hash-value value)
             :do (cl:setf (cl:gethash addr pt-write-log) value)))
@@ -404,7 +404,7 @@ For safety, disconnects the transactions when done."
   (inline)
   (declare log-read-value (TVar :a -> :a -> TxData% -> Unit))
   (define (log-read-value addr val tx-data)
-    (c:push! (.read-log tx-data) (lisp ReadEntry% (addr val)
+    (c:push! (.read-log tx-data) (lisp (-> ReadEntry%) (addr val)
                                    (cl:cons addr val)))
     Unit)
 
@@ -412,7 +412,7 @@ For safety, disconnects the transactions when done."
   (declare read-only? (TxData% -> Boolean))
   (define (read-only? tx-data)
     (let write-log = (.write-log tx-data))
-    (lisp Boolean (write-log)
+    (lisp (-> Boolean) (write-log)
       (cl:zerop (cl:hash-table-count write-log))))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

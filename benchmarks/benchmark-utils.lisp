@@ -24,24 +24,24 @@
 
   (declare current-timer (Unit -> Timer))
   (define (current-timer)
-    (lisp Timer ()
+    (lisp (-> Timer) ()
       b::*current-timer*))
 
   (declare start (Timer -> Unit))
   (define (start timer)
-    (lisp :a (timer)
+    (lisp (-> :a) (timer)
       (b:start timer))
     Unit)
 
   (declare stop (Timer -> Unit))
   (define (stop timer)
-    (lisp :a (timer)
+    (lisp (-> :a) (timer)
       (b::stop timer))
     Unit)
 
   (declare commit (Timer -> Unit))
   (define (commit timer)
-    (lisp :a (timer)
+    (lisp (-> :a) (timer)
       (b::commit timer))
     Unit)
   )

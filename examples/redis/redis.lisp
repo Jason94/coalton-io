@@ -48,7 +48,7 @@
   (declare mod-hash (Hash :h => :h -> UFix -> UFix))
   (define (mod-hash the-hash n)
     ;; Hash is implementation dependent, but will always be some kind of underlying integer.
-    (lisp UFix (the-hash n)
+    (lisp (-> UFix) (the-hash n)
       (cl:mod the-hash n)))
   )
 
@@ -115,7 +115,7 @@
     (do
      (tm:write "redis> ")
      (wrap-io
-      (lisp Unit ()
+      (lisp (-> Unit) ()
         (cl:finish-output)
         Unit))))
 

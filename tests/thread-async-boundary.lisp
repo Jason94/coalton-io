@@ -43,10 +43,10 @@
 
     ;; Wait until the thread is running, wait 2 MS, kill it, wait 8 MS, then read.
     (s:await gate)
-    (lisp Void ()
+    (lisp (-> Void) ()
       (cl:sleep (cl:/ 2.0 1000)))
     (run-io! (stop-thread thread))
-    (lisp Void ()
+    (lisp (-> Void) ()
       (cl:sleep (cl:/ 80.0 1000)))
 
     (c:read result))
@@ -54,7 +54,7 @@
 
 (define-test test-stop-outside-wrap-io ()
   ;; See simple-io.lisp
-  (lisp Void ()
+  (lisp (-> Void) ()
     (cl:setf (uiop:getenv "SIMPLE_IO_DEBUG_SLEEP") "y")
     (cl:compile-file "src/io-impl/simple-io.lisp"
                      :output-file "tests/simple-io---sleep.fasl"
@@ -70,7 +70,7 @@
 
   (let result = (run-test))
 
-  (lisp Void ()
+  (lisp (-> Void) ()
     (cl:setf (uiop:getenv "SIMPLE_IO_DEBUG_SLEEP") "")
     (cl:compile-file "src/io-impl/simple-io.lisp"
                      :output-file "tests/simple-io---sleep.fasl"

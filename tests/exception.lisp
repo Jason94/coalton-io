@@ -68,7 +68,7 @@
   (let result =
     (run-io!
      (try-all (wrap-error
-               (lisp Void ()
+               (lisp (-> Void) ()
                  (cl:error "Unhandled lisp error!"))
                1))))
   (is (== None result)))

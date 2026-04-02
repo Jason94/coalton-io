@@ -118,20 +118,20 @@
 
   (declare char->u8 (Char -> U8))
   (define (char->u8 c)
-    (lisp U8 (c)
+    (lisp (-> U8) (c)
       (cl:the (cl:unsigned-byte 8) (cl:char-code c))))
 
   (declare bytes->int (Vector U8 -> Integer))
   (define (bytes->int v)
     ;; "This type is a CRLF-terminated string that represents a signed, base-10, 64-bit integer."
     ;; https://redis.io/docs/latest/develop/reference/protocol-spec/#integers
-    (lisp Integer (v)
+    (lisp (-> Integer) (v)
       (cl:parse-integer
        (cl:map 'cl:string (cl:lambda (b) (cl:code-char b)) v))))
 
   (declare bytes->str (Vector U8 -> String))
   (define (bytes->str v)
-    (lisp String (v)
+    (lisp (-> String) (v)
       (cl:coerce
        (cl:map 'cl:list (cl:lambda (b) (cl:code-char b)) v)
        'cl:string)))
@@ -304,7 +304,7 @@ Example stream input, where the '_' type byte has already been read:
 (coalton-toplevel
   (declare int->bytes (Integer -> (Vector U8)))
   (define (int->bytes n)
-    (lisp (Vector U8) (n)
+    (lisp (-> Vector U8) (n)
       (cl:let* ((s (cl:format cl:nil "~D" n))
                 (len (cl:length s))
                 (out (cl:make-array len :element-type '(cl:unsigned-byte 8))))
@@ -315,7 +315,7 @@ Example stream input, where the '_' type byte has already been read:
 
   (declare str->bytes (String -> (Vector U8)))
   (define (str->bytes s)
-    (lisp (Vector U8) (s)
+    (lisp (-> Vector U8) (s)
       (cl:let* ((len (cl:length s))
                 (out (cl:make-array len :element-type '(cl:unsigned-byte 8))))
         (cl:dotimes (i len out)

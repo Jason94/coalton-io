@@ -73,7 +73,7 @@
 
   (define (write-line-sync% msg)
     (let thread-name =
-      (lisp String ()
+      (lisp (-> String) ()
         (bt:thread-name (bt:current-thread))))
     (t/l:acquire write-term-lock%)
     (trace (build-str (force-string msg) " <" thread-name ">"))
@@ -91,13 +91,13 @@
   (declare matches-flag (Word -> Word -> Boolean))
   (define (matches-flag a b)
     "Check if A and B share any 1 bits."
-    (lisp Boolean (a b)
+    (lisp (-> Boolean) (a b)
       (cl:logtest a b)))
 
   (inline)
   (declare current-native-thread% (Unit -> t:Thread (Result Dynamic :a)))
   (define (current-native-thread%)
-    (lisp (t:Thread (Result Dynamic :a)) ()
+    (lisp (-> t:Thread (Result Dynamic :a)) ()
       (bt:current-thread)))
 
   ;;;
@@ -223,13 +223,13 @@
   (declare masked-once? (Word -> Boolean))
   (define (masked-once? word)
     "Check that WORD is masked only once."
-    (== 1 (lisp Word (word)
+    (== 1 (lisp (-> Word) (word)
             (cl:ash word -1))))
 
   (inline)
   (declare unmasked? (Word -> Boolean))
   (define (unmasked? word)
-    (zero? (lisp Word (word)
+    (zero? (lisp (-> Word) (word)
              (cl:ash word -1))))
 
   (declare construct-toplevel-current-thread (Unit -> IoThread))
@@ -292,7 +292,7 @@ Concurrent:
          (error "Tried to kill misconstructed thread."))
         ((Some native-thread)
          (mask!% thd)
-         (lisp Void (native-thread)
+         (lisp (-> Void) (native-thread)
            (cl:when (bt:thread-alive-p native-thread)
              (bt:error-in-thread native-thread (InterruptCurrentThread ""))))
          Unit))))
@@ -304,13 +304,13 @@ Concurrent:
   (inline)
   (declare current-thread!% (Unit -> IoThread))
   (define (current-thread!%)
-    (lisp IoThread ()
+    (lisp (-> IoThread) ()
       *current-thread*))
 
   (inline)
   (declare global-thread!% (Unit -> IoThread))
   (define (global-thread!%)
-    (lisp IoThread ()
+    (lisp (-> IoThread) ()
       *global-thread*))
 
   (declare subscribe-child!% (IoThread -> IoThread -> Boolean))
@@ -353,7 +353,7 @@ was stopping/stopped and the child should not start."
            (if (dynamic-is-threading-exception? e)
                (Ok Unit)
                (progn
-                 (lisp :a (e)
+                 (lisp (-> :a) (e)
                    (cl:format cl:*error-output*
                               "~%Unhandled exception occurred: ~a~%"
                               e))
@@ -431,7 +431,7 @@ was stopping/stopped and the child should not start."
       ;; See https://sionescu.github.io/bordeaux-threads/threads/make-thread/
       (t:spawn (fn ()
                  (if child-should-run?
-                     (lisp (Result Dynamic :a) (strategy thunk thread-container global-thread)
+                     (lisp (-> Result Dynamic :a) (strategy thunk thread-container global-thread)
                        (cl:let ((*current-thread* thread-container)
                                 (*global-thread* global-thread))
                          (call-coalton-function thread-runner!% strategy thread-container thunk)))
@@ -453,7 +453,7 @@ was stopping/stopped and the child should not start."
     (let native-thread = (opt:from-some "Error: IoThread leaked without setting native thread handle"
                                         (c:read (.handle thread))))
     (let join-result =
-      (lisp (Result Dynamic Unit) (native-thread)
+      (lisp (-> Result Dynamic Unit) (native-thread)
         (bt:join-thread native-thread)))
     (match join-result
       ((Ok _)
@@ -466,7 +466,7 @@ was stopping/stopped and the child should not start."
   (inline)
   (declare sleep!% (UFix -> Unit))
   (define (sleep!% msecs)
-    (lisp :a (msecs)
+    (lisp (-> :a) (msecs)
       (cl:sleep (cl:/ msecs 1000)))
     Unit)
 
@@ -495,7 +495,7 @@ was stopping/stopped and the child should not start."
   (declare mask-current-thread!% (Unit -> Unit))
   (define (mask-current-thread!%)
     (mask!%
-     (lisp IoThread ()
+     (lisp (-> IoThread) ()
        *current-thread*)))
 
   ;; TODO: Merge this with unmask-current-thread-finally!% when Threads
