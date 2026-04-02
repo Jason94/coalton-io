@@ -7,18 +7,26 @@
    #:coalton-library/experimental/do-control-core
    #:coalton-library/experimental/do-control-loops
    #:io/utils
+   #:io/exceptions
    #:io/monad-io
    #:io/simple-io
+   #:io/resource
    #:io/thread
    #:io/conc/stm
    #:io/examples/redis/protocol
+   #:io/examples/redis/cli
+   #:io/examples/redis/rw-lock
    )
   (:local-nicknames
+   (:l #:coalton-library/list)
+   (:opt #:coalton-library/optional)
    (:s #:coalton-library/string)
    (:v #:coalton-library/vector)
    (:hm #:coalton-library/hashmap)
+   (:f #:coalton-library/file)
    (:tm #:io/term)
    (:mt #:io/mut)
+   (:io-f #:io/file)
    (:nt  #:io/network))
   (:export
    #:run-server
@@ -33,6 +41,10 @@
 ;;;
 
 (coalton-toplevel
+  (declare contains? (Eq :a => :a -> List :a -> Boolean))
+  (define (contains? elt lst)
+    (opt:some? (l:elemindex elt lst)))
+
   (declare mod-hash (Hash :h => :h -> UFix -> UFix))
   (define (mod-hash the-hash n)
     ;; Hash is implementation dependent, but will always be some kind of underlying integer.
@@ -42,12 +54,15 @@
 
 (coalton-toplevel
   (define hostname "127.0.0.1")
-  (define port (the UFix 5555))
+  (define port (the UFix 5556))
+  ;; NOTE: The real Redis program uses "dump.rdb", but because our file format is simpler, we use a more honest file extension.
+  (define filename "dump.resp")
+  (define OK-Response (RespSimpleString "OK"))
   )
 
-;;;
-;;; Client code
-;;;
+;;; ---------------------------------------------- ;;;
+;;;                   Client code                  ;;;
+;;; ---------------------------------------------- ;;;
 
 (coalton-toplevel
 
@@ -71,192 +86,25 @@
       ((RespArray xs)
        (tm:write-line (<> "(array) " (force-string xs))))))
 
-  (declare do-command (Command -> nt:ByteConnectionSocket -> IO Unit))
+  (declare do-command (Command -> nt:ByteConnectionSocket -> IO Boolean))
   (define (do-command cmd conn)
+    "Returns True if the client should continue, False if it should terminate."
     (do
      (write-resp (command->resp cmd) conn)
-     (resp? <- (read-resp conn))
-     (do-match resp?
-       ((Err e)
-        (tm:write-line (<> "Protocol error: " e)))
-       ((Ok resp)
-        (print-response resp)))))
-
-  ;;;
-  ;;; CLI Parsing Helpers
-  ;;;
-
-  (declare str-upcase (String -> String))
-  (define (str-upcase s)
-    (lisp String (s)
-      (cl:string-upcase s)))
-
-  (declare join-with-space (List String -> String))
-  (define (join-with-space xs)
-    (lisp String (xs)
-      (cl:format cl:nil "~{~A~^ ~}" xs)))
-
-  (declare trim (String -> String))
-  (define (trim s)
-    (lisp String (s)
-      (cl:string-trim '(#\Space #\Tab #\Return #\Newline) s)))
-
-  ;; --- Help ---
-
-  (declare print-help (IO Unit))
-  (define print-help
-    (do
-     (tm:write-line "Commands:")
-     (tm:write-line "  PING [message]         Send ping (no message => server replies PONG)")
-     (tm:write-line "  GET <key>              Fetch a key (missing => (nil))")
-     (tm:write-line "  SET <key> <value>      Set a key (value may be multiple words or quoted)")
-     (tm:write-line "  RENAME <key> <new-key> Rename a key")
-     (tm:write-line "  QUIT                   Close the connection")
-     (tm:write-line "")
-     (tm:write-line "Input rules:")
-     (tm:write-line "  - Whitespace separates tokens.")
-     (tm:write-line "  - Use double quotes for a token with spaces:  SET a \"hello world\"")
-     (tm:write-line "  - Escapes inside quotes: \\\\  \\\"  \\n  \\r  \\t")
-     (tm:write-line "")
-     (tm:write-line "Help:")
-     (tm:write-line "  (empty line), \"\", -h, --help")))
-
-  (declare is-help-line (String -> Boolean))
-  (define (is-help-line line)
-    (let t = (trim line))
-    (cond
-      ((== t "") True)
-      ((== t "\"\"") True)
-      ((== t "-h") True)
-      ((== t "--help") True)
-      (True False)))
-
-  ;; Tokenizer:
-  ;; - splits on whitespace
-  ;; - supports double-quoted tokens:  SET k "hello world"
-  ;; - supports backslash escapes inside quotes: \" \\ \n \r \t
-  (declare tokenize-line (String -> (List String)))
-  (define (tokenize-line line)
-    (lisp (List String) (line)
-      (cl:labels
-          ((ws? (c)
-             (cl:or (cl:char= c #\Space)
-                    (cl:char= c #\Tab)
-                    (cl:char= c #\Return)
-                    (cl:char= c #\Newline)))
-
-           (skip-ws (s i len)
-             (cl:loop
-               (cl:when (cl:>= i len) (cl:return i))
-               (cl:if (ws? (cl:char s i))
-                      (cl:incf i)
-                      (cl:return i))))
-
-           (escape-char (c)
-             (cl:case c
-               (#\n #\Newline)
-               (#\r #\Return)
-               (#\t #\Tab)
-               (cl:t c)))
-
-           (read-bare (s i len)
-             (cl:let ((start i))
-               (cl:loop
-                 (cl:when (cl:>= i len) (cl:return))
-                 (cl:when (ws? (cl:char s i)) (cl:return))
-                 (cl:incf i))
-               (cl:values (cl:subseq s start i) i)))
-
-           ;; Assumes s[i] == #\"
-           (read-quoted (s i len)
-             ;; Consume opening quote
-             (cl:incf i)
-             (cl:let ((buf (cl:make-string-output-stream)))
-               (cl:loop
-                 (cl:when (cl:>= i len)
-                   (cl:return))
-                 (cl:let ((c (cl:char s i)))
-                   (cl:cond
-                     ;; Closing quote
-                     ((cl:char= c #\")
-                      (cl:incf i)
-                      (cl:return))
-                     ;; Escaping backslacsh
-                     ((cl:char= c #\\)
-                      (cl:incf i)
-                      (cl:when (cl:< i len)
-                        (cl:write-char (escape-char (cl:char s i)) buf)
-                        (cl:incf i)))
-                     (cl:t
-                      (cl:write-char c buf)
-                      (cl:incf i)))))
-               (cl:values (cl:get-output-stream-string buf) i))))
-
-        (cl:let* ((len (cl:length line))
-                  (i (skip-ws line 0 len))
-                  (out '()))
-          (cl:loop
-            (cl:when (cl:>= i len)
-              (cl:return (cl:nreverse out)))
-
-            (cl:multiple-value-bind (tok next-i)
-                (cl:if (cl:char= (cl:char line i) #\")
-                       (read-quoted line i len)
-                       (read-bare line i len))
-              (cl:push tok out)
-              (cl:setf i (skip-ws line next-i len))))))))
-
-  (declare parse-cli-line (String -> Result String (Optional Command)))
-  (define (parse-cli-line line)
-    (let tline = (trim line))
-    (if (== tline "")
-        (Ok None)
-        (match (tokenize-line tline)
-          ((Nil)
-           (Ok None))
-          ((Cons cmd rest)
-           (let cmdU = (str-upcase cmd))
-           (cond
-             ;; PING [payload...]
-             ((== cmdU "PING")
-              (Ok (Some (Ping (join-with-space rest)))))
-
-             ;; GET key
-             ((== cmdU "GET")
-              (match rest
-                ((Cons key (Nil))
-                 (Ok (Some (GetKey key))))
-                (_
-                 (Err "Usage: GET <key>"))))
-
-             ;; SET key value...
-             ((== cmdU "SET")
-              (match rest
-                ((Cons key more)
-                 (match more
-                   ((Nil)
-                    (Err "Usage: SET <key> <value>"))
-                   (_
-                    (Ok (Some (SetKey key (join-with-space more)))))))
-                (_
-                 (Err "Usage: SET <key> <value>"))))
-
-             ;; RENAME old new
-             ((== cmdU "RENAME")
-              (match rest
-                ((Cons key (Cons new-key (Nil)))
-                 (Ok (Some (RenameKey key new-key))))
-                (_
-                 (Err "Usage: RENAME <key> <new-key>"))))
-
-             ;; QUIT
-             ((== cmdU "QUIT")
-              (match rest
-                ((Nil) (Ok (Some Quit)))
-                (_     (Err "Usage: QUIT"))))
-
-             (True
-              (Err (<> "Unknown command: " cmd))))))))
+     (handle
+      (do
+       (resp? <- (read-resp conn))
+       (do-match resp?
+         ((Err e)
+          (tm:write-line (<> "Protocol error: " e)))
+         ((Ok resp)
+          (print-response resp)))
+       (pure True))
+      (fn (e)
+        (do-match e
+          ((nt:EndOfFileException _)
+           (tm:write-line "Error: Server closed the connection")
+           (pure False)))))))
 
   ;;;
   ;;; Prompt + REPL
@@ -273,32 +121,30 @@
 
   (declare client-repl (nt:ByteConnectionSocket -> IO Unit))
   (define (client-repl conn)
-    (rec % ()
-      (do
-       print-prompt
-       (line <- tm:read-line)
-       (if (is-help-line line)
-           (do
-            print-help
-            (%))
-           (do
-            (cmd? <- (pure (parse-cli-line line)))
-            (do-match cmd?
-              ((Err e)
-               (tm:write-line e)
-               (%))
-              ((Ok maybe-cmd)
-               (match maybe-cmd
-                 ((None)
-                  (%))
-                 ((Some cmd)
-                  (do
-                   (do-command cmd conn)
+    (do
+     print-prompt
+     (line <- tm:read-line)
+      (if (is-help-line line)
+          (do
+           print-help
+           (client-repl conn))
+          (do
+           (cmd? <- (pure (parse-cli-line line)))
+           (do-match cmd?
+             ((Err e)
+              (tm:write-line e)
+              (client-repl conn))
+             ((Ok maybe-cmd)
+              (match maybe-cmd
+                ((None)
+                 (client-repl conn))
+                ((Some cmd)
+                 (do-whenM (do-command cmd conn)
                    (match cmd
                      ((Quit)
                       (pure Unit))
                      (_
-                      (%)))))))))))))
+                      (client-repl conn))))))))))))
 
   (declare client-main (IO Unit))
   (define client-main
@@ -310,8 +156,12 @@
 (cl:defun run-client ()
   (coalton (run-io! client-main)))
 
+;;; ---------------------------------------------- ;;;
+;;;                   Server code                  ;;;
+;;; ---------------------------------------------- ;;;
+
 ;;;
-;;; Server code
+;;; Implement the database in a custom STM data structure.
 ;;;
 
 (coalton-toplevel
@@ -330,7 +180,9 @@ to retry."
     ;; vector should never be mutated!
     (buckets (Vector (TVar (hm:HashMap :k :v)))))
 
-  (define-type-alias Database (TStripedMap String String))
+  (define-struct Database
+    (data (TStripedMap String String))
+    (lock TRWLock))
 
   (declare new-database (UFix -> IO Database))
   (define (new-database n-buckets)
@@ -341,18 +193,40 @@ to retry."
        (bucket <- (new-tvar hm:empty))
        (wrap-io
         (v:push! bucket vector)))
-     (pure (TStripedMap vector))))
+     (lock <- new-trwlock)
+     (pure (Database (TStripedMap vector)
+                     lock))))
+
+  (define-type-alias Bucket (hm:HashMap String String))
+
+  (declare copy-buckets (Database -> IO (List Bucket)))
+  (define (copy-buckets db)
+    "Retrieve a synchronized list of all the buckets in the database."
+    (run-tx
+     (do-collect (bucket-tvar (.buckets (.data db)))
+       (read-tvar bucket-tvar))))
+
+  (declare write-buckets (Database -> Vector (TVar Bucket) -> IO Unit))
+  (define (write-buckets db new-buckets)
+    "Update the data in DB with the data in NEW-BUCKETS."
+    (do
+     (let buckets = (.buckets (.data db)))
+     (run-tx
+      (do-loop-times (i (v:length buckets))
+        (new-bucket <- (read-tvar (v:index-unsafe i new-buckets)))
+        (write-tvar (v:index-unsafe i buckets)
+                    new-bucket)))))
 
   (inline)
   (declare db-length (Database -> UFix))
   (define (db-length db)
-    (v:length (.buckets db)))
+    (v:length (.buckets (.data db))))
 
   (inline)
-  (declare bucket-for (String -> Database -> TVar (hm:HashMap String String)))
+  (declare bucket-for (String -> Database -> TVar Bucket))
   (define (bucket-for key db)
     (v:index-unsafe (mod-hash (hash key) (db-length db))
-                    (.buckets db)))
+                    (.buckets (.data db))))
 
   (declare write-key-tx (String -> String -> Database -> STM IO Unit))
   (define (write-key-tx key val db)
@@ -391,52 +265,176 @@ it was missing."
        ((Some val)
         (write-tvar bucket bucket-map2)
         (write-key-tx new-key val db)
-        (pure True))))))
+        (pure True)))))
+
+  (declare save-buckets (String -> List Bucket -> IO Unit))
+  (define (save-buckets filename buckets)
+    "Dump the contents of BUCKETS into FILENAME as a RESP-encoded snapshot.
+
+Each key/value pair is written as a RESP array of two bulk strings: the key and the value.
+
+This is a custom file format and is not compatible with Redis RDB files.
+
+For more information on the real Redis file format, for the curious:
+https://rdb.fnordig.de/file_format.html"
+    (io-f:do-with-open-file_ (f:Output (into filename) f:Overwrite) (fs)
+      ;; Peg type of FS to (FileStream U8)
+      (let _ = (the (f:FileStream U8) fs))
+      ;; For efficiency, allocate one buffer containing two Resp elements. Each loop,
+      ;; reuse it to create a new RespArray.
+      ;;
+      ;; Even though IO doesn't have a builtin mutable vector type, it's easy to use wrap-io
+      ;; to perform normal, side-effectul Coalton code.
+      (buffer <- (wrap-io (v:make RespNull RespNull)))
+      (do-foreach-io_ (bucket buckets)
+        (do-foreach-io_ ((Tuple key val) bucket)
+          (wrap-io
+           (v:set! 0 (RespBulkString key) buffer)
+           (v:set! 1 (RespBulkString val) buffer))
+          (write-resp (RespArray buffer) fs)))))
+
+  (declare next-resp-item (f:FileStream U8 -> IO (Optional Resp)))
+  (define (next-resp-item fs)
+    "Try to read the next response item from a file stream."
+    (do
+     (result? <- (try-all (read-resp fs)))
+     (match result?
+       ((None)
+        (pure None))
+       ((Some (Err _))
+        (pure None))
+       ((Some (Ok val))
+        (pure (Some val))))))
+
+  (declare load-dump-file (String -> UFix -> IO (Result String Database)))
+  (define (load-dump-file filename n-buckets)
+    "Load the contents of a dump file into a fresh database with N-BUCKETS buckets."
+    (do
+     (db <- (new-database n-buckets))
+     (io-f:do-with-open-file_ (f:Input (into filename)) (fs)
+       (do-loop-while-valM (resp-item (next-resp-item fs))
+         (do-when-match resp-item (RespArray data)
+           (do-when (== (v:length data) 2)
+             (do-when-match (Tuple (v:index-unsafe 0 data) (v:index-unsafe 1 data))
+                            (Tuple (RespBulkString key) (RespBulkString val))
+               (run-tx
+                (write-key-tx key val db)))))))
+     (pure (Ok db))))
+  )
+
+;; Helper macros to use the DB's lock
+
+(defmacro do-with-reader-lock (db cl:&body body)
+  `(with-reader-lock (.lock ,db)
+     (do
+      ,@body)))
+
+(defmacro do-with-writer-lock (db cl:&body body)
+  `(with-writer-lock (.lock ,db)
+     (do
+      ,@body)))
+
+;;;
+;;; Implement the server that talks with the client and manages the database.
+;;;
 
 (coalton-toplevel
 
-  (declare handle-ping (String -> IO Resp))
-  (define (handle-ping ping-str)
-    (if (== ping-str "")
-        (pure (RespSimpleString "PONG"))
-        (pure (RespBulkString ping-str))))
+  (declare handle-ping (Optional String -> IO Resp))
+  (define (handle-ping ping-str?)
+    (match ping-str?
+      ((None)
+       (pure (RespSimpleString "PONG")))
+      ((Some ping-str)
+       (pure (RespBulkString ping-str)))))
+
+  (declare handle-get-key (String -> Database -> IO Resp))
+  (define (handle-get-key key db)
+    (do
+     (value? <-
+       (do-with-reader-lock db
+         (read-key key db)))
+     (match value?
+       ((None)
+        (pure RespNull))
+       ((Some val)
+        (pure (RespBulkString val))))))
+
+  (declare handle-set-key (String -> String -> Database -> IO Resp))
+  (define (handle-set-key key val db)
+    (do
+     (do-with-writer-lock db
+       (run-tx (write-key-tx key val db)))
+     (pure OK-Response)))
+
+  (declare handle-rename-key (String -> String -> Database -> IO Resp))
+  (define (handle-rename-key key new-key db)
+    (do
+     (result <-
+       (do-with-writer-lock db
+         (run-tx (rename-key key new-key db))))
+     (if result
+         (pure OK-Response)
+         (pure (RespError (<> "Key not found: " key))))))
+
+  (declare handle-save (Database -> IO Resp))
+  (define (handle-save db)
+    (do
+     (buckets <-
+       (do-with-reader-lock db
+         (copy-buckets db)))
+     (save-buckets filename buckets)
+     (pure OK-Response)))
+
+  (declare handle-load (Database -> IO Resp))
+  (define (handle-load db)
+    (do
+     (new-buckets? <-
+       (load-dump-file filename (db-length db)))
+     (do-match new-buckets?
+       ((Err e)
+        (pure (RespError e)))
+       ((Ok new-buckets)
+        (do-with-writer-lock db
+          (write-buckets db (.buckets (.data new-buckets))))
+        (pure Ok-Response)))))
 
   (declare handle-client (nt:ByteConnectionSocket -> Database -> IO Unit))
   (define (handle-client conn db)
     (do
-     (cmd? <- (read-command conn))
-     (tm:write-line (<> "Received command: " (force-string cmd?)))
-     (do-match cmd?
-       ((Err _)
-        (handle-client conn db))
-       ((Ok cmd)
-        (resp <-
-          (do-match cmd
-            ((Ping ping-str)
-             (handle-ping ping-str))
-            ((GetKey key)
-             (value? <- (read-key key db))
-             (match value?
-               ((None)
-                (pure RespNull))
-               ((Some val)
-                (pure (RespBulkString val)))))
-            ((SetKey key val)
-             (run-tx (write-key-tx key val db))
-             (pure (RespSimpleString "OK")))
-            ((RenameKey key new-key)
-             (result <- (run-tx (rename-key key new-key db)))
-             (if result
-                 (pure (RespSimpleString "OK"))
-                 (pure (RespError (<> "Key not found: " key)))))
-            ((Quit)
-             (pure (RespSimpleString "OK")))))
-        (write-resp resp conn)
-        (match cmd
-          ((Quit)
-           (pure Unit))
-          (_
-           (handle-client conn db)))))))
+     (rec % ()
+       (do
+        (cmd? <- (read-command conn))
+        (do-match cmd?
+          ((Err _)
+           (%))
+          ((Ok cmd)
+           (tm:write-line (<> "Received command: " (force-string cmd)))
+           (resp <-
+                 (do-match cmd
+                   ((Ping ping-str?)
+                    (handle-ping ping-str?))
+                   ((GetKey key)
+                    (handle-get-key key db))
+                   ((SetKey key val)
+                    (handle-set-key key val db))
+                   ((RenameKey key new-key)
+                    (handle-rename-key key new-key db))
+                   ((Quit)
+                    (pure OK-Response))
+                   ((Save)
+                    (handle-save db))
+                   ((Load)
+                    (handle-load db))
+                   ))
+           (tm:write-line (<> "Sending response: " (force-string resp)))
+           (write-resp resp conn)
+           (match cmd
+             ((Quit)
+              (pure Unit))
+             (_
+              (%)))))))
+     (tm:write-line "client disconnected")))
 
   (declare accept-loop (nt:ByteServerSocket -> Database -> IO Unit))
   (define (accept-loop server db)
@@ -449,10 +447,14 @@ it was missing."
   (declare server-main (IO Unit))
   (define server-main
     (do
+     (do-fork-thread
       (db <- (new-database 16))
       (nt:do-byte-socket-listen-with (server (hostname port))
         (tm:write-line (<> "listening on " (<> hostname (<> ":" (as String port)))))
-        (accept-loop server db))))
+        (accept-loop server db)))
+     (tm:write-line "Press enter to close the server...")
+     tm:read-line
+     (pure Unit)))
   )
 
 (cl:defun run-server ()

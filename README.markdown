@@ -80,14 +80,22 @@ Once you have the latest version of Coalton, you can install `coalton-io` from [
 
 _coalton-io_ has a several example programs to demonstrate how to use `IO`:
 
-* [Redis](examples/redis/) - A CLI client and multithreaded key/value server that implement a small portion of the RESP binary protocol.
-  - _Demonstrates_: Resource handling, terminal IO, multithreading, networking, STM usage
-* [Hangman](examples/hangman.lisp) - Play a game of hangman in the terminal. Shows `IO` basics and terminal IO.
-  - _Demonstrates_: Terminal IO, file IO, how to implement the common "ReaderT" pattern for structuring functional programs, how to use "capability class" style to increase flexibility of IO functions
-* [Channels & Threading](examples/channels-threading.lisp) - Multithreaded application to process an input data file.
-  - _Demonstrates_: Multithreading, file IO, passing data safely between threads at a low level using channels and MVar's
+#### Beginner Examples
+
 * [Networking](examples/network-demo.lisp) - Run a simple client and server that allows the client to send messages to the server.
   - _Demonstrates_: Networking, resource safety, terminal IO
+
+#### Intermediate Examples
+
+* [Hangman](examples/hangman.lisp) - Play a game of hangman in the terminal. Shows `IO` basics and terminal IO.
+  - _Demonstrates_: Terminal IO, file IO, how to implement the common "ReaderT" pattern for structuring functional programs, how to use "capability class" style to make generic io-capable functions
+* [Channels & Threading](examples/channels-threading.lisp) - Multithreaded application to process an input data file.
+  - _Demonstrates_: Multithreading, file IO, passing data safely between threads at a low level using channels and MVar's
+  
+#### Advanced Examples
+
+* [Redis](examples/redis/) - A CLI client and multithreaded key/value server that implement a small portion of the RESP binary protocol.
+  - _Demonstrates_: Resource handling, terminal IO, multithreading, networking, advanced STM use for synchronized data access and how to use the STM to implement lock-type data structures
 
 ## Feature Breakdown
 
@@ -225,7 +233,7 @@ The `fork` functions and macros return a handle to the thread object, which can 
 ```lisp
   (do
    (thread <-
-     (do-thread
+     (do-fork-thread
        (sleep 10)
        end-the-world))
    (stop thread)

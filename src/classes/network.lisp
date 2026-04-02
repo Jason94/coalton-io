@@ -12,6 +12,10 @@
    (:env #:coalton-library/monad/environment))
   (:export
    ;; Library Public
+   #:NetworkException
+   #:EndOfFileException
+   #:NetworkException/EndOfFileException
+
    #:ServerSocket
    #:ConnectionSocket
    #:ByteServerSocket
@@ -42,6 +46,18 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
+
+  ;; TODO: Add more exception types:
+  ;;   * Already in use
+
+  (define-exception NetworkException
+    (EndOfFileException Unit))
+
+  (define-instance (Signalable NetworkException)
+    (define (error exc)
+      (match exc
+        ((EndOfFileException _)
+         (error "Attempted to read from closed connection socket.")))))
 
   (repr :native usocket:stream-server-usocket)
   (define-type ServerSocket

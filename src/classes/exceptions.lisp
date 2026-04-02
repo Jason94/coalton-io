@@ -65,8 +65,7 @@ then re-raise the exception. If the catch operation raises, that exception will
 be emitted instead of the original exception."
      (:m :a -> (Unit -> :m :b) -> :m :a))
     (handle
-     "Run an operation, immediately handling if it raised an exception
-that matches :e."
+     "Run an operation, immediately handling if it raised an exception that matches :e."
      (RuntimeRepr :e => :m :a -> (:e -> :m :a) -> :m :a))
     (handle-all
      "Run an operation, immediately handling any exceptions raised."

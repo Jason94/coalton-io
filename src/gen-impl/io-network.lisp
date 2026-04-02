@@ -3,6 +3,7 @@
   (:use
    #:coalton
    #:coalton-prelude
+   #:io/utils
    #:io/classes/monad-io
    #:io/classes/exceptions
    #:io/classes/network
@@ -132,8 +133,12 @@
   (define (read-line% connection-socket)
     (wrap-io
      (lisp String (connection-socket)
-       (usocket:wait-for-input connection-socket)
-       (cl:read-line (usocket:socket-stream connection-socket)))))
+       (cl:handler-case
+           (cl:progn
+             (usocket:wait-for-input connection-socket)
+             (cl:read-line (usocket:socket-stream connection-socket)))
+         (cl:end-of-file ()
+           (coalton (throw-handled-error (EndOfFileException Unit))))))))
 
   (declare write-bytes% (MonadIo :m => Vector U8 -> ByteConnectionSocket -> :m Unit))
   (define (write-bytes% bytes connection-socket)
@@ -148,18 +153,21 @@
   (define (read-exactly% n connection-socket)
     (wrap-io
      (lisp (Vector U8) (n connection-socket)
-       (cl:let* ((stream (usocket:socket-stream connection-socket))
-                 (buf (cl:make-array n)))
-         ;; Wait for at least some input, then keep reading until we've
-         ;; filled the whole buffer.
-         (usocket:wait-for-input connection-socket)
-         (cl:let ((pos 0))
-           (cl:loop :while (cl:< pos n)
-                    :do (cl:let ((new-pos (cl:read-sequence buf stream :start pos :end n)))
-                         (cl:when (cl:= new-pos pos)
-                           (cl:error "Unexpected EOF while reading from socket"))
-                         (cl:setf pos new-pos)))
-           buf)))))
+       (cl:handler-case
+           (cl:let* ((stream (usocket:socket-stream connection-socket))
+                     (buf (cl:make-array n)))
+             ;; Wait for at least some input, then keep reading until we've
+             ;; filled the whole buffer.
+             (usocket:wait-for-input connection-socket)
+             (cl:let ((pos 0))
+               (cl:loop :while (cl:< pos n)
+                  :do (cl:let ((new-pos (cl:read-sequence buf stream :start pos :end n)))
+                        (cl:when (cl:= new-pos pos)
+                          (cl:error "Unexpected EOF while reading from socket"))
+                        (cl:setf pos new-pos)))
+               buf))
+         (cl:end-of-file ()
+           (coalton (throw-handled-error (EndOfFileException Unit))))))))
   )
 
 (defmacro implement-sockets (monad)
@@ -348,11 +356,13 @@ and close the socket before you intend. For multithreaded uses, use
 byte-socket-accept-fork-with."
   `(byte-socket-accept-with ,server-socket
      (fn (,socket-sym)
-      ,@body)))
+       (do
+        ,@body))))
 
 (defmacro do-byte-socket-accept-fork-with ((socket-sym (server-socket)) cl:&body body)
   "Accept a byte-stream connection with a new client and run operation OP on a new thread.
 Guarantees that the socket will close on cleanup. Returns a handle to the forked thread."
   `(byte-socket-accept-fork-with ,server-socket
      (fn (,socket-sym)
-       ,@body)))
+       (do
+        ,@body))))
