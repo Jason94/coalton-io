@@ -82,7 +82,7 @@
                                              => Proxy :rt
                                              -> cv:ConditionVariable
                                              -> lk:Lock
-                                             -> (Unit -> Unit)
+                                             -> (Void -> Unit)
                                              -> Unit))
   (define (unmask-and-await-safely-finally% rt-prx cv lock finally)
     "Unmask the thread. Finally, either await (still running) the CV
@@ -96,7 +96,7 @@ is run AFTER the lock is released, and only if the thread is stopped!!"
                                                   -> TimeoutStrategy
                                                   -> cv:ConditionVariable
                                                   -> lk:Lock
-                                                  -> (Unit -> Unit)
+                                                  -> (Void -> Unit)
                                                   -> Unit))
   (define (unmask-and-await-safely-finally-with% rt-prx strategy cv lock finally)
     "Unmask the thread. Finally, either await (still running) the CV

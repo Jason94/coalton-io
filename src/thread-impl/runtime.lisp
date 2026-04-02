@@ -95,7 +95,7 @@
       (cl:logtest a b)))
 
   (inline)
-  (declare current-native-thread% (Unit -> t:Thread (Result Dynamic :a)))
+  (declare current-native-thread% (Void -> t:Thread (Result Dynamic :a)))
   (define (current-native-thread%)
     (lisp (-> t:Thread (Result Dynamic :a)) ()
       (bt:current-thread)))
@@ -181,7 +181,7 @@
   (define CLEAN 0)
 
   (inline)
-  (declare new-io-thread (Unit -> IoThread))
+  (declare new-io-thread (Void -> IoThread))
   (define (new-io-thread)
     (IoThread
      (c:new None)
@@ -232,7 +232,7 @@
     (zero? (lisp (-> Word) (word)
              (cl:ash word -1))))
 
-  (declare construct-toplevel-current-thread (Unit -> IoThread))
+  (declare construct-toplevel-current-thread (Void -> IoThread))
   (define (construct-toplevel-current-thread)
     (IoThread
      (c:new (Some (current-native-thread%)))
@@ -302,13 +302,13 @@ Concurrent:
   ;;;
 
   (inline)
-  (declare current-thread!% (Unit -> IoThread))
+  (declare current-thread!% (Void -> IoThread))
   (define (current-thread!%)
     (lisp (-> IoThread) ()
       *current-thread*))
 
   (inline)
-  (declare global-thread!% (Unit -> IoThread))
+  (declare global-thread!% (Void -> IoThread))
   (define (global-thread!%)
     (lisp (-> IoThread) ()
       *global-thread*))
@@ -363,7 +363,7 @@ was stopping/stopped and the child should not start."
           ((ThrowException)
            (throw-dynamic e)))))
 
-  (declare thread-runner!% (ForkStrategy IoThread -> IoThread -> (Unit -> Result Dynamic :a) -> Result Dynamic Unit))
+  (declare thread-runner!% (ForkStrategy IoThread -> IoThread -> (Void -> Result Dynamic :a) -> Result Dynamic Unit))
   (define (thread-runner!% strategy thread-container thunk)
     ;; CONCURRENT:
     ;; - Once the catch machinery is set up, unmask from the initial mask. Prevents
@@ -398,7 +398,7 @@ was stopping/stopped and the child should not start."
        (handle-thread-err-result!% strategy
                                    (to-dynamic (InterruptCurrentThread msg))))))
 
-  (declare fork-inner!% (ForkStrategy IoThread -> (Unit -> Result Dynamic :a) -> IoThread))
+  (declare fork-inner!% (ForkStrategy IoThread -> (Void -> Result Dynamic :a) -> IoThread))
   (define (fork-inner!% strategy thunk)
     ;; Both the returning thread handle and the one made available to the child
     ;; thread have to have the IoThread packaged together before they do anything
@@ -443,7 +443,7 @@ was stopping/stopped and the child should not start."
     thread-container)
 
   (inline)
-  (declare fork!% (ForkStrategy IoThread -> (Unit -> Result Dynamic :a) -> IoThread))
+  (declare fork!% (ForkStrategy IoThread -> (Void -> Result Dynamic :a) -> IoThread))
   (define (fork!% strategy thunk)
     (fork-inner!% strategy thunk))
 
@@ -492,7 +492,7 @@ was stopping/stopped and the child should not start."
     Unit)
 
   (inline)
-  (declare mask-current-thread!% (Unit -> Unit))
+  (declare mask-current-thread!% (Void -> Unit))
   (define (mask-current-thread!%)
     (mask!%
      (lisp (-> IoThread) ()
@@ -607,7 +607,7 @@ just be limited to implementing only solutions #2 or #3.
     (unmask-finally!% (current-thread!%) thunk))
 
   (inline)
-  (declare unmask-current-thread!% (Unit -> Unit))
+  (declare unmask-current-thread!% (Void -> Unit))
   (define (unmask-current-thread!%)
     (unmask-current-thread-finally!%
      (const Unit)))
@@ -645,7 +645,7 @@ just be limited to implementing only solutions #2 or #3.
   (declare park-current-thread-if-with!% (Runtime :rt IoThread
                                           => Proxy :rt
                                           -> (Generation -> Unit)
-                                          -> (Unit -> Boolean)
+                                          -> (Void -> Boolean)
                                           -> TimeoutStrategy
                                           -> Unit))
   (define (park-current-thread-if-with!% rt-prx with-gen should-park? strategy)
@@ -700,7 +700,7 @@ just be limited to implementing only solutions #2 or #3.
   (declare park-current-thread-if!% (Runtime :rt IoThread
                                      => Proxy :rt
                                      -> (Generation -> Unit)
-                                     -> (Unit -> Boolean)
+                                     -> (Void -> Boolean)
                                      -> Unit))
   (define (park-current-thread-if!% rt-prx with-gen should-park?)
     (park-current-thread-if-with!% rt-prx with-gen should-park? NoTimeout))

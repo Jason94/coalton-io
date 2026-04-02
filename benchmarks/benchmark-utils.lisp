@@ -22,7 +22,7 @@
   (repr :native b:Timer)
   (define-type Timer)
 
-  (declare current-timer (Unit -> Timer))
+  (declare current-timer (Void -> Timer))
   (define (current-timer)
     (lisp (-> Timer) ()
       b::*current-timer*))

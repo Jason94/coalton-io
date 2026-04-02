@@ -86,7 +86,7 @@ interrupt during, for example, a publish."
     (version         at:AtomicInteger))
 
   (inline)
-  (declare new-broadcast-pool (Unit -> DataBroadcastPool :a))
+  (declare new-broadcast-pool (Void -> DataBroadcastPool :a))
   (define (new-broadcast-pool)
     (DataBroadcastPool (at:new-atomic-stack)
                        (cv:new)

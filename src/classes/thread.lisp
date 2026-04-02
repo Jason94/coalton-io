@@ -181,7 +181,7 @@ Returns the handle to the thread.
 The ForkStrategy controls both:
   - how unhandled exceptions behave, and
   - whether the fork is structured (and which thread's scope owns it)."
-     (Proxy :r -> (ForkStrategy :t) -> (Unit -> Result Dynamic :a) -> :t))
+     (Proxy :r -> (ForkStrategy :t) -> (Void -> Result Dynamic :a) -> :t))
     (join!
      "Block the current thread until the target thread is completed.
 Does not a retrieve value. Raises an exception if the target thread
@@ -225,7 +225,7 @@ Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
   - Can briefly block while trying to park the thread, if contended."
-     (Proxy :r -> (Generation -> Unit) -> (Unit -> Boolean) -> Unit))
+     (Proxy :r -> (Generation -> Unit) -> (Void -> Boolean) -> Unit))
     (park-current-thread-if-with!
      "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
@@ -236,7 +236,7 @@ Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
   - Can briefly block while trying to park the thread, if contended."
-     (Proxy :r -> (Generation -> Unit) -> (Unit -> Boolean) -> TimeoutStrategy -> Unit))
+     (Proxy :r -> (Generation -> Unit) -> (Void -> Boolean) -> TimeoutStrategy -> Unit))
     (unpark-thread!
      "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread

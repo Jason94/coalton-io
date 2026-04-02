@@ -284,7 +284,7 @@ conditions. DONT USE THIS!"
       (cl:cdr entr)))
 
   (inline)
-  (declare new-write-hash-table% (Unit -> WriteHashTable%))
+  (declare new-write-hash-table% (Void -> WriteHashTable%))
   (define (new-write-hash-table%)
     (lisp (-> WriteHashTable%) ()
       (cl:make-hash-table :test 'cl:eq)))
@@ -443,7 +443,7 @@ For safety, disconnects the transactions when done."
   (define global-lock (at:new-at-int 0))
 
   (inline)
-  (declare get-global-time (Unit -> Word))
+  (declare get-global-time (Void -> Word))
   (define (get-global-time)
     "Read the global lock time and establish a memory barrier."
     (mem-barrier)
@@ -461,7 +461,7 @@ For safety, disconnects the transactions when done."
       (unpark-set% pset)))
 
   (inline)
-  (declare tx-begin-io% (MonadIo :m => Unit -> :m TxData%))
+  (declare tx-begin-io% (MonadIo :m => Void -> :m TxData%))
   (define (tx-begin-io%)
     (wrap-io
       (rec % ()

@@ -81,10 +81,10 @@ See >>="
   ;;
   (repr :transparent)
   (define-type (IO :a)
-    (IO% (Unit -> :a)))
+    (IO% (Void -> :a)))
 
   (inline)
-  (declare wrap-io%_ ((Unit -> :a) -> IO :a))
+  (declare wrap-io%_ ((Void -> :a) -> IO :a))
   (define (wrap-io%_ f)
     (IO% f))
 
@@ -225,7 +225,7 @@ as the global thread for structured concurrency, and exits any child threads on 
   (define raise-io_ raise-io)
 
   (inline)
-  (declare reraise-io (IO :a -> (Unit -> IO :b) -> IO :a))
+  (declare reraise-io (IO :a -> (Void -> IO :b) -> IO :a))
   (define (reraise-io op catch-op)
     (IO%
      (fn ()
@@ -259,7 +259,7 @@ as the global thread for structured concurrency, and exits any child threads on 
                (throw io-err))))))))))
 
   (inline)
-  (declare handle-all-io (IO :a -> (Unit -> IO :a) -> IO :a))
+  (declare handle-all-io (IO :a -> (Void -> IO :a) -> IO :a))
   (define (handle-all-io io-op handle-op)
     "Run IO-OP, and run HANDLE-OP to handle exceptions of any type thrown by IO-OP."
     (IO%

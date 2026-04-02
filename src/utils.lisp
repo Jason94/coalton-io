@@ -144,8 +144,8 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
 
   (define-exception IoError 
     "An unhandled error that was thrown inside a wrap-io call."
-    (UnhandledError Anything (Unit -> Unit)) ;; re-throw thunk
-    (HandledError Dynamic (Unit -> Unit))) ;; error val, error thunk
+    (UnhandledError Anything (Void -> Unit)) ;; re-throw thunk
+    (HandledError Dynamic (Void -> Unit))) ;; error val, error thunk
   )
 
 (defmacro throw-handled-error (exception-form)
@@ -173,7 +173,7 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
       ((Err e)
        (Err e))))
 
-  (declare catch-thunk ((Unit -> :a) -> Result IoError :a))
+  (declare catch-thunk ((Void -> :a) -> Result IoError :a))
   (define (catch-thunk thunk)
     "Wraps `thunk` in a Lisp `handler-case`, and captures the output
 as Err or Ok. Useful if you want to capture any thrown error, which is

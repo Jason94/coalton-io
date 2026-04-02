@@ -47,10 +47,10 @@ if ParkingSet doesn't provide enough functionality for the algorithm.
 Concurrent:
   - ParkingSet's algorithms are lock free, but individual threads can block for a very
     short window if contention on the parking set is very high."
-    (ParkingSet% (at:Atomic (List (Unit -> Unit)))))
+    (ParkingSet% (at:Atomic (List (Void -> Unit)))))
 
   (inline)
-  (declare new-parking-set% (Unit -> ParkingSet))
+  (declare new-parking-set% (Void -> ParkingSet))
   (define (new-parking-set%)
     (ParkingSet% (at:new Nil)))
 
@@ -61,14 +61,14 @@ Concurrent:
     (wrap-io_ new-parking-set%))
 
   (inline)
-  (declare get-set% (ParkingSet -> at:Atomic (List (Unit -> Unit))))
+  (declare get-set% (ParkingSet -> at:Atomic (List (Void -> Unit))))
   (define (get-set% (ParkingSet% atm))
     atm)
 
   (inline)
   (declare park-in-sets-if-with% (Runtime :rt :t
                                   => Proxy :rt
-                                  -> (Unit -> Boolean)
+                                  -> (Void -> Boolean)
                                   -> TimeoutStrategy
                                   -> List ParkingSet
                                   -> Unit))
@@ -87,14 +87,14 @@ Concurrent:
 
   (inline)
   (declare park-in-sets-if% (Runtime :rt :t
-                              => Proxy :rt -> (Unit -> Boolean) -> List ParkingSet -> Unit))
+                              => Proxy :rt -> (Void -> Boolean) -> List ParkingSet -> Unit))
   (define (park-in-sets-if% rt-prx should-park? psets)
     (park-in-sets-if-with% rt-prx should-park? NoTimeout psets))
 
   (inline)
   (declare park-in-set-if-with% (Runtime :rt :t
                                  => Proxy :rt
-                                 -> (Unit -> Boolean)
+                                 -> (Void -> Boolean)
                                  -> TimeoutStrategy
                                  -> ParkingSet
                                  -> Unit))
@@ -112,7 +112,7 @@ Concurrent:
 
   (inline)
   (declare park-in-set-if% (Runtime :rt :t
-                              => Proxy :rt -> (Unit -> Boolean) -> ParkingSet -> Unit))
+                              => Proxy :rt -> (Void -> Boolean) -> ParkingSet -> Unit))
   (define (park-in-set-if% rt-prx should-park? pset)
     (park-in-set-if-with% rt-prx should-park? NoTimeout pset))
 

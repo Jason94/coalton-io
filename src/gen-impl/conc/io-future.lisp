@@ -36,9 +36,9 @@ Concurrent:
   - Future's `(Concurrent Future :a)` instance defers to the underlying thread, so it takes
     on masking semantics of the underyling thread's `Concurrent` instance."
     (value-mvar (MVar (Result Dynamic :a)))
-    (stop-callback (Unit -> Unit))
-    (mask-callback (Unit -> Unit))
-    (unmask-callback (Unit -> Unit))
+    (stop-callback (Void -> Unit))
+    (mask-callback (Void -> Unit))
+    (unmask-callback (Void -> Unit))
     (unmask-finally-callback ((UnmaskFinallyMode -> Unit) -> Unit)))
 
   (inline)

@@ -63,13 +63,13 @@ between IO instances."
      "Run an operation, run a catch operation if the first operation raised,
 then re-raise the exception. If the catch operation raises, that exception will
 be emitted instead of the original exception."
-     (:m :a -> (Unit -> :m :b) -> :m :a))
+     (:m :a -> (Void -> :m :b) -> :m :a))
     (handle
      "Run an operation, immediately handling if it raised an exception that matches :e."
      (RuntimeRepr :e => :m :a -> (:e -> :m :a) -> :m :a))
     (handle-all
      "Run an operation, immediately handling any exceptions raised."
-     (:m :a -> (Unit -> :m :a) -> :m :a))
+     (:m :a -> (Void -> :m :a) -> :m :a))
     (try-dynamic
      "Bring any unhandled exceptions into a Result wrapped in Dynamic."
      (:m :a -> :m (Result Dynamic :a))))
@@ -114,7 +114,7 @@ exception to the program."
        (raise-dynamic dyn-e))))
 
   (inline)
-  (declare wrap-error_ (Exceptions :m => (Unit -> :a) -> :m :a))
+  (declare wrap-error_ (Exceptions :m => (Void -> :a) -> :m :a))
   (define (wrap-error_ thunk)
     "Run thunk, catching any unhandled Lisp/Coalton errors and raising
 them as exceptions."
@@ -188,7 +188,7 @@ Example:
 
   (inline)
   (declare handle-all-stateT (Exceptions :m
-                              => st:StateT :s :m :a -> (Unit -> st:StateT :s :m :a)
+                              => st:StateT :s :m :a -> (Void -> st:StateT :s :m :a)
                               -> st:StateT :s :m :a))
   (define (handle-all-stateT st-op st-handle-op)
     (st:StateT
@@ -201,7 +201,7 @@ Example:
   (inline)
   (declare reraise-stateT (Exceptions :m
                            => st:StateT :s :m :a
-                           -> (Unit -> st:StateT :s :m :b)
+                           -> (Void -> st:StateT :s :m :b)
                            -> st:StateT :s :m :a))
   (define (reraise-stateT st-op st-catch-op)
     (st:StateT
@@ -252,7 +252,7 @@ Example:
 
   (inline)
   (declare handle-all-envT (Exceptions :m
-                            => e:EnvT :e :m :a -> (Unit -> e:EnvT :e :m :a)
+                            => e:EnvT :e :m :a -> (Void -> e:EnvT :e :m :a)
                             -> e:EnvT :e :m :a))
   (define (handle-all-envT env-op env-handle-op)
     (e:EnvT
@@ -266,7 +266,7 @@ Example:
 
   (inline)
   (declare reraise-envT (Exceptions :m
-                            => e:EnvT :e :m :a -> (Unit -> e:EnvT :e :m :b)
+                            => e:EnvT :e :m :a -> (Void -> e:EnvT :e :m :b)
                             -> e:EnvT :e :m :a))
   (define (reraise-envT env-op env-handle-op)
     (e:EnvT

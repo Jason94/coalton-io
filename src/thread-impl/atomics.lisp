@@ -241,7 +241,7 @@ iterated, front-popped, and front-pushed without contention."
     (head? (Atomic (Optional (AtomicStackEntry :a)))))
 
   (inline)
-  (declare new-atomic-stack (Unit -> AtomicStack :a))
+  (declare new-atomic-stack (Void -> AtomicStack :a))
   (define (new-atomic-stack)
     (AtomicStack (new None)))
 

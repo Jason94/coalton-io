@@ -58,7 +58,7 @@
   (define-class (Monad :m => MonadIo :m)
     (wrap-io_
      "Wrap a (potentially) side-effectful function in the monad."
-     ((Unit -> :a) -> :m :a)))
+     ((Void -> :a) -> :m :a)))
 
   (define-class (MonadIo :m => BaseIo :m)
     "A 'base' IO implementation, which can be run to execute some
