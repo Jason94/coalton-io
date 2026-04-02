@@ -25,7 +25,7 @@
 ;;;; parsing, much of it using Common Lisp under the hood, and some terminal input/output
 ;;;; that does use coalton-io a little bit.
 ;;;;
-;;;; But it's mostly here to have a functioning mini-Redis client. The other files in
+;;;; But it's here to have a functioning mini-Redis client. The other files in
 ;;;; the example will be more instructive on using coalton-io itself!
 ;;;;
 
@@ -55,6 +55,7 @@
      (tm:write-line "  SET <key> <value>      Set a key (value may be multiple words or quoted)")
      (tm:write-line "  RENAME <key> <new-key> Rename a key")
      (tm:write-line "  SAVE                   Save the database")
+     (tm:write-line "  LOAD                   Load the database")
      (tm:write-line "  QUIT                   Close the connection")
      (tm:write-line "")
      (tm:write-line "Input rules:")
@@ -197,6 +198,10 @@
               (match rest
                 ((Nil) (Ok (Some Save)))
                 (_     (Err "Usage: SAVE"))))
+            ((== cmdU "LOAD")
+              (match rest
+                ((Nil) (Ok (Some Load)))
+                (_     (Err "Usage: LOAD"))))
              (True
               (Err (<> "Unknown command: " cmd))))))))
   )

@@ -40,6 +40,7 @@
    #:RenameKey
    #:Quit
    #:Save
+   #:Load
 
    #:read-resp
    #:read-command
@@ -403,6 +404,7 @@ Example stream input, where the '_' type byte has already been read:
     (SetKey String String)
     (RenameKey String String)
     Save
+    Load
     ))
 
 ;;;
@@ -416,6 +418,7 @@ Example stream input, where the '_' type byte has already been read:
   (define set-command-str  "SET")
   (define rename-command-str "RENAME")
   (define save-command-str "SAVE")
+  (define load-command-str "LOAD")
 
   (declare parse-ping (Vector Resp -> Result String Command))
   (define (parse-ping data)
@@ -473,6 +476,12 @@ Example stream input, where the '_' type byte has already been read:
         (Ok Save)
         (Err "SAVE takes no arguments")))
 
+  (declare parse-load (Vector Resp -> Result String Command))
+  (define (parse-load data)
+    (if (== (v:length data) 1)
+        (Ok Load)
+        (Err "LOAD takes no arguments")))
+
   (declare parse-quit (Vector Resp -> Result String Command))
   (define (parse-quit _)
     (Ok Quit))
@@ -503,6 +512,8 @@ Example stream input, where the '_' type byte has already been read:
                 (parse-rename data))
                ((== save-command-str command-str)
                 (parse-save data))
+               ((== load-command-str command-str)
+                (parse-load data))
                ((== quit-command-str command-str)
                 (parse-quit data))
                (True
@@ -549,5 +560,8 @@ Example stream input, where the '_' type byte has already been read:
       ((Quit)
        (RespArray (v:make (RespBulkString quit-command-str))))
       ((Save)
-       (RespArray (v:make (RespBulkString save-command-str))))))
+       (RespArray (v:make (RespBulkString save-command-str))))
+      ((Load)
+       (RespArray (v:make (RespBulkString load-command-str))))
+      ))
   )
