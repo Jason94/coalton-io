@@ -185,10 +185,10 @@ as the global thread for structured concurrency, and exits any child threads on 
     (inline)
     (define (pure x) (IO% (fn () x)))
     (inline)
-    (define (liftA2 fa->b->c (IO% f->a) (IO% f->b))
+    (define (liftA2 fa*b->c (IO% f->a) (IO% f->b))
       (IO%
        (fn ()
-         (fa->b->c
+         (fa*b->c
           (f->a)
           (f->b))))))
 
@@ -225,7 +225,7 @@ as the global thread for structured concurrency, and exits any child threads on 
   (define raise-io_ raise-io)
 
   (inline)
-  (declare reraise-io (IO :a -> (Void -> IO :b) -> IO :a))
+  (declare reraise-io (IO :a * (Void -> IO :b) -> IO :a))
   (define (reraise-io op catch-op)
     (IO%
      (fn ()
@@ -238,7 +238,7 @@ as the global thread for structured concurrency, and exits any child threads on 
           (throw e))))))
 
   (inline)
-  (declare handle-io (RuntimeRepr :e => IO :a -> (:e -> IO :a) -> IO :a))
+  (declare handle-io (RuntimeRepr :e => IO :a * (:e -> IO :a) -> IO :a))
   (define (handle-io io-op handle-op)
     (IO%
      (fn ()
@@ -259,7 +259,7 @@ as the global thread for structured concurrency, and exits any child threads on 
                (throw io-err))))))))))
 
   (inline)
-  (declare handle-all-io (IO :a -> (Void -> IO :a) -> IO :a))
+  (declare handle-all-io (IO :a * (Void -> IO :a) -> IO :a))
   (define (handle-all-io io-op handle-op)
     "Run IO-OP, and run HANDLE-OP to handle exceptions of any type thrown by IO-OP."
     (IO%
@@ -341,7 +341,7 @@ need to unlift, run, then immediately re-run a function. See, e.g., io-file:with
   ;; a benchmark. But even if they're not more efficient, they still solve some
   ;; inference issues.
   (declare map-into-io_ ((LiftIo IO :m) (it:IntoIterator :i :a)
-                         => :i -> (:a -> IO :b) -> :m (List :b)))
+                         => :i * (:a -> IO :b) -> :m (List :b)))
   (define (map-into-io_ itr a->mb)
     "Efficiently perform a monadic operation for each element of an iterator
 and return the results. More efficient than map-into-io, if you can run your
@@ -359,7 +359,7 @@ effect in a BaseIo."
       (proxy-swap-inner io-prx))))
 
   (declare foreach-io_ ((LiftIo IO :m) (it:IntoIterator :i :a)
-                        => :i -> (c:Cell :a -> IO :b) -> :m Unit))
+                        => :i * (c:Cell :a -> IO :b) -> :m Unit))
   (define (foreach-io_ coll a->mb)
     "Efficiently perform a monadic operation for each element of an iterator.
 More efficient than foreach-io, if your effect can run in IO. The next element of the
@@ -380,7 +380,7 @@ iterator is passed into the operation via a cell."
              (c:write! c a)
              (run-io-unhandled! monad-op))))))))
 
-  (declare times-io_ (LiftIo IO :m => UFix -> IO :a -> :m Unit))
+  (declare times-io_ (LiftIo IO :m => UFix * IO :a -> :m Unit))
   (define (times-io_ n io-op)
     "Efficiently perform an IO operation N times."
     (lift-io

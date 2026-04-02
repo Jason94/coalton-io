@@ -68,7 +68,7 @@
      (do-loop-times (_ n-workers)
        (mv:push-chan mchan-input None))))
 
-  (declare parser-thread (mv:MChan (Optional String) -> mv:MChan (Optional Integer) -> IO Unit))
+  (declare parser-thread (mv:MChan (Optional String) * mv:MChan (Optional Integer) -> IO Unit))
   (define (parser-thread mchan-input mchan-int)
     (do-if-not-valM (str (mv:pop-chan mchan-input))
           (mv:push-chan mchan-int None)

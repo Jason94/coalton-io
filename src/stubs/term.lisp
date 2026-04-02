@@ -70,7 +70,7 @@
   (io-thd:derive-threads :m (TermStubM :m))
   (io-unq:derive-unique-gen :m (TermStubM :m))
 
-  (declare run-term-stubM (Monad :m => TermStubM :m :a -> List String -> :m (Tuple (List String) :a)))
+  (declare run-term-stubM (Monad :m => TermStubM :m :a * List String -> :m (Tuple (List String) :a)))
   (define (run-term-stubM opm read-line-inputs)
     (rec % ((written-lines (make-list))
             (rem-line-inputs read-line-inputs)
@@ -112,7 +112,7 @@
                ((Cons s rest)
                 (% written-lines rest (cont s)))))))))))
 
-  (declare run-term-stub (TermStub :a -> List String -> Tuple (List String) :a))
+  (declare run-term-stub (TermStub :a * List String -> Tuple (List String) :a))
   (define (run-term-stub stub-op read-line-inputs)
     (id:run-identity (run-term-stubM stub-op read-line-inputs)))
   )

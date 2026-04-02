@@ -139,7 +139,7 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
 
   (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r) (Exceptions :m)
                             (Concurrent :c :a) (Threads :rt :t :m)
-                            => ConcurrentGroup :c :a -> (UnmaskFinallyMode -> :r :b) -> :m Unit))
+                            => ConcurrentGroup :c :a * (UnmaskFinallyMode -> :r :b) -> :m Unit))
   (define (unmask-finally% group callback)
     ;; CONCURRENT: Masks entire operation to guarantee enclosed threads are left in a
     ;; consistent state.

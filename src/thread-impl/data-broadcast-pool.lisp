@@ -46,7 +46,7 @@
        False)))
 
   (inline)
-  (declare checkout!% (Word -> (at:AtomicStack (VersionEntry :a)) -> :a))
+  (declare checkout!% (Word * (at:AtomicStack (VersionEntry :a)) -> :a))
   (define (checkout!% version version-entries)
     "Checkout the data for VERSION, decrementing the number of remaining subscribers.
 Errors if the version can't be found."
@@ -58,7 +58,7 @@ Errors if the version can't be found."
     (error (build-str "ERROR: DataBroadcastPool missing data for version " version)))
 
   (inline)
-  (declare new-version-entry (Word -> Word -> :a -> VersionEntry :a))
+  (declare new-version-entry (Word * Word * :a -> VersionEntry :a))
   (define (new-version-entry version n-subscribers val)
     (VersionEntry version
                   (at:new-at-int n-subscribers)
@@ -104,7 +104,7 @@ THE THREAD IS MASKED."
     (while (stale?% (at:at-st-peek (.version-entries pool)))
       (at:at-st-pop-front! (.version-entries pool))))
 
-  (declare publish (DataBroadcastPool :a -> :a -> Unit))
+  (declare publish (DataBroadcastPool :a * :a -> Unit))
   (define (publish pool data)
     (unless (zero? (at:read-at-int (.n-subscribers pool)))
       (mask-current-thread!%)
@@ -132,7 +132,7 @@ THE THREAD IS MASKED."
   ;; TODO: Remove lambda when this is fixed:
   ;; https://github.com/coalton-lang/coalton/issues/1719
   (declare subscribe-with (Runtime :rt :t
-                           => Proxy :rt -> TimeoutStrategy -> DataBroadcastPool :a -> :a))
+                           => Proxy :rt * TimeoutStrategy * DataBroadcastPool :a -> :a))
   (define (subscribe-with rt-prx strategy pool)
     "Subscribe to the pool, and block until a publish is made."
     (mask-current-thread!%)
@@ -165,7 +165,7 @@ THE THREAD IS MASKED."
     (unmask-current-thread!%)
     result)
 
-  (declare subscribe (Runtime :rt :t => Proxy :rt -> DataBroadcastPool :a -> :a))
+  (declare subscribe (Runtime :rt :t => Proxy :rt * DataBroadcastPool :a -> :a))
   (define (subscribe rt-prx pool)
     "Subscribe to the pool, and block until a publish is made."
     (subscribe-with rt-prx NoTimeout pool))

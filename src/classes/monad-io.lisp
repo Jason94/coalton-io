@@ -123,14 +123,14 @@ Example:
 
   (define-instance ((BaseIo :r) (UnliftIo :m :r) => UnliftIo (e:EnvT :env :m) :r)
     (inline)
-    (define (with-run-in-io enva->ioa-->iob)
+    (define (with-run-in-io enva*ioa-->iob)
       (e:EnvT
        (fn (env)
          (with-run-in-io
-           (fn (ma->ioa-->iob)
-             (enva->ioa-->iob
+           (fn (ma*ioa-->iob)
+             (enva*ioa-->iob
               (fn (m-env)
-               (ma->ioa-->iob
+               (ma*ioa-->iob
                 (e:run-envT m-env env))))))))))
 
   (inline)
@@ -184,7 +184,7 @@ putting in the full type of M-OP, not just (IO :a).
 
 (coalton-toplevel
   (declare map-into-io ((UnliftIo :r :io) (LiftTo :r :m) (it:IntoIterator :i :a)
-                         => :i -> (:a -> :r :b) -> :m (List :b)))
+                         => :i * (:a -> :r :b) -> :m (List :b)))
   (define (map-into-io itr a->rb)
     "Efficiently perform a monadic operation for each element of an iterator
 and return the results. If you're having inference issues, try map-into-io_"
@@ -198,7 +198,7 @@ and return the results. If you're having inference issues, try map-into-io_"
              (reverse (c:read results)))))))
 
   (declare foreach-io ((UnliftIo :r :io) (LiftTo :r :m) (it:IntoIterator :i :a)
-                       => :i -> (c:Cell :a -> :r :b) -> :m Unit))
+                       => :i * (c:Cell :a -> :r :b) -> :m Unit))
   (define (foreach-io coll a->mb)
     "Efficiently perform a monadic operation for each element of an iterator.
 The next element of the iterator is passed into the operation via a cell.
@@ -221,7 +221,7 @@ faster!"
                 (c:write! c a)
                 (run! monad-op)))))))))
 
-  (declare times-io ((UnliftIo :r :io) (LiftTo :r :m) => UFix -> :r :b -> :m Unit))
+  (declare times-io ((UnliftIo :r :io) (LiftTo :r :m) => UFix * :r :b -> :m Unit))
   (define (times-io n io-op)
     "Efficiently perform an IO operation N times. If the effect can be run in
 simple-io/IO, the version in that package will be faster!"

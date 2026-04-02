@@ -172,7 +172,7 @@
      (c <- pop-return)
      (pure (+ a (+ b c)))))
 
-  (declare run-test (List Integer -> StateT (List Integer) IO :a -> (Tuple (List Integer) :a)))
+  (declare run-test (List Integer * StateT (List Integer) IO :a -> (Tuple (List Integer) :a)))
   (define (run-test ints op)
     (run-io! (run-stateT op ints))))
 

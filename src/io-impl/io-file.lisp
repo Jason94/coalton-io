@@ -27,13 +27,13 @@
 
   (declare with-open-file_ ((file:File :a) (UnliftIo :m IO) (LiftTo IO :m)
                             => file:StreamOptions
-                            -> ((file:FileStream :a) -> IO :b)
+                            * ((file:FileStream :a) -> IO :b)
                             -> :m :b))
   (define with-open-file_ with-open-file)
 
   (declare with-temp-file_ ((file:File :a) (UnliftIo :m IO) (LiftTo IO :m)
                             => String
-                            -> ((file:FileStream :a) -> IO :b)
+                            * ((file:FileStream :a) -> IO :b)
                             -> :m :b))
   (define with-temp-file_ with-temp-file)
 

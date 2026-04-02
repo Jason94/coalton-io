@@ -37,7 +37,7 @@
         (cl:setf cl:*random-state* rs))
       Unit))
 
-  (declare random% ((RandomLimit :a) (MonadIo :m) => RandomState -> :a -> :m :a))
+  (declare random% ((RandomLimit :a) (MonadIo :m) => RandomState * :a -> :m :a))
   (define (random% rs limit)
     (wrap-io (lisp (-> :a) (rs limit)
                (cl:random limit rs))))

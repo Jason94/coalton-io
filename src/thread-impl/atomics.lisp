@@ -88,7 +88,7 @@
       (atomic-internal-inner atm)))
 
   (inline)
-  (declare compare-and-swap (Atomic :a -> :a -> :a -> Boolean))
+  (declare compare-and-swap (Atomic :a * :a * :a -> Boolean))
   (define (compare-and-swap atm old new)
     "Attempt to swap the contents of `atm` from OLD to NEW. Returns
 TRUE if the swap succeeded, FALSE otherwise. Does not repeat."
@@ -105,7 +105,7 @@ and return the popped value. Returns None if the list was empty."
        (at:atomic-pop (atomic-internal-inner atm)))))
 
   (inline)
-  (declare atomic-push (Atomic (List :a) -> :a -> List :a))
+  (declare atomic-push (Atomic (List :a) * :a -> List :a))
   (define (atomic-push atm elt)
     "Atomically push ELT onto the list inside `atm` until it succeedes.
 Returns the new list, with the element included."
@@ -113,7 +113,7 @@ Returns the new list, with the element included."
       (at:atomic-push elt (atomic-internal-inner atm))))
 
   (inline)
-  (declare atomic-swap (Atomic :a -> :a -> :a))
+  (declare atomic-swap (Atomic :a * :a -> :a))
   (define (atomic-swap atm new-val)
     "Atomically swap the value in ATM with NEW-VAL. Returns the old value."
     (lisp (-> :a) (atm new-val)
@@ -126,7 +126,7 @@ Returns the new list, with the element included."
                              (lp)))))
         (lp))))
 
-  (declare atomic-update (Atomic :a -> (:a -> :a) -> :a))
+  (declare atomic-update (Atomic :a * (:a -> :a) -> :a))
   (define (atomic-update atm f)
     "Atomically update the value in `atm` by applying F until it succeedes.
 Returns the new value stored in `atm` after applying F."
@@ -135,7 +135,7 @@ Returns the new value stored in `atm` after applying F."
                             (call-coalton-function f x))))
         (at:atomic-update (atomic-internal-inner atm) update-fn))))
 
-  (declare atomic-update-swap (Atomic :a -> (:a -> :a) -> :a))
+  (declare atomic-update-swap (Atomic :a * (:a -> :a) -> :a))
   (define (atomic-update-swap atm f)
     "Atomically update the value in `atm` by applying F until it succeedes.
 Returns the old value stored in `atm` after applying F."
@@ -148,7 +148,7 @@ Returns the old value stored in `atm` after applying F."
         old-val)))
 
   (inline)
-  (declare atomic-write (Atomic :a -> :a -> Unit))
+  (declare atomic-write (Atomic :a * :a -> Unit))
   (define (atomic-write atm val)
     "Atomically set the value in `atm` to `val`."
     (atomic-update atm (const val))
@@ -177,7 +177,7 @@ Returns the old value stored in `atm` after applying F."
       (bt2:atomic-integer-value atm)))
 
   (inline)
-  (declare int-cas (AtomicInteger -> Word -> Word -> Boolean))
+  (declare int-cas (AtomicInteger * Word * Word -> Boolean))
   (define (int-cas atm old new)
     "Attempt to swap the contents of `atm` from OLD to NEW. Returns
 TRUE if the swap succeeded, FALSE otherwise. Does not repeat."
@@ -185,7 +185,7 @@ TRUE if the swap succeeded, FALSE otherwise. Does not repeat."
       (bt2:atomic-integer-compare-and-swap atm old new)))
 
   (inline)
-  (declare atomic-inc (AtomicInteger -> Word -> Word))
+  (declare atomic-inc (AtomicInteger * Word -> Word))
   (define (atomic-inc atm n)
     "Atomically increment `atm` by `n`. Returns the new value."
     (lisp (-> :a) (atm n)
@@ -199,7 +199,7 @@ TRUE if the swap succeeded, FALSE otherwise. Does not repeat."
       (bt2:atomic-integer-incf atm)))
 
   (inline)
-  (declare atomic-dec (AtomicInteger -> Word -> Word))
+  (declare atomic-dec (AtomicInteger * Word -> Word))
   (define (atomic-dec atm n)
     "Atomically decrement `atm` by `n`. Returns the new value."
     (lisp (-> :a) (atm n)
@@ -213,7 +213,7 @@ TRUE if the swap succeeded, FALSE otherwise. Does not repeat."
       (bt2:atomic-integer-decf atm)))
 
   (inline)
-  (declare atomic-int-write (AtomicInteger -> Word -> Word))
+  (declare atomic-int-write (AtomicInteger * Word -> Word))
   (define (atomic-int-write atm new)
     "Atomically set ATM to NEW. Returns the old value."
     (let old = (read-at-int atm))
@@ -246,7 +246,7 @@ iterated, front-popped, and front-pushed without contention."
     (AtomicStack (new None)))
 
   (inline)
-  (declare at-st-push-front! (:a -> AtomicStack :a -> AtomicStack :a))
+  (declare at-st-push-front! (:a * AtomicStack :a -> AtomicStack :a))
   (define (at-st-push-front! val stack)
     "Atomically push val to the front of stack. Returns the stack
 for convenience."

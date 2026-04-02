@@ -92,7 +92,7 @@ deadlocks and other race conditions."
             (cv:new)
             (at:new None))))
 
-  (declare take-mvar-masked-inner% (Runtime :rt :t => TimeoutStrategy -> MVar :a -> Proxy :rt -> :a))
+  (declare take-mvar-masked-inner% (Runtime :rt :t => TimeoutStrategy * MVar :a * Proxy :rt -> :a))
   (define (take-mvar-masked-inner% strategy mvar rt-prx)
     "Concurrent: Leaves the thread masked once."
     ;; CONCURRENT: Masks before entering the critical region.
@@ -129,7 +129,7 @@ deadlocks and other race conditions."
       (lp)))
 
   (inline)
-  (declare take-mvar-masked-with (Threads :rt :t :m => TimeoutStrategy -> MVar :a -> :m :a))
+  (declare take-mvar-masked-with (Threads :rt :t :m => TimeoutStrategy * MVar :a -> :m :a))
   (define (take-mvar-masked-with strategy mvar)
     "Take a value from an MVar, blocking until one is available.
 
@@ -159,7 +159,7 @@ Concurrent:
     (take-mvar-masked-with NoTimeout mvar))
 
   (inline)
-  (declare take-mvar-with (Threads :rt :t :m => TimeoutStrategy -> MVar :a -> :m :a))
+  (declare take-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a -> :m :a))
   (define (take-mvar-with strategy mvar)
     "Take a value from an MVar, blocking until one is available.
 
@@ -188,7 +188,7 @@ Concurrent:
   - On succesful take, one blocking writer is woken in order of acquisition"
     (take-mvar-with NoTimeout mvar))
 
-  (declare put-mvar-with (Threads :rt :t :m => TimeoutStrategy -> MVar :a -> :a -> :m Unit))
+  (declare put-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a * :a -> :m Unit))
   (define (put-mvar-with strategy mvar val)
     "Fill an empty MVar, blocking until it becomes empty.
 
@@ -237,7 +237,7 @@ Concurrent:
         (lp))))
 
   (inline)
-  (declare put-mvar (Threads :rt :t :m => MVar :a -> :a -> :m Unit))
+  (declare put-mvar (Threads :rt :t :m => MVar :a * :a -> :m Unit))
   (define (put-mvar mvar val)
     "Fill an empty MVar, blocking until it becomes empty.
 
@@ -251,7 +251,7 @@ Concurrent:
     (put-mvar-with NoTimeout mvar val))
 
   (declare try-take-mvar-masked-inner%-with
-           (Runtime :rt :t => TimeoutStrategy -> MVar :a -> Proxy :rt -> Optional :a))
+           (Runtime :rt :t => TimeoutStrategy * MVar :a * Proxy :rt -> Optional :a))
   (define (try-take-mvar-masked-inner%-with strategy mvar rt-prx)
     "Concurrent: Leaves the thread masked once."
     ;; CONCURRENT:
@@ -280,7 +280,7 @@ Concurrent:
          None)))))
 
   (inline)
-  (declare try-take-mvar-masked-inner% (Runtime :rt :t => MVar :a -> Proxy :rt -> Optional :a))
+  (declare try-take-mvar-masked-inner% (Runtime :rt :t => MVar :a * Proxy :rt -> Optional :a))
   (define (try-take-mvar-masked-inner% mvar rt-prx)
     "Concurrent: Leaves the thread masked once."
     (try-take-mvar-masked-inner%-with NoTimeout mvar rt-prx))
@@ -313,7 +313,7 @@ Concurrent:
     (wrap-io-with-runtime (rt-prx)
       (try-take-mvar-masked-inner% mvar rt-prx)))
 
-  (declare try-put-mvar (Threads :rt :t :m => MVar :a -> :a -> :m Boolean))
+  (declare try-put-mvar (Threads :rt :t :m => MVar :a * :a -> :m Boolean))
   (define (try-put-mvar mvar val)
     "Attempt to immediately put a value into an MVar. Returns True if succeeded.
 
@@ -351,7 +351,7 @@ Concurrent:
             (unmask-current! rt-prx)
             True))))))
 
-  (declare read-mvar-with (Threads :rt :t :m => TimeoutStrategy -> MVar :a -> :m :a))
+  (declare read-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a -> :m :a))
   (define (read-mvar-with strategy mvar)
     "Read a value from an MVar, blocking until one is available. Does not consume value.
 
@@ -385,7 +385,7 @@ Concurrent:
     (wrap-io
       (at:read (.data mvar))))
 
-  (declare swap-mvar-with (Threads :rt :t :m => TimeoutStrategy -> MVar :a -> :a -> :m :a))
+  (declare swap-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a * :a -> :m :a))
   (define (swap-mvar-with strategy mvar new-val)
     "Atomically replace the value in an MVar and return the old value.
 
@@ -425,7 +425,7 @@ Concurrent:
         (lp))))
 
   (inline)
-  (declare swap-mvar (Threads :rt :t :m => MVar :a -> :a -> :m :a))
+  (declare swap-mvar (Threads :rt :t :m => MVar :a * :a -> :m :a))
   (define (swap-mvar mvar new-val)
     "Atomically replace the value in an MVar and return the old value.
 
@@ -449,7 +449,7 @@ Concurrent:
   ;; TODO: Possibly check and restore if it's a non-thread stop exception? But is the
   ;; inconsistent behavior worth it? Probably not?
   (declare with-mvar ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :i)
-                       => MVar :a -> (:a -> :r :b) -> :m :b))
+                       => MVar :a * (:a -> :r :b) -> :m :b))
   (define (with-mvar mvar op)
     "Run an operation with the value from an MVar, blocking until one is available.
 Restore the MVar value and return the result of the operation.
@@ -517,7 +517,7 @@ Concurrent:
       (tail-var <- (new-mvar cell))
       (pure (MChan head-var tail-var))))
 
-  (declare push-chan (Threads :rt :t :m => MChan :a -> :a -> :m Unit))
+  (declare push-chan (Threads :rt :t :m => MChan :a * :a -> :m Unit))
   (define (push-chan chan val)
     "Push VAL onto CHAN."
     (do
@@ -533,7 +533,7 @@ Concurrent:
     "Pop the front value in CHAN. Blocks while CHAN is empty."
     (pop-chan-with NoTimeout chan))
 
-  (declare pop-chan-with (Threads :rt :t :m => TimeoutStrategy -> MChan :a -> :m :a))
+  (declare pop-chan-with (Threads :rt :t :m => TimeoutStrategy * MChan :a -> :m :a))
   (define (pop-chan-with strategy chan)
     "Pop the front value in CHAN. Blocks while CHAN is empty."
     (do

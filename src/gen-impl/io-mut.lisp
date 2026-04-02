@@ -35,14 +35,14 @@
     (wrap-io (c:read cel)))
 
   (inline)
-  (declare write% (MonadIo :m => Var :a -> :a -> :m :a))
+  (declare write% (MonadIo :m => Var :a * :a -> :m :a))
   (define (write% (Var% cel) val)
     "Set the value in an Var and return the old value."
     (wrap-io
       (c:swap! cel val)))
 
   (inline)
-  (declare modify% (MonadIo :m => Var :a -> (:a -> :a) -> :m :a))
+  (declare modify% (MonadIo :m => Var :a * (:a -> :a) -> :m :a))
   (define (modify% (Var% cel) f)
     "Modify the value in an Var and return the old value."
     (wrap-io (c:update-swap! f cel))))

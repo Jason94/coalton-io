@@ -79,7 +79,7 @@
     (trace (build-str (force-string msg) " <" thread-name ">"))
     (t/l:release write-term-lock%))
 
-  (declare atomic-fetch-or (at:AtomicInteger -> Word -> Word))
+  (declare atomic-fetch-or (at:AtomicInteger * Word -> Word))
   (define (atomic-fetch-or at-int mask)
     (let old = (at:read at-int))
     (let new = (b:or old mask))
@@ -88,7 +88,7 @@
         (atomic-fetch-or at-int mask)))
 
   (inline)
-  (declare matches-flag (Word -> Word -> Boolean))
+  (declare matches-flag (Word * Word -> Boolean))
   (define (matches-flag a b)
     "Check if A and B share any 1 bits."
     (lisp (-> Boolean) (a b)
@@ -313,7 +313,7 @@ Concurrent:
     (lisp (-> IoThread) ()
       *global-thread*))
 
-  (declare subscribe-child!% (IoThread -> IoThread -> Boolean))
+  (declare subscribe-child!% (IoThread * IoThread -> Boolean))
   (define (subscribe-child!% child parent)
     "Subscribe child to parent if the parent has Running status. Returns TRUE
 if the parent was running and the child should continue, FALSE if the parent
@@ -344,7 +344,7 @@ was stopping/stopped and the child should not start."
     (lk:release (.child-lk thread))
     Unit)
 
-  (declare handle-thread-err-result!% (ForkStrategy IoThread -> Dynamic -> Result Dynamic Unit))
+  (declare handle-thread-err-result!% (ForkStrategy IoThread * Dynamic -> Result Dynamic Unit))
   (define (handle-thread-err-result!% strategy e)
     (if (can-cast-to? e (the (Proxy ThreadingException) Proxy))
         (Ok Unit)
@@ -363,7 +363,7 @@ was stopping/stopped and the child should not start."
           ((ThrowException)
            (throw-dynamic e)))))
 
-  (declare thread-runner!% (ForkStrategy IoThread -> IoThread -> (Void -> Result Dynamic :a) -> Result Dynamic Unit))
+  (declare thread-runner!% (ForkStrategy IoThread * IoThread * (Void -> Result Dynamic :a) -> Result Dynamic Unit))
   (define (thread-runner!% strategy thread-container thunk)
     ;; CONCURRENT:
     ;; - Once the catch machinery is set up, unmask from the initial mask. Prevents
@@ -398,7 +398,7 @@ was stopping/stopped and the child should not start."
        (handle-thread-err-result!% strategy
                                    (to-dynamic (InterruptCurrentThread msg))))))
 
-  (declare fork-inner!% (ForkStrategy IoThread -> (Void -> Result Dynamic :a) -> IoThread))
+  (declare fork-inner!% (ForkStrategy IoThread * (Void -> Result Dynamic :a) -> IoThread))
   (define (fork-inner!% strategy thunk)
     ;; Both the returning thread handle and the one made available to the child
     ;; thread have to have the IoThread packaged together before they do anything
@@ -443,7 +443,7 @@ was stopping/stopped and the child should not start."
     thread-container)
 
   (inline)
-  (declare fork!% (ForkStrategy IoThread -> (Void -> Result Dynamic :a) -> IoThread))
+  (declare fork!% (ForkStrategy IoThread * (Void -> Result Dynamic :a) -> IoThread))
   (define (fork!% strategy thunk)
     (fork-inner!% strategy thunk))
 
@@ -500,7 +500,7 @@ was stopping/stopped and the child should not start."
 
   ;; TODO: Merge this with unmask-current-thread-finally!% when Threads
   ;; loses the unmask other thread functions
-  (declare unmask-finally!% (IoThread -> (UnmaskFinallyMode -> :a) -> Unit))
+  (declare unmask-finally!% (IoThread * (UnmaskFinallyMode -> :a) -> Unit))
   (define (unmask-finally!% thread thunk)
     "Unmask the thread. Guarantees that THUNK will be run, regardless of pending
 stop, with either the RUNNING or STOPPED mode. Finally, checks if there is a pending
@@ -614,7 +614,7 @@ just be limited to implementing only solutions #2 or #3.
 
   (inline)
   (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m)
-                            => IoThread -> (UnmaskFinallyMode -> :r Unit) -> :m Unit))
+                            => IoThread * (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-finally% thread thunk)
     (lift-to
      (with-run-in-io
@@ -644,9 +644,9 @@ just be limited to implementing only solutions #2 or #3.
   ;; For full discussion of the park algorithm, see top of the file and docs/runtime.md
   (declare park-current-thread-if-with!% (Runtime :rt IoThread
                                           => Proxy :rt
-                                          -> (Generation -> Unit)
-                                          -> (Void -> Boolean)
-                                          -> TimeoutStrategy
+                                          * (Generation -> Unit)
+                                          * (Void -> Boolean)
+                                          * TimeoutStrategy
                                           -> Unit))
   (define (park-current-thread-if-with!% rt-prx with-gen should-park? strategy)
     ;; CONCURRENT:
@@ -699,13 +699,13 @@ just be limited to implementing only solutions #2 or #3.
   (inline)
   (declare park-current-thread-if!% (Runtime :rt IoThread
                                      => Proxy :rt
-                                     -> (Generation -> Unit)
-                                     -> (Void -> Boolean)
+                                     * (Generation -> Unit)
+                                     * (Void -> Boolean)
                                      -> Unit))
   (define (park-current-thread-if!% rt-prx with-gen should-park?)
     (park-current-thread-if-with!% rt-prx with-gen should-park? NoTimeout))
 
-  (declare unpark-thread!% (Generation -> IoThread -> Unit))
+  (declare unpark-thread!% (Generation * IoThread -> Unit))
   (define (unpark-thread!% gen thread)
     ;; CONCURRENT:
     ;; - Masks around the critical region

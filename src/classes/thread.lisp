@@ -148,7 +148,7 @@ ThreadingException.
 
   ;; TODO: Convert the generation stuff to use my own AtomicInteger, not coalton-thread's,
   ;; so I can use the same CAS loop algorithms.
-  (declare atomic-set-generation%! (Generation -> at:AtomicInteger -> Unit))
+  (declare atomic-set-generation%! (Generation * at:AtomicInteger -> Unit))
   (define (atomic-set-generation%! (Generation gen) atm)
     "Set the value of ATM to GEN."
     (rec % ()
@@ -173,7 +173,7 @@ over the underlying thread type."
      (Proxy :r -> :t))
     (sleep!
      "Sleep the current thread for MSECS milliseconds."
-     (Proxy :r -> UFix -> Unit))
+     (Proxy :r * UFix -> Unit))
     (fork!
      "Spawn a new thread, which starts running immediately.
 Returns the handle to the thread.
@@ -181,30 +181,30 @@ Returns the handle to the thread.
 The ForkStrategy controls both:
   - how unhandled exceptions behave, and
   - whether the fork is structured (and which thread's scope owns it)."
-     (Proxy :r -> (ForkStrategy :t) -> (Void -> Result Dynamic :a) -> :t))
+     (Proxy :r * (ForkStrategy :t) * (Void -> Result Dynamic :a) -> :t))
     (join!
      "Block the current thread until the target thread is completed.
 Does not a retrieve value. Raises an exception if the target thread
 raised an unhandled exception, wrapping the target thread's raised
 exception. JOIN! is the lowest level operation to block on another
 thread's termination, and most code should use AWAIT instead."
-     (Proxy :r -> :t -> Result Dynamic Unit))
+     (Proxy :r * :t -> Result Dynamic Unit))
     (stop!
      "Stop a :t. If the thread has already stopped, does nothing.
 If the :t is masked, this will pend a stop on the :t. When/if
 the :t becomes completely unmaksed, it will stop iself. Regardless
 of whether the target :t is masked, STOP does not block or wait for
 the target thread to complete."
-     (Proxy :r -> :t -> Unit))
+     (Proxy :r * :t -> Unit))
     (mask!
      "Mask the thread so it can't be stopped."
-     (Proxy :r -> :t -> Unit))
+     (Proxy :r * :t -> Unit))
     (unmask!
      "Unmask the thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
 stopped after being unmasked N times. When the thread unmasks, if
 there are any pending stops, it will immediately be stopped."
-     (Proxy :r -> :t -> Unit))
+     (Proxy :r * :t -> Unit))
     (unmask-finally!
      "Unmask the thread, run the provided action, and then honor any pending stop for that
 thread after the action finishes.
@@ -214,7 +214,7 @@ inconsistent with whether the Concurrent is ultimately stopped. Regardless of th
 callback should leave any resources in a valid state. An example of a valid callback: closing a log
 file if the thread is stopped, or closing the log file with a final message if the thread is
 continuing."
-      (Proxy :r -> :t -> (UnmaskFinallyMode -> :a) -> Unit))
+      (Proxy :r * :t * (UnmaskFinallyMode -> :a) -> Unit))
     (park-current-thread-if!
      "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
@@ -225,7 +225,7 @@ Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
   - Can briefly block while trying to park the thread, if contended."
-     (Proxy :r -> (Generation -> Unit) -> (Void -> Boolean) -> Unit))
+     (Proxy :r * (Generation -> Unit) * (Void -> Boolean) -> Unit))
     (park-current-thread-if-with!
      "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
@@ -236,7 +236,7 @@ Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
   - Can briefly block while trying to park the thread, if contended."
-     (Proxy :r -> (Generation -> Unit) -> (Void -> Boolean) -> TimeoutStrategy -> Unit))
+     (Proxy :r * (Generation -> Unit) * (Void -> Boolean) * TimeoutStrategy -> Unit))
     (unpark-thread!
      "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread
@@ -244,7 +244,7 @@ has unparked and re-parked since the initial park.
 
 Concurrent:
   - Can briefly block while trying to unpark the thread, if contended."
-     (Proxy :r -> Generation -> :t -> Unit))
+     (Proxy :r * Generation * :t -> Unit))
      )
 
   (inline)
@@ -292,7 +292,7 @@ file if the thread is stopped, or closing the log file with a final message if t
 continuing."
      ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r) (Exceptions :m)
       (Threads :rt :t :m)
-      => :c -> (UnmaskFinallyMode -> :r :b) -> :m Unit)))
+      => :c * (UnmaskFinallyMode -> :r :b) -> :m Unit)))
 
   (inline)
   (declare concurrent-value-prx (Concurrent :c :a => :c -> Proxy :a))
@@ -319,7 +319,7 @@ threads, etc."
     Proxy)
 
   (inline)
-  (declare as-runtime-prx (Threads :rt :t :m => :m :a -> Proxy :rt -> :m :a))
+  (declare as-runtime-prx (Threads :rt :t :m => :m :a * Proxy :rt -> :m :a))
   (define (as-runtime-prx op _rt-prx)
     "Get the Runtime type for a Threads operation."
     op)
@@ -374,7 +374,7 @@ Assumes the output has type :m :a for some Threads :m."
 (coalton-toplevel
   (inline)
   (declare fork-thread-with ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :r)
-                             => ForkStrategy :t -> :r :a -> :m :t))
+                             => ForkStrategy :t * :r :a -> :m :t))
   (define (fork-thread-with strat op)
     "Spawn a new thread using STRAT.
 
@@ -478,7 +478,7 @@ stopped after being unmasked N times."
 
   (inline)
   (declare unmask-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r)
-                                  => :t -> (UnmaskFinallyMode -> :r :b) -> :m Unit))
+                                  => :t * (UnmaskFinallyMode -> :r :b) -> :m Unit))
   (define (unmask-thread-finally thread op-finally)
     "Unmask the thread, run the provided action, and then honor any
  pending stop for that thread after the action finishes.
@@ -524,7 +524,7 @@ the log file with a final message if the thread is continuing."
   ;; replace BaseIo here.
   (inline)
   (declare park-current-thread-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                                   => (Generation -> :io Unit) -> :io Boolean -> :m Unit))
+                                   => (Generation -> :io Unit) * :io Boolean -> :m Unit))
   (define (park-current-thread-if with-gen should-park?)
     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
@@ -544,8 +544,8 @@ Concurrent:
   (inline)
   (declare park-current-thread-if-with ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
                                         => (Generation -> :io Unit)
-                                        -> :io Boolean
-                                        -> TimeoutStrategy
+                                        * :io Boolean
+                                        * TimeoutStrategy
                                         -> :m Unit))
   (define (park-current-thread-if-with with-gen should-park? strategy)
     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
@@ -565,7 +565,7 @@ Concurrent:
                                     strategy)))
 
   (inline)
-  (declare unpark-thread (Threads :rt :t :m => Generation -> :t -> :m Unit))
+  (declare unpark-thread (Threads :rt :t :m => Generation * :t -> :m Unit))
   (define (unpark-thread gen thread)
     "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread
@@ -589,7 +589,7 @@ Concurrent:
 (coalton-toplevel
   (inline)
   (declare prxs-same-runtime ((Threads :rt :t :m1) (Threads :rt :t :m2)
-                              => Proxy (:m1 :a) -> Proxy (:m2 :b) -> Unit))
+                              => Proxy (:m1 :a) * Proxy (:m2 :b) -> Unit))
   (define (prxs-same-runtime _ _)
     "Force two Threads's to have the same runtime and thread type."
     Unit))

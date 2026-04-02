@@ -78,13 +78,13 @@
   (define-class (MonadIo :m => Sockets :m)
     (socket-listen
      "Start a new server socket, listening on HOSTNAME and PORT."
-     (String -> UFix -> :m ServerSocket))
+     (String * UFix -> :m ServerSocket))
     (socket-accept
      "Accept a connection with a new client."
      (ServerSocket -> :m ConnectionSocket))
     (socket-connect
      "Connect to a server at HOSTNAME and PORT, returning a new connection."
-     (String -> UFix -> :m ConnectionSocket))
+     (String * UFix -> :m ConnectionSocket))
     (close-connection
      "Close an open connection socket."
      (ConnectionSocket -> :m Unit))
@@ -92,20 +92,20 @@
      "Close an open server socket."
      (ServerSocket -> :m Unit))
     (write-line
-     (Into :s String => :s -> ConnectionSocket -> :m Unit))
+     (Into :s String => :s * ConnectionSocket -> :m Unit))
     (read-line
      "Read the next line from the socket. Blocks until data is sent!"
      (ConnectionSocket -> :m String))
 
     (byte-socket-listen
      "Start a new server socket for byte-stream connections, listening on HOSTNAME and PORT."
-     (String -> UFix -> :m ByteServerSocket))
+     (String * UFix -> :m ByteServerSocket))
     (byte-socket-accept
      "Accept a byte-stream connection with a new client."
      (ByteServerSocket -> :m ByteConnectionSocket))
     (byte-socket-connect
      "Connect to a server at HOSTNAME and PORT using a byte stream, returning a new connection."
-     (String -> UFix -> :m ByteConnectionSocket))
+     (String * UFix -> :m ByteConnectionSocket))
     (close-byte-connection
      "Close an open byte-stream connection socket."
      (ByteConnectionSocket -> :m Unit))
@@ -114,10 +114,10 @@
      (ByteServerSocket -> :m Unit))
     (write-bytes
      "Write all bytes in the vector to the socket."
-     (Vector U8 -> ByteConnectionSocket -> :m Unit))
+     (Vector U8 * ByteConnectionSocket -> :m Unit))
     (read-exactly
      "Read exactly N bytes from the socket. Blocks until N bytes are available."
-     (UFix -> ByteConnectionSocket -> :m (Vector U8)))
+     (UFix * ByteConnectionSocket -> :m (Vector U8)))
     )
 
   )

@@ -58,7 +58,7 @@
     (notify-not-full  cv:ConditionVariable))
 
   (inline)
-  (declare increment% (RingBuffer :a -> UFix -> UFix))
+  (declare increment% (RingBuffer :a * UFix -> UFix))
   (define (increment% buffer i)
     "Get the next index in BUFFER."
     (let next = (1+ i))
@@ -91,7 +91,7 @@
      (cv:new)
      (cv:new)))
 
-  (declare enqueue-with!% (Runtime :rt :t => Proxy :rt -> :a -> TimeoutStrategy -> RingBuffer :a -> Unit))
+  (declare enqueue-with!% (Runtime :rt :t => Proxy :rt * :a * TimeoutStrategy * RingBuffer :a -> Unit))
   (define (enqueue-with!% rt-prx elt strategy buffer)
     "Add ELT to BUFFER.
 
@@ -136,7 +136,7 @@ Concurrent:
             )))
 
   (inline)
-  (declare enqueue!% (Runtime :rt :t => Proxy :rt -> :a -> RingBuffer :a -> Unit))
+  (declare enqueue!% (Runtime :rt :t => Proxy :rt * :a * RingBuffer :a -> Unit))
   (define (enqueue!% rt-prx elt buffer)
     "Add ELT to BUFFER.
 
@@ -145,7 +145,7 @@ Concurrent:
   - If full, blocks until BUFFER is not full."
     (enqueue-with!% rt-prx elt NoTimeout buffer))
 
-  (declare try-enqueue!% (Runtime :rt :t => Proxy :rt -> :a -> RingBuffer :a -> Boolean))
+  (declare try-enqueue!% (Runtime :rt :t => Proxy :rt * :a * RingBuffer :a -> Boolean))
   (define (try-enqueue!% rt-prx elt buffer)
     "Attempt to add ELT to BUFFER. Returns True if equeue succeeded, False otherwise.
 
@@ -182,7 +182,7 @@ Concurrent: Can block acquiring lock on buffer."
           True)
         ))
 
-  (declare dequeue-with!% (Runtime :rt :t => Proxy :rt -> TimeoutStrategy -> RingBuffer :a -> :a))
+  (declare dequeue-with!% (Runtime :rt :t => Proxy :rt * TimeoutStrategy * RingBuffer :a -> :a))
   (define (dequeue-with!% rt-prx strategy buffer)
     "Pop an element from BUFFER.
 
@@ -232,7 +232,7 @@ Concurrent:
           )))
 
   (inline)
-  (declare dequeue!% (Runtime :rt :t => Proxy :rt -> RingBuffer :a -> :a))
+  (declare dequeue!% (Runtime :rt :t => Proxy :rt * RingBuffer :a -> :a))
   (define (dequeue!% rt-prx buffer)
     "Pop an element from BUFFER.
 
@@ -255,7 +255,7 @@ Concurrent:
     (wrap-io (new-ring-buffer% capacity)))
 
   (inline)
-  (declare enqueue-with (Threads :rt :t :m => :a -> TimeoutStrategy -> RingBuffer :a -> :m Unit))
+  (declare enqueue-with (Threads :rt :t :m => :a * TimeoutStrategy * RingBuffer :a -> :m Unit))
   (define (enqueue-with elt strategy buffer)
     "Add ELT to BUFFER.
 
@@ -265,7 +265,7 @@ Concurrent:
     (inject-runtime enqueue-with!% elt strategy buffer))
 
   (inline)
-  (declare enqueue (Threads :rt :t :m => :a -> RingBuffer :a -> :m Unit))
+  (declare enqueue (Threads :rt :t :m => :a * RingBuffer :a -> :m Unit))
   (define (enqueue elt buffer)
     "Add ELT to BUFFER.
 
@@ -275,7 +275,7 @@ Concurrent:
     (inject-runtime enqueue!% elt buffer))
 
   (inline)
-  (declare try-enqueue (Threads :rt :t :m => :a -> RingBuffer :a -> :m Boolean))
+  (declare try-enqueue (Threads :rt :t :m => :a * RingBuffer :a -> :m Boolean))
   (define (try-enqueue elt buffer)
     "Attempt to add ELT to BUFFER. Returns True if equeue succeeded, False otherwise.
 
@@ -283,7 +283,7 @@ Concurrent: Can block acquiring lock on buffer."
     (inject-runtime try-enqueue!% elt buffer))
 
   (inline)
-  (declare dequeue-with (Threads :rt :t :m => TimeoutStrategy -> RingBuffer :a -> :m :a))
+  (declare dequeue-with (Threads :rt :t :m => TimeoutStrategy * RingBuffer :a -> :m :a))
   (define (dequeue-with strategy buffer)
     "Pop an element from BUFFER.
 

@@ -68,9 +68,9 @@ Concurrent:
   (inline)
   (declare park-in-sets-if-with% (Runtime :rt :t
                                   => Proxy :rt
-                                  -> (Void -> Boolean)
-                                  -> TimeoutStrategy
-                                  -> List ParkingSet
+                                  * (Void -> Boolean)
+                                  * TimeoutStrategy
+                                  * List ParkingSet
                                   -> Unit))
   (define (park-in-sets-if-with% rt-prx should-park? strategy psets)
     (park-current-thread-if-with!
@@ -87,16 +87,16 @@ Concurrent:
 
   (inline)
   (declare park-in-sets-if% (Runtime :rt :t
-                              => Proxy :rt -> (Void -> Boolean) -> List ParkingSet -> Unit))
+                              => Proxy :rt * (Void -> Boolean) * List ParkingSet -> Unit))
   (define (park-in-sets-if% rt-prx should-park? psets)
     (park-in-sets-if-with% rt-prx should-park? NoTimeout psets))
 
   (inline)
   (declare park-in-set-if-with% (Runtime :rt :t
                                  => Proxy :rt
-                                 -> (Void -> Boolean)
-                                 -> TimeoutStrategy
-                                 -> ParkingSet
+                                 * (Void -> Boolean)
+                                 * TimeoutStrategy
+                                 * ParkingSet
                                  -> Unit))
   (define (park-in-set-if-with% rt-prx should-park? strategy pset)
     (park-current-thread-if-with!
@@ -112,13 +112,13 @@ Concurrent:
 
   (inline)
   (declare park-in-set-if% (Runtime :rt :t
-                              => Proxy :rt -> (Void -> Boolean) -> ParkingSet -> Unit))
+                              => Proxy :rt * (Void -> Boolean) * ParkingSet -> Unit))
   (define (park-in-set-if% rt-prx should-park? pset)
     (park-in-set-if-with% rt-prx should-park? NoTimeout pset))
 
   (inline)
   (declare park-in-sets-if-with ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                                 => :io Boolean -> TimeoutStrategy -> List ParkingSet -> :m Unit))
+                                 => :io Boolean * TimeoutStrategy * List ParkingSet -> :m Unit))
   (define (park-in-sets-if-with should-park? strategy psets)
     "Parks the current thread in PSETS if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
@@ -144,7 +144,7 @@ Concurrent:
 
   (inline)
   (declare park-in-sets-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                             => :io Boolean -> List ParkingSet -> :m Unit))
+                             => :io Boolean * List ParkingSet -> :m Unit))
   (define (park-in-sets-if should-park? psets)
     "Parks the current thread in PSETS if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
@@ -159,7 +159,7 @@ Concurrent:
 
   (inline)
   (declare park-in-set-if-with ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                                => :io Boolean -> TimeoutStrategy -> ParkingSet -> :m Unit))
+                                => :io Boolean * TimeoutStrategy * ParkingSet -> :m Unit))
   (define (park-in-set-if-with should-park? strategy pset)
     "Parks the current thread in PSET if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
@@ -184,7 +184,7 @@ Concurrent:
 
   (inline)
   (declare park-in-set-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                             => :io Boolean -> ParkingSet -> :m Unit))
+                             => :io Boolean * ParkingSet -> :m Unit))
   (define (park-in-set-if should-park? pset)
     "Parks the current thread in PSET if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even

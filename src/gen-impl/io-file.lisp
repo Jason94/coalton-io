@@ -85,7 +85,7 @@
   (define (abort% fs)
     (wrap-io (f_:abort fs)))
 
-  (declare copy% ((Into :a f_:Pathname) (Into :b f_:Pathname) (MonadIo :m) => :a -> :b -> :m (Result f_:FileError Unit)))
+  (declare copy% ((Into :a f_:Pathname) (Into :b f_:Pathname) (MonadIo :m) => :a * :b -> :m (Result f_:FileError Unit)))
   (define (copy% a b)
     (wrap-io (f_:copy! a b)))
 
@@ -105,7 +105,7 @@
   (define (remove-directory-recursive% p)
     (wrap-io (f_:remove-directory-recursive! p)))
 
-  (declare system-relative-pathname% ((Into :sys String) (MonadIo :m) => :sys -> String -> :m (Result f_:FileError f_:Pathname)))
+  (declare system-relative-pathname% ((Into :sys String) (MonadIo :m) => :sys * String -> :m (Result f_:FileError f_:Pathname)))
   (define (system-relative-pathname% sys name)
     (wrap-io (f_:system-relative-pathname sys name)))
 
@@ -117,11 +117,11 @@
   (define (read-file-lines% p)
     (wrap-io (f_:read-file-lines p)))
 
-  (declare write-to-file% ((Into :p f_:Pathname) (f_:File :a) (RuntimeRepr :a) (MonadIo :m) => :p -> (Vector :a) -> :m (Result f_:FileError Unit)))
+  (declare write-to-file% ((Into :p f_:Pathname) (f_:File :a) (RuntimeRepr :a) (MonadIo :m) => :p * (Vector :a) -> :m (Result f_:FileError Unit)))
   (define (write-to-file% p v)
     (wrap-io (f_:write-to-file! p v)))
 
-  (declare append-to-file% ((Into :p f_:Pathname) (f_:File :a) (RuntimeRepr :a) (MonadIo :m) => :p -> (Vector :a) -> :m (Result f_:FileError Unit)))
+  (declare append-to-file% ((Into :p f_:Pathname) (f_:File :a) (RuntimeRepr :a) (MonadIo :m) => :p * (Vector :a) -> :m (Result f_:FileError Unit)))
   (define (append-to-file% p v)
     (wrap-io (f_:append-to-file! p v)))
 
@@ -133,15 +133,15 @@
   (define (read-line% fs)
     (wrap-io (f_:read-line fs)))
 
-  (declare write-char% (MonadIo :m => (f_:FileStream Char) -> Char -> :m (Result f_:FileError Unit)))
+  (declare write-char% (MonadIo :m => (f_:FileStream Char) * Char -> :m (Result f_:FileError Unit)))
   (define (write-char% fs c)
     (wrap-io (f_:write-char fs c)))
 
-  (declare write-line% (MonadIo :m => (f_:FileStream Char) -> String -> :m (Result f_:FileError Unit)))
+  (declare write-line% (MonadIo :m => (f_:FileStream Char) * String -> :m (Result f_:FileError Unit)))
   (define (write-line% fs s)
     (wrap-io (f_:write-line fs s)))
 
-  (declare write-string% (MonadIo :m => (f_:FileStream Char) -> String -> :m (Result f_:FileError Unit)))
+  (declare write-string% (MonadIo :m => (f_:FileStream Char) * String -> :m (Result f_:FileError Unit)))
   (define (write-string% fs s)
     (wrap-io (f_:write-string fs s)))
 
@@ -149,15 +149,15 @@
   (define (read-file-to-vector% fs)
     (wrap-io (f_:read-file-to-vector fs)))
 
-  (declare read-vector% ((f_:File :a) (MonadIo :m) => (f_:FileStream :a) -> UFix -> :m (Result f_:FileError (Vector :a))))
+  (declare read-vector% ((f_:File :a) (MonadIo :m) => (f_:FileStream :a) * UFix -> :m (Result f_:FileError (Vector :a))))
   (define (read-vector% fs n)
     (wrap-io (f_:read-vector fs n)))
 
-  (declare write-vector% ((f_:File :a) (RuntimeRepr :a) (MonadIo :m) => (f_:FileStream :a) -> (Vector :a) -> :m (Result f_:FileError Unit)))
+  (declare write-vector% ((f_:File :a) (RuntimeRepr :a) (MonadIo :m) => (f_:FileStream :a) * (Vector :a) -> :m (Result f_:FileError Unit)))
   (define (write-vector% fs v)
     (wrap-io (f_:write-vector fs v)))
 
-  (declare set-file-position% (MonadIo :m => (f_:FileStream :a) -> UFix -> :m (Result f_:FileError Unit)))
+  (declare set-file-position% (MonadIo :m => (f_:FileStream :a) * UFix -> :m (Result f_:FileError Unit)))
   (define (set-file-position% fs pos)
     (wrap-io (f_:set-file-position fs pos)))
 )
@@ -206,7 +206,7 @@
   (declare with-open-file ((f_:File :a) (Files :i) (UnliftIo :r :i)
                            (LiftTo :r :m) (Exceptions :i) (Threads :rt :t :i)
                            => f_:StreamOptions
-                           -> ((f_:FileStream :a) -> :r :b)
+                           * ((f_:FileStream :a) -> :r :b)
                            -> :m :b))
   (define (with-open-file opts k)
      "Opens a file stream, performs K on it, then closes the stream.
@@ -225,7 +225,7 @@ in some cases. Try WITH-OPEN-FILE_ if you have issues."
   (declare with-temp-file ((f_:File :a) (Files :i) (Threads :rt :t :i)
                            (UnliftIo :r :i) (LiftTo :r :m) (Exceptions :i)
                            => String
-                           -> ((f_:FileStream :a) -> :r :b)
+                           * ((f_:FileStream :a) -> :r :b)
                            -> :m :b))
   (define (with-temp-file file-type k)
      "Performs an operation `thunk` on a temporary file. File type extensions need to include `.`

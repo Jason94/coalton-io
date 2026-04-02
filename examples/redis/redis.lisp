@@ -41,11 +41,11 @@
 ;;;
 
 (coalton-toplevel
-  (declare contains? (Eq :a => :a -> List :a -> Boolean))
+  (declare contains? (Eq :a => :a * List :a -> Boolean))
   (define (contains? elt lst)
     (opt:some? (l:elemindex elt lst)))
 
-  (declare mod-hash (Hash :h => :h -> UFix -> UFix))
+  (declare mod-hash (Hash :h => :h * UFix -> UFix))
   (define (mod-hash the-hash n)
     ;; Hash is implementation dependent, but will always be some kind of underlying integer.
     (lisp (-> UFix) (the-hash n)
@@ -86,7 +86,7 @@
       ((RespArray xs)
        (tm:write-line (<> "(array) " (force-string xs))))))
 
-  (declare do-command (Command -> nt:ByteConnectionSocket -> IO Boolean))
+  (declare do-command (Command * nt:ByteConnectionSocket -> IO Boolean))
   (define (do-command cmd conn)
     "Returns True if the client should continue, False if it should terminate."
     (do
@@ -206,7 +206,7 @@ to retry."
      (do-collect (bucket-tvar (.buckets (.data db)))
        (read-tvar bucket-tvar))))
 
-  (declare write-buckets (Database -> Vector (TVar Bucket) -> IO Unit))
+  (declare write-buckets (Database * Vector (TVar Bucket) -> IO Unit))
   (define (write-buckets db new-buckets)
     "Update the data in DB with the data in NEW-BUCKETS."
     (do
@@ -223,19 +223,19 @@ to retry."
     (v:length (.buckets (.data db))))
 
   (inline)
-  (declare bucket-for (String -> Database -> TVar Bucket))
+  (declare bucket-for (String * Database -> TVar Bucket))
   (define (bucket-for key db)
     (v:index-unsafe (mod-hash (hash key) (db-length db))
                     (.buckets (.data db))))
 
-  (declare write-key-tx (String -> String -> Database -> STM IO Unit))
+  (declare write-key-tx (String * String * Database -> STM IO Unit))
   (define (write-key-tx key val db)
     (let bucket = (bucket-for key db))
     (do
      (bucket-map <- (read-tvar bucket))
      (write-tvar bucket (hm:insert bucket-map key val))))
 
-  (declare read-key (String -> Database -> IO (Optional String)))
+  (declare read-key (String * Database -> IO (Optional String)))
   (define (read-key key db)
     (do
      (let bucket = (bucket-for key db))
@@ -244,7 +244,7 @@ to retry."
      (bucket-map <- (run-tx (read-tvar bucket)))
      (pure (hm:lookup bucket-map key))))
 
-  (declare rename-key (String -> String -> Database -> STM IO Boolean))
+  (declare rename-key (String * String * Database -> STM IO Boolean))
   (define (rename-key key new-key db)
     "Rename a key in the database. Returns True if the original key was found, False if
 it was missing."
@@ -267,7 +267,7 @@ it was missing."
         (write-key-tx new-key val db)
         (pure True)))))
 
-  (declare save-buckets (String -> List Bucket -> IO Unit))
+  (declare save-buckets (String * List Bucket -> IO Unit))
   (define (save-buckets filename buckets)
     "Dump the contents of BUCKETS into FILENAME as a RESP-encoded snapshot.
 
@@ -306,7 +306,7 @@ https://rdb.fnordig.de/file_format.html"
        ((Some (Ok val))
         (pure (Some val))))))
 
-  (declare load-dump-file (String -> UFix -> IO (Result String Database)))
+  (declare load-dump-file (String * UFix -> IO (Result String Database)))
   (define (load-dump-file filename n-buckets)
     "Load the contents of a dump file into a fresh database with N-BUCKETS buckets."
     (do
@@ -348,7 +348,7 @@ https://rdb.fnordig.de/file_format.html"
       ((Some ping-str)
        (pure (RespBulkString ping-str)))))
 
-  (declare handle-get-key (String -> Database -> IO Resp))
+  (declare handle-get-key (String * Database -> IO Resp))
   (define (handle-get-key key db)
     (do
      (value? <-
@@ -360,14 +360,14 @@ https://rdb.fnordig.de/file_format.html"
        ((Some val)
         (pure (RespBulkString val))))))
 
-  (declare handle-set-key (String -> String -> Database -> IO Resp))
+  (declare handle-set-key (String * String * Database -> IO Resp))
   (define (handle-set-key key val db)
     (do
      (do-with-writer-lock db
        (run-tx (write-key-tx key val db)))
      (pure OK-Response)))
 
-  (declare handle-rename-key (String -> String -> Database -> IO Resp))
+  (declare handle-rename-key (String * String * Database -> IO Resp))
   (define (handle-rename-key key new-key db)
     (do
      (result <-
@@ -399,7 +399,7 @@ https://rdb.fnordig.de/file_format.html"
           (write-buckets db (.buckets (.data new-buckets))))
         (pure Ok-Response)))))
 
-  (declare handle-client (nt:ByteConnectionSocket -> Database -> IO Unit))
+  (declare handle-client (nt:ByteConnectionSocket * Database -> IO Unit))
   (define (handle-client conn db)
     (do
      (rec % ()
@@ -436,7 +436,7 @@ https://rdb.fnordig.de/file_format.html"
               (%)))))))
      (tm:write-line "client disconnected")))
 
-  (declare accept-loop (nt:ByteServerSocket -> Database -> IO Unit))
+  (declare accept-loop (nt:ByteServerSocket * Database -> IO Unit))
   (define (accept-loop server db)
     (do
       (nt:do-byte-socket-accept-fork-with (conn (server))

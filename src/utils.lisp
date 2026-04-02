@@ -76,7 +76,7 @@
   (define-type Anything)
 
   (inline)
-  (declare anything-eq (Anything -> Anything -> Boolean))
+  (declare anything-eq (Anything * Anything -> Boolean))
   (define (anything-eq a b)
     (lisp (-> Boolean) (a b)
       (cl:eq a b)))
@@ -110,7 +110,7 @@
     (Dynamic% (to-anything a) (runtime-repr-of a)))
 
   (inline)
-  (declare force-dynamic (RuntimeRepr :a => Proxy :a -> :b -> Dynamic))
+  (declare force-dynamic (RuntimeRepr :a => Proxy :a * :b -> Dynamic))
   (define (force-dynamic ty-prx val)
     "Force anything into a Dynamic with runtime representation for the type
 represented by TY-PRX. Mainly useful after a type-test in CL."
@@ -130,7 +130,7 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
      (proxy-outer prx-b)))
 
   (inline)
-  (declare can-cast-to? (RuntimeRepr :b => Dynamic -> Proxy :b -> Boolean))
+  (declare can-cast-to? (RuntimeRepr :b => Dynamic * Proxy :b -> Boolean))
   (define (can-cast-to? (Dynamic% _ dyn-repr) repr-prx)
     "Check whether dyn-val can cast to a type."
     (== dyn-repr (runtime-repr repr-prx)))
@@ -200,12 +200,12 @@ Coalton exceptions via `define-exception`."
       (cl:format cl:nil "~a" x)))
 
   (inline)
-  (declare compose2 ((:c -> :d) -> (:a -> :b -> :c) -> :a -> :b -> :d))
+  (declare compose2 ((:c -> :d) * (:a * :b -> :c) * :a * :b -> :d))
   (define (compose2 fcd fabc a b)
     (fcd (fabc a b)))
 
   (inline)
-  (declare proxies-eql (Proxy :a -> Proxy :a -> Unit))
+  (declare proxies-eql (Proxy :a * Proxy :a -> Unit))
   (define (proxies-eql _ _)
     "Force two proxies to represent the same type."
     Unit)
@@ -247,7 +247,7 @@ Coalton exceptions via `define-exception`."
     Proxy)
 
   (inline)
-  (declare equate-proxies (Proxy :a -> Proxy :a -> Unit))
+  (declare equate-proxies (Proxy :a * Proxy :a -> Unit))
   (define (equate-proxies _ _)
     Unit)
   )

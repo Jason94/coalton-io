@@ -50,7 +50,7 @@
 ;;
 
 (coalton-toplevel
-  (declare contains? (Eq :a => :a -> List :a -> Boolean))
+  (declare contains? (Eq :a => :a * List :a -> Boolean))
   (define (contains? elt lst)
     (match lst
       ((Nil) False)
@@ -59,7 +59,7 @@
            True
            (contains? elt rst)))))
 
-  (declare str-contains? (Char -> String -> Boolean))
+  (declare str-contains? (Char * String -> Boolean))
   (define (str-contains? c s)
     (match (itr:find! (== c) (s:chars s))
       ((Some _) True)
@@ -121,7 +121,7 @@
   (define (num-wrong-guesses_ st)
     (.num-wrong-guesses st))
 
-  (declare run-hangman (HangmanConf -> HangmanM :a -> :a))
+  (declare run-hangman (HangmanConf * HangmanM :a -> :a))
   (define (run-hangman conf m)
     (run-io!
      (map tp:snd
@@ -149,7 +149,7 @@
                (pure (LetterGuess c)))))))
 
   (declare enter-letter-guess (MonadState HangmanState :m
-                               => String -> Char -> :m Unit))
+                               => String * Char -> :m Unit))
   (define (enter-letter-guess secret-word c)
     "Store the guessed letter and increment the number of wrong guesses."
     (modify

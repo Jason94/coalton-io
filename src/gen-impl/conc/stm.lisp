@@ -74,7 +74,7 @@
     pset)
 
   (inline)
-  (declare set-tvar% (TVar :a -> :a -> Unit))
+  (declare set-tvar% (TVar :a * :a -> Unit))
   (define (set-tvar% tvar val)
     (c:write! (unwrap-tvar% tvar) val)
     Unit)
@@ -123,7 +123,7 @@
     f-tx)
 
   (inline)
-  (declare run-stm% (TxData% -> STM :io :a -> :io (TxResult% :a)))
+  (declare run-stm% (TxData% * STM :io :a -> :io (TxResult% :a)))
   (define (run-stm% tx-data tx)
     ((unwrap-stm% tx) tx-data))
 
@@ -164,8 +164,8 @@ conditions. DONT USE THIS!"
      (fn (_)
        (pure (TxSuccess val)))))
 
-  (declare lifta2-tx% (Monad :io => (:a -> :b -> :c) -> STM :io :a -> STM :io :b -> STM :io :c))
-  (define (lifta2-tx% fa->b->c tx-a tx-b)
+  (declare lifta2-tx% (Monad :io => (:a * :b -> :c) * STM :io :a * STM :io :b -> STM :io :c))
+  (define (lifta2-tx% fa*b->c tx-a tx-b)
     (STM%
      (fn (tx-data)
        (matchM (run-stm% tx-data tx-a)
@@ -180,7 +180,7 @@ conditions. DONT USE THIS!"
             ((TxRetryAfterWrite strategy)
              (pure (TxRetryAfterWrite strategy)))
             ((TxSuccess val-b)
-             (pure (TxSuccess (fa->b->c val-a val-b))))))))))
+             (pure (TxSuccess (fa*b->c val-a val-b))))))))))
 
   (define-instance (Monad :io => Applicative (STM :io))
     (inline)
@@ -188,7 +188,7 @@ conditions. DONT USE THIS!"
     (define lifta2 lifta2-tx%))
 
   (inline)
-  (declare flatmap-tx% (Monad :io => STM :io :a -> (:a -> STM :io :b) -> STM :io :b))
+  (declare flatmap-tx% (Monad :io => STM :io :a * (:a -> STM :io :b) -> STM :io :b))
   (define (flatmap-tx% tx fa->stmb)
     (STM%
      (fn (tx-data)
@@ -290,7 +290,7 @@ conditions. DONT USE THIS!"
       (cl:make-hash-table :test 'cl:eq)))
 
   (inline)
-  (declare logged-write-value% (WriteHashTable% -> :a -> Optional Anything))
+  (declare logged-write-value% (WriteHashTable% * :a -> Optional Anything))
   (define (logged-write-value% write-log key)
      (lisp (-> Optional Anything) (write-log key)
        (cl:multiple-value-bind (val found?) (cl:gethash key write-log)
@@ -305,7 +305,7 @@ conditions. DONT USE THIS!"
       (cl:loop :for addr :being :the :hash-keys :of write-log
                :collect (call-coalton-function unwrap-tvar-pset% addr))))
 
-  (declare tx-logged-write-value% (TxData% -> :a -> Optional Anything))
+  (declare tx-logged-write-value% (TxData% * :a -> Optional Anything))
   (define (tx-logged-write-value% tx-data key)
     (match (logged-write-value% (.write-log tx-data) key)
       ((Some val)
@@ -318,7 +318,7 @@ conditions. DONT USE THIS!"
           None)))))
 
   (inline)
-  (declare log-write-value% (WriteHashTable% -> TVar :a -> :a -> Unit))
+  (declare log-write-value% (WriteHashTable% * TVar :a * :a -> Unit))
   (define (log-write-value% write-log addr val)
     (lisp (-> :a) (write-log addr val)
       (cl:setf (cl:gethash addr write-log) val))
@@ -402,7 +402,7 @@ For safety, disconnects the transactions when done."
        (i:chain! base-iter (iterate-read-log parent-tx)))))
 
   (inline)
-  (declare log-read-value (TVar :a -> :a -> TxData% -> Unit))
+  (declare log-read-value (TVar :a * :a * TxData% -> Unit))
   (define (log-read-value addr val tx-data)
     (c:push! (.read-log tx-data) (lisp (-> ReadEntry%) (addr val)
                                    (cl:cons addr val)))
@@ -501,7 +501,7 @@ For safety, disconnects the transactions when done."
             ((Some x) x))))))
 
   (inline)
-  (declare wait-for-write-tx!% (Runtime :rt :t => Proxy :rt -> TimeoutStrategy -> TxData% -> Unit))
+  (declare wait-for-write-tx!% (Runtime :rt :t => Proxy :rt * TimeoutStrategy * TxData% -> Unit))
   (define (wait-for-write-tx!% rt-prx strategy tx-data)
     ;; CONCURRENT:
     ;; - Inherits concurrent semantics of park-in-sets-if%
@@ -515,7 +515,7 @@ For safety, disconnects the transactions when done."
      (map read-entry-pset% (c:read (.read-log tx-data))))
     Unit)
 
-  (declare inner-read-tvar% (TVar :a -> TxData% -> TxResult% :a))
+  (declare inner-read-tvar% (TVar :a * TxData% -> TxResult% :a))
   (define (inner-read-tvar% tvar tx-data)
     (match (tx-logged-write-value% tx-data tvar)
       ((Some written-val)
@@ -537,7 +537,7 @@ For safety, disconnects the transactions when done."
                 (% (tvar-value% tvar)))))))))
 
   (inline)
-  (declare inner-write-tvar% (TVar :a -> :a -> TxData% -> TxResult% Unit))
+  (declare inner-write-tvar% (TVar :a * :a * TxData% -> TxResult% Unit))
   (define (inner-write-tvar% tvar val tx-data)
     (TxSuccess
      (log-write-value% (.write-log tx-data) tvar val)))
@@ -552,14 +552,14 @@ For safety, disconnects the transactions when done."
          (inner-read-tvar% tvar tx-data)))))
 
   (inline)
-  (declare write-tvar (MonadIo :m => TVar :a -> :a -> STM :m Unit))
+  (declare write-tvar (MonadIo :m => TVar :a * :a -> STM :m Unit))
   (define (write-tvar tvar val)
     "Write to a mutable variable inside an atomic transaction."
     (STM%
      (fn (tx-data)
        (wrap-io (inner-write-tvar% tvar val tx-data)))))
 
-  (declare swap-tvar (MonadIo :m => TVar :a -> :a -> STM :m :a))
+  (declare swap-tvar (MonadIo :m => TVar :a * :a -> STM :m :a))
   (define (swap-tvar tvar new-val)
     "Swap the value of a mutable variable inside an atomic transaction. Returns the old
 value."
@@ -576,7 +576,7 @@ value."
             (map (const val)
                  (inner-write-tvar% tvar new-val tx-data))))))))
 
-  (declare modify-tvar (MonadIo :m => TVar :a -> (:a -> :a) -> STM :m :a))
+  (declare modify-tvar (MonadIo :m => TVar :a * (:a -> :a) -> STM :m :a))
   (define (modify-tvar tvar f)
     "Modify a mutable variable inside an atomic transaction. Returns the new value."
     (STM%
@@ -593,7 +593,7 @@ value."
             (map (const result)
                  (inner-write-tvar% tvar result tx-data))))))))
 
-  (declare modify-swap-tvar (MonadIo :m => TVar :a -> (:a -> :a) -> STM :m :a))
+  (declare modify-swap-tvar (MonadIo :m => TVar :a * (:a -> :a) -> STM :m :a))
   (define (modify-swap-tvar tvar f)
     "Modify a mutable variable inside an atomic transaction. Returns the old value."
     (STM%
@@ -690,7 +690,7 @@ Concurrent:
 "
     (retry-with NoTimeout))
 
-  (declare or-else (MonadIo :m => STM :m :a -> STM :m :a -> STM :m :a))
+  (declare or-else (MonadIo :m => STM :m :a * STM :m :a -> STM :m :a))
   (define (or-else tx-a tx-b)
     "Run TX-A. If it signals a retry, run TX-b. If both transactions signal a
 retry, then the entire transaction retries."
