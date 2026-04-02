@@ -20,6 +20,8 @@ _coalton-io_ also allows you to extend all of this functionality for free if you
 
 ### Documentation
 
+A good place to start is the [Greeter Example](examples/greeter.lisp). There are more advanced examples that demonstrate other features, like multithreading, listed below.
+
 [**Read the API docs here**](https://jason94.github.io/coalton-io/)
 
 [Read the asynchronous runtime specification here](docs/runtime.md)
@@ -64,12 +66,6 @@ See [the coalton-io-template Readme](https://github.com/Jason94/coalton-io-templ
 
 ### Installing Manually
 
-`coalton-io` depends on a later version of Coalton than the current Quicklisp release. You can easily install it by checking it out to your `local-projects` directory:
-
-```bash
-git clone https://github.com/coalton-lang/coalton.git ~/quicklisp/local-projects/coalton
-```
-
 Once you have the latest version of Coalton, you can install `coalton-io` from [Ultralisp](https://ultralisp.org/). See the Ultralisp website for setup instructions. Once the "ultralisp" distribution is set up, simply install it with:
 
 ```lisp
@@ -78,15 +74,17 @@ Once you have the latest version of Coalton, you can install `coalton-io` from [
 
 ## Examples
 
-_coalton-io_ has a several example programs to demonstrate how to use `IO`:
+_coalton-io_ has a several example programs:
 
 #### Beginner Examples
 
-* [Networking](examples/network-demo.lisp) - Run a simple client and server that allows the client to send messages to the server.
-  - _Demonstrates_: Networking, resource safety, terminal IO
+* [Greeter](examples/greeter.lisp) - Ask the user for their name and print a friendly greeting in the terminal.
+  - _Demonstrates_: How to make and run an IO program, terminal IO
 
 #### Intermediate Examples
 
+* [Networking](examples/network-demo.lisp) - Run a simple client and server that allows the client to send messages to the server.
+  - _Demonstrates_: Networking, resource safety, terminal IO
 * [Hangman](examples/hangman.lisp) - Play a game of hangman in the terminal. Shows `IO` basics and terminal IO.
   - _Demonstrates_: Terminal IO, file IO, how to implement the common "ReaderT" pattern for structuring functional programs, how to use "capability class" style to make generic io-capable functions
 * [Channels & Threading](examples/channels-threading.lisp) - Multithreaded application to process an input data file.
