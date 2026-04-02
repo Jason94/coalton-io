@@ -90,7 +90,7 @@ Continues to carry any unhandeld exceptions not of type :e."
 raised any exceptions."
     (handle-all
      (map Some op)
-     (const (pure None))))
+     (fn () (pure None))))
 
   (inline)
   (declare raise-result ((Exceptions :m) (RuntimeRepr :e) (Signalable :e)
