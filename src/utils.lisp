@@ -7,8 +7,10 @@
    #:coalton-library/types
    )
   (:local-nicknames
+   (:it #:coalton-library/iterator)
    (:b #:coalton-library/bits))
   (:export
+   #:foreach
    #:cl-maptree
    #:Word
    #:build-str
@@ -47,6 +49,25 @@
 (cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 0)))
 
 (named-readtables:in-readtable coalton:coalton)
+
+(coalton-toplevel
+
+ (declare %foreach (it:IntoIterator :i :a => :i * (:a -> :b) -> Void))
+ (define (%foreach coll f)
+   (let iter = (it:into-iter coll))
+   (rec % ((item? (it:next! iter)))
+     (match item?
+       ((Some item)
+        (f item)
+        (% (it:next! iter)))
+       ((None)
+        (values))))))
+
+(defmacro foreach ((variable iter) cl:&body body)
+  "Perform `body` with `variable` bound to each element in `iter`.
+
+`iter` must have a valid `IntoIter` instance."
+  `(%foreach ,iter (fn (,variable) ,@body (values))))
 
 (cl:defun cl-maptree (fn tree)
   "Recursively applies FN to all non-cons elements (atoms) in a tree structure."

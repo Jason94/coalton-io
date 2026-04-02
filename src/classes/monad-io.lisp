@@ -193,12 +193,12 @@ and return the results. If you're having inference issues, try map-into-io_"
          (fn (run)
            (wrap-io
              (let results = (c:new (make-list)))
-             (for a in (it:into-iter itr)
+             (foreach (a itr)
                (c:push! results (run! (run (a->rb a)))))
              (reverse (c:read results)))))))
 
   (declare foreach-io ((UnliftIo :r :io) (LiftTo :r :m) (it:IntoIterator :i :a)
-                       => :i * (c:Cell :a -> :r :b) -> :m Unit))
+                       => :i * (c:Cell :a -> :r :b) -> :m Void))
   (define (foreach-io coll a->mb)
     "Efficiently perform a monadic operation for each element of an iterator.
 The next element of the iterator is passed into the operation via a cell.
@@ -212,16 +212,16 @@ faster!"
            (let fst = (it:next! itr))
            (match fst
              ((None)
-              Unit)
+              (values))
              ((Some initial-val)
               (let c = (c:new initial-val))
               (let monad-op = (run (a->mb c)))
               (run! monad-op)
-              (for a in itr
+              (foreach (a itr)
                 (c:write! c a)
                 (run! monad-op)))))))))
 
-  (declare times-io ((UnliftIo :r :io) (LiftTo :r :m) => UFix * :r :b -> :m Unit))
+  (declare times-io ((UnliftIo :r :io) (LiftTo :r :m) => UFix * :r :b -> :m Void))
   (define (times-io n io-op)
     "Efficiently perform an IO operation N times. If the effect can be run in
 simple-io/IO, the version in that package will be faster!"
