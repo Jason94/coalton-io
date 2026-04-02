@@ -171,7 +171,8 @@ mutable variables, multithreading, and several data structures to safely share s
   :components ((:module "examples"
                 :serial t
                 :components
-                ((:file "channels-threading")
+                ((:file "greeter")
+                 (:file "channels-threading")
                  (:file "hangman")
                  (:file "fork-laws")
                  (:file "network-demo")
