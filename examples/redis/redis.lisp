@@ -293,15 +293,26 @@ https://rdb.fnordig.de/file_format.html"
            (v:set! 1 (RespBulkString val) buffer))
           (write-resp (RespArray buffer) fs)))))
 
+  (declare next-resp-item (f:FileStream U8 -> IO (Optional Resp)))
+  (define (next-resp-item fs)
+    "Try to read the next response item from a file stream."
+    (do
+     (result? <- (try-all (read-resp fs)))
+     (match result?
+       ((None)
+        (pure None))
+       ((Some (Err _))
+        (pure None))
+       ((Some (Ok val))
+        (pure (Some val))))))
+
   (declare load-dump-file (String -> UFix -> IO (Result String Database)))
   (define (load-dump-file filename n-buckets)
     "Load the contents of a dump file into a fresh database with N-BUCKETS buckets."
     (do
      (db <- (new-database n-buckets))
      (io-f:do-with-open-file_ (f:Input (into filename)) (fs)
-       ;; Peg type of FS to (FileStream U8)
-       (let _ = (the (f:FileStream U8) fs))
-       (do-loop-while-valM (resp-item (read-resp fs))
+       (do-loop-while-valM (resp-item (next-resp-item fs))
          (do-when-match resp-item (RespArray data)
            (do-when (== (v:length data) 2)
              (do-when-match (Tuple (v:index-unsafe 0 data) (v:index-unsafe 1 data))
