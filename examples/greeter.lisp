@@ -5,7 +5,9 @@
    #:coalton-prelude
    #:io/simple-io)
   (:local-nicknames
-   (:tm #:io/term)))
+   (:tm #:io/term))
+  (:export
+   #:run-example))
 
 (in-package :io/examples/greeter)
 
@@ -35,6 +37,6 @@
      ;; Now, we execute another tm:write-line program that prints out a customized greeting.
      (tm:write-line (<> (<> "Hello, " user-name) "!")))))
 
-(cl:defun run-greeter-program ()
+(cl:defun run-example ()
   ;; run-io! runs the greeter program we created above.
   (coalton (run-io! greeter-program)))
