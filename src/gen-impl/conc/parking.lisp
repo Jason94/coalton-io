@@ -47,7 +47,7 @@ if ParkingSet doesn't provide enough functionality for the algorithm.
 Concurrent:
   - ParkingSet's algorithms are lock free, but individual threads can block for a very
     short window if contention on the parking set is very high."
-    (ParkingSet% (at:Atomic (List (Void -> Unit)))))
+    (ParkingSet% (at:Atomic (List (Void -> Void)))))
 
   (inline)
   (declare new-parking-set% (Void -> ParkingSet))
@@ -61,7 +61,7 @@ Concurrent:
     (wrap-io_ new-parking-set%))
 
   (inline)
-  (declare get-set% (ParkingSet -> at:Atomic (List (Void -> Unit))))
+  (declare get-set% (ParkingSet -> at:Atomic (List (Void -> Void))))
   (define (get-set% (ParkingSet% atm))
     atm)
 
@@ -71,23 +71,23 @@ Concurrent:
                                   * (Void -> Boolean)
                                   * TimeoutStrategy
                                   * List ParkingSet
-                                  -> Unit))
+                                  -> Void))
   (define (park-in-sets-if-with% rt-prx should-park? strategy psets)
     (park-current-thread-if-with!
      rt-prx
      (fn (gen)
        (let parked-thread = (current-thread! rt-prx))
-       (let unpark-action = (fn (_)
+       (let unpark-action = (fn ()
                               (unpark-thread! rt-prx gen parked-thread)))
-       (for pset in psets
+       (foreach (pset psets)
          (at:atomic-push (get-set% pset) unpark-action))
-       Unit)
+       (values))
      should-park?
      strategy))
 
   (inline)
   (declare park-in-sets-if% (Runtime :rt :t
-                              => Proxy :rt * (Void -> Boolean) * List ParkingSet -> Unit))
+                              => Proxy :rt * (Void -> Boolean) * List ParkingSet -> Void))
   (define (park-in-sets-if% rt-prx should-park? psets)
     (park-in-sets-if-with% rt-prx should-park? NoTimeout psets))
 
@@ -97,28 +97,28 @@ Concurrent:
                                  * (Void -> Boolean)
                                  * TimeoutStrategy
                                  * ParkingSet
-                                 -> Unit))
+                                 -> Void))
   (define (park-in-set-if-with% rt-prx should-park? strategy pset)
     (park-current-thread-if-with!
      rt-prx
      (fn (gen)
        (let parked-thread = (current-thread! rt-prx))
-       (let unpark-action = (fn (_)
+       (let unpark-action = (fn ()
                               (unpark-thread! rt-prx gen parked-thread)))
        (at:atomic-push (get-set% pset) unpark-action)
-       Unit)
+       (values))
      should-park?
      strategy))
 
   (inline)
   (declare park-in-set-if% (Runtime :rt :t
-                              => Proxy :rt * (Void -> Boolean) * ParkingSet -> Unit))
+                              => Proxy :rt * (Void -> Boolean) * ParkingSet -> Void))
   (define (park-in-set-if% rt-prx should-park? pset)
     (park-in-set-if-with% rt-prx should-park? NoTimeout pset))
 
   (inline)
   (declare park-in-sets-if-with ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                                 => :io Boolean * TimeoutStrategy * List ParkingSet -> :m Unit))
+                                 => :io Boolean * TimeoutStrategy * List ParkingSet -> :m Void))
   (define (park-in-sets-if-with should-park? strategy psets)
     "Parks the current thread in PSETS if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
@@ -136,15 +136,15 @@ Concurrent:
          (let parked-thread = (current-thread! rt-prx))
          (let unpark-action = (fn ()
                                 (unpark-thread! rt-prx gen parked-thread)))
-         (for pset in psets
+         (foreach (pset psets)
            (at:atomic-push (get-set% pset) unpark-action))
-         Unit))
+         (values)))
      should-park?
      strategy))
 
   (inline)
   (declare park-in-sets-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                             => :io Boolean * List ParkingSet -> :m Unit))
+                             => :io Boolean * List ParkingSet -> :m Void))
   (define (park-in-sets-if should-park? psets)
     "Parks the current thread in PSETS if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
@@ -159,7 +159,7 @@ Concurrent:
 
   (inline)
   (declare park-in-set-if-with ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                                => :io Boolean * TimeoutStrategy * ParkingSet -> :m Unit))
+                                => :io Boolean * TimeoutStrategy * ParkingSet -> :m Void))
   (define (park-in-set-if-with should-park? strategy pset)
     "Parks the current thread in PSET if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
@@ -178,13 +178,13 @@ Concurrent:
          (let unpark-action = (fn ()
                                 (unpark-thread! rt-prx gen parked-thread)))
          (at:atomic-push (get-set% pset) unpark-action)
-         Unit))
+         (values)))
      should-park?
      strategy))
 
   (inline)
   (declare park-in-set-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                             => :io Boolean * ParkingSet -> :m Unit))
+                             => :io Boolean * ParkingSet -> :m Void))
   (define (park-in-set-if should-park? pset)
     "Parks the current thread in PSET if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
@@ -198,15 +198,15 @@ Concurrent:
     (park-in-set-if-with should-park? NoTimeout pset))
 
   (inline)
-  (declare unpark-set% (ParkingSet -> Unit))
+  (declare unpark-set% (ParkingSet -> Void))
   (define (unpark-set% pset)
     (let parked-actions = (at:atomic-swap (get-set% pset) Nil))
-    (for action in parked-actions
+    (foreach (action parked-actions)
       (action))
-    Unit)
+    (values))
 
   (inline)
-  (declare unpark-set (MonadIo :m => ParkingSet -> :m Unit))
+  (declare unpark-set (MonadIo :m => ParkingSet -> :m Void))
   (define (unpark-set pset)
     "Atomically reset PSET, then attempt to unpark all threads parked on the set.
 

@@ -40,7 +40,7 @@ afterward."
        (result <- op)
        unmask-current-thread
        (pure result))
-      (fn (_)
+      (fn ()
         unmask-current-thread))))
   )
 
@@ -143,7 +143,7 @@ will release before the thread is stopped."
                (result <- (computation-op resource))
                (with-mask (release-op resource))
                (pure result))
-              (fn (_)
+              (fn ()
                 (with-mask (release-op resource))))))
 
   (declare bracket-io-masked_ ((Exceptions :m) (Threads :rt :t :m)
@@ -162,7 +162,7 @@ Masks the thread during the entire operation, including the computation."
                (result <- (computation-op resource))
                (release-op resource)
                (pure result))
-              (fn (_)
+              (fn ()
                 (release-op resource)))))
 
   )

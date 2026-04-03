@@ -495,7 +495,7 @@ was stopping/stopped and the child should not start."
 
   ;; TODO: Merge this with unmask-current-thread-finally!% when Threads
   ;; loses the unmask other thread functions
-  (declare unmask-finally!% (IoThread * (UnmaskFinallyMode -> :a) -> Unit))
+  (declare unmask-finally!% (IoThread * (UnmaskFinallyMode -> :a) -> Void))
   (define (unmask-finally!% thread thunk)
     "Unmask the thread. Guarantees that THUNK will be run, regardless of pending
 stop, with either the RUNNING or STOPPED mode. Finally, checks if there is a pending
@@ -589,15 +589,15 @@ just be limited to implementing only solutions #2 or #3.
     (when (and (masked-once? flag-state)
                (matches-flag new-flag-state PENDING-KILL))
       (interrupt-iothread% thread))
-    Unit)
+    (values))
 
   (inline)
-  (declare unmask!% (IoThread -> Unit))
+  (declare unmask!% (IoThread -> Void))
   (define (unmask!% thread)
-    (unmask-finally!% thread (const Unit)))
+    (unmask-finally!% thread (fn (_) (values))))
 
   (inline)
-  (declare unmask-current-thread-finally!% ((UnmaskFinallyMode -> Unit) -> Unit))
+  (declare unmask-current-thread-finally!% ((UnmaskFinallyMode -> Void) -> Void))
   (define (unmask-current-thread-finally!% thunk)
     (unmask-finally!% (current-thread!%) thunk))
 
@@ -605,12 +605,12 @@ just be limited to implementing only solutions #2 or #3.
   (declare unmask-current-thread!% (Void -> Void))
   (define (unmask-current-thread!%)
     (unmask-current-thread-finally!%
-     (const Unit))
+     (fn (_) (values)))
     (values))
 
   (inline)
   (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m)
-                            => IoThread * (UnmaskFinallyMode -> :r Unit) -> :m Unit))
+                            => IoThread * (UnmaskFinallyMode -> :r Void) -> :m Void))
   (define (unmask-finally% thread thunk)
     (lift-to
      (with-run-in-io
@@ -619,7 +619,7 @@ just be limited to implementing only solutions #2 or #3.
 
   (inline)
   (declare unmask-current-thread-finally% ((UnliftIo :r :io) (LiftTo :r :m)
-                                           => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
+                                           => (UnmaskFinallyMode -> :r Void) -> :m Void))
   (define (unmask-current-thread-finally% thunk)
     (lift-to
      (with-run-in-io
@@ -737,16 +737,16 @@ just be limited to implementing only solutions #2 or #3.
   (define-instance (Concurrent IoThread Unit)
     (inline)
     (define (stop thread)
-      (wrap-io (stop!% thread) Unit))
+      (wrap-io (stop!% thread) (values)))
     (inline)
     (define (await thread)
       (raise-result-dynamic (wrap-io (join!% thread))))
     (inline)
     (define (mask thread)
-      (wrap-io (mask!% thread) Unit))
+      (wrap-io (mask!% thread) (values)))
     (inline)
     (define (unmask thread)
-      (wrap-io (unmask!% thread) Unit))
+      (wrap-io (unmask!% thread) (values)))
     (inline)
     (define (unmask-finally thread callback)
       (lift-to
@@ -754,6 +754,6 @@ just be limited to implementing only solutions #2 or #3.
          (fn (run)
            (wrap-io (unmask-finally!% thread (fn (mode)
                                                (run! (run (callback mode)))))
-                    Unit))))))
+                    (values)))))))
 
   )

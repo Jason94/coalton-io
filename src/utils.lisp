@@ -61,9 +61,11 @@
       (for ((,item?-sym (it:next! ,iter-sym) (it:next! ,iter-sym)))
         (match ,item?-sym
           ((Some ,variable)
-           ,@body)
+           ,@body
+           Unit)
           ((None)
-           (break)))))))
+           (break)
+           Unit))))))
 
 (defmacro while (condition cl:&body body)
   "Perform `body` while `condition` is true."

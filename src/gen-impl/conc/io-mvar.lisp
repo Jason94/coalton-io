@@ -124,7 +124,8 @@ deadlocks and other race conditions."
                     (.notify-full mvar)
                     (.lock mvar)
                     (fn ()
-                      (cv:notify (.notify-full mvar))))
+                      (cv:notify (.notify-full mvar))
+                      (values)))
                     (lp))))))
       (lp)))
 
@@ -188,7 +189,7 @@ Concurrent:
   - On succesful take, one blocking writer is woken in order of acquisition"
     (take-mvar-with NoTimeout mvar))
 
-  (declare put-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a * :a -> :m Unit))
+  (declare put-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a * :a -> :m Void))
   (define (put-mvar-with strategy mvar val)
     "Fill an empty MVar, blocking until it becomes empty.
 
@@ -224,7 +225,7 @@ Concurrent:
                      (publish (.read-broadcast-pool mvar) val)
                      (cv:notify (.notify-full mvar))
                      (unmask-current! rt-prx)
-                     Unit)
+                     (values))
                     ((Some _)
                      (unmask-and-await-safely-finally-with%
                       rt-prx
@@ -232,12 +233,13 @@ Concurrent:
                       (.notify-empty mvar)
                       lock
                       (fn ()
-                        (cv:notify (.notify-empty mvar))))
+                        (cv:notify (.notify-empty mvar))
+                        (values)))
                      (lp))))))
         (lp))))
 
   (inline)
-  (declare put-mvar (Threads :rt :t :m => MVar :a * :a -> :m Unit))
+  (declare put-mvar (Threads :rt :t :m => MVar :a * :a -> :m Void))
   (define (put-mvar mvar val)
     "Fill an empty MVar, blocking until it becomes empty.
 
@@ -420,7 +422,8 @@ Concurrent:
                       (.notify-full mvar)
                       (.lock mvar)
                       (fn ()
-                        (cv:notify (.notify-full mvar))))
+                        (cv:notify (.notify-full mvar))
+                        (values)))
                      (lp))))))
         (lp))))
 
@@ -517,7 +520,7 @@ Concurrent:
       (tail-var <- (new-mvar cell))
       (pure (MChan head-var tail-var))))
 
-  (declare push-chan (Threads :rt :t :m => MChan :a * :a -> :m Unit))
+  (declare push-chan (Threads :rt :t :m => MChan :a * :a -> :m Void))
   (define (push-chan chan val)
     "Push VAL onto CHAN."
     (do

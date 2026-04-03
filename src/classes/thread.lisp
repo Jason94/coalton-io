@@ -148,12 +148,12 @@ ThreadingException.
 
   ;; TODO: Convert the generation stuff to use my own AtomicInteger, not coalton-thread's,
   ;; so I can use the same CAS loop algorithms.
-  (declare atomic-set-generation%! (Generation * at:AtomicInteger -> Unit))
+  (declare atomic-set-generation%! (Generation * at:AtomicInteger -> Void))
   (define (atomic-set-generation%! (Generation gen) atm)
     "Set the value of ATM to GEN."
     (rec % ()
       (if (at:cas! atm (at:read atm) gen)
-          Unit
+          (values)
           (%))))
 
   (define-class (Runtime :r :t (:r -> :t))
@@ -268,19 +268,19 @@ input."
 masked, this will pend a stop on the Concurrent. When/if the Concurrent becomes completely unmaksed,
 it will stop iself. Regardless of whether the target Concurrent is masked, STOP does not block or
 wait for the target to complete."
-     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Unit))
+     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Void))
     (await
      "Block the current thread until the target Concurrent is completed, and retrieve its value.
 Re-raises if the target Concurrent raised an unhandled exception"
      ((Exceptions :m) (Threads :rt :t :m) => :c -> :m :a))
     (mask
      "Mask the Concurrent so it can't be stopped."
-     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Unit))
+     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Void))
     (unmask
      "Unmask the Concurrent so it can be stopped. Unmask respects nested masks - if the
 Concurrent has been masked N times, it can only be stopped after being unmasked N times. When the
 Concurrent unmasks, if there are any pending stops, it will immediately stop itself."
-     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Unit))
+     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Void))
     (unmask-finally
      "Unmask the thread, run the provided action, and then honor any pending stop for that
 thread after the action finishes.
@@ -292,7 +292,7 @@ file if the thread is stopped, or closing the log file with a final message if t
 continuing."
      ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r) (Exceptions :m)
       (Threads :rt :t :m)
-      => :c * (UnmaskFinallyMode -> :r :b) -> :m Unit)))
+      => :c * (UnmaskFinallyMode -> :r :b) -> :m Void)))
 
   (inline)
   (declare concurrent-value-prx (Concurrent :c :a => :c -> Proxy :a))
@@ -402,7 +402,7 @@ This is the default fork behavior: structured + log-and-swallow."
     (fork-thread-with (ForkStrategy LogAndSwallow Structured) op))
 
   (inline)
-  (declare join-thread ((Threads :rt :t :m) (Exceptions :m) => :t -> :m Unit))
+  (declare join-thread ((Threads :rt :t :m) (Exceptions :m) => :t -> :m Void))
   (define (join-thread thread)
     "Block the current thread until the target thread is completed.
 Does not a retrieve value. Raises an exception if the target thread
@@ -414,7 +414,7 @@ thread's termination."
     (as-proxy-of
      (do-matchM (wrap-io (join! rt-prx thread))
        ((Ok _)
-        (pure Unit))
+        (pure (values)))
        ((Err e)
         (raise (JoinedFailedThread e))))
      m-prx))
@@ -589,7 +589,7 @@ Concurrent:
 (coalton-toplevel
   (inline)
   (declare prxs-same-runtime ((Threads :rt :t :m1) (Threads :rt :t :m2)
-                              => Proxy (:m1 :a) * Proxy (:m2 :b) -> Unit))
+                              => Proxy (:m1 :a) * Proxy (:m2 :b) -> Void))
   (define (prxs-same-runtime _ _)
     "Force two Threads's to have the same runtime and thread type."
-    Unit))
+    (values)))
