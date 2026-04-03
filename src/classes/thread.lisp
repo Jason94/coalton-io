@@ -173,7 +173,7 @@ over the underlying thread type."
      (Proxy :r -> :t))
     (sleep!
      "Sleep the current thread for MSECS milliseconds."
-     (Proxy :r * UFix -> Unit))
+     (Proxy :r * UFix -> Void))
     (fork!
      "Spawn a new thread, which starts running immediately.
 Returns the handle to the thread.
@@ -195,16 +195,16 @@ If the :t is masked, this will pend a stop on the :t. When/if
 the :t becomes completely unmaksed, it will stop iself. Regardless
 of whether the target :t is masked, STOP does not block or wait for
 the target thread to complete."
-     (Proxy :r * :t -> Unit))
+     (Proxy :r * :t -> Void))
     (mask!
      "Mask the thread so it can't be stopped."
-     (Proxy :r * :t -> Unit))
+     (Proxy :r * :t -> Void))
     (unmask!
      "Unmask the thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
 stopped after being unmasked N times. When the thread unmasks, if
 there are any pending stops, it will immediately be stopped."
-     (Proxy :r * :t -> Unit))
+     (Proxy :r * :t -> Void))
     (unmask-finally!
      "Unmask the thread, run the provided action, and then honor any pending stop for that
 thread after the action finishes.
@@ -214,7 +214,7 @@ inconsistent with whether the Concurrent is ultimately stopped. Regardless of th
 callback should leave any resources in a valid state. An example of a valid callback: closing a log
 file if the thread is stopped, or closing the log file with a final message if the thread is
 continuing."
-      (Proxy :r * :t * (UnmaskFinallyMode -> :a) -> Unit))
+      (Proxy :r * :t * (UnmaskFinallyMode -> :a) -> Void))
     (park-current-thread-if!
      "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
@@ -225,7 +225,7 @@ Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
   - Can briefly block while trying to park the thread, if contended."
-     (Proxy :r * (Generation -> Unit) * (Void -> Boolean) -> Unit))
+     (Proxy :r * (Generation -> Void) * (Void -> Boolean) -> Void))
     (park-current-thread-if-with!
      "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
@@ -236,7 +236,7 @@ Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
   - Can briefly block while trying to park the thread, if contended."
-     (Proxy :r * (Generation -> Unit) * (Void -> Boolean) * TimeoutStrategy -> Unit))
+     (Proxy :r * (Generation -> Void) * (Void -> Boolean) * TimeoutStrategy -> Void))
     (unpark-thread!
      "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread
@@ -244,17 +244,17 @@ has unparked and re-parked since the initial park.
 
 Concurrent:
   - Can briefly block while trying to unpark the thread, if contended."
-     (Proxy :r * Generation * :t -> Unit))
+     (Proxy :r * Generation * :t -> Void))
      )
 
   (inline)
-  (declare mask-current! (Runtime :rt :t => Proxy :rt -> Unit))
+  (declare mask-current! (Runtime :rt :t => Proxy :rt -> Void))
   (define (mask-current! rt-prx)
     "Mask the current thread."
     (mask! rt-prx (current-thread! rt-prx)))
 
   (inline)
-  (declare unmask-current! (Runtime :rt :t => Proxy :rt -> Unit))
+  (declare unmask-current! (Runtime :rt :t => Proxy :rt -> Void))
   (define (unmask-current! rt-prx)
     "Unmask the current thread."
     (unmask! rt-prx (current-thread! rt-prx)))
@@ -420,13 +420,13 @@ thread's termination."
      m-prx))
 
   (inline)
-  (declare stop-thread (Threads :rt :t :m => :t -> :m Unit))
+  (declare stop-thread (Threads :rt :t :m => :t -> :m Void))
   (define (stop-thread thread)
     "Stop a thread. If the thread has already stopped, does nothing."
     (inject-runtime stop! thread))
 
   (inline)
-  (declare sleep (Threads :rt :t :m => UFix -> :m Unit))
+  (declare sleep (Threads :rt :t :m => UFix -> :m Void))
   (define (sleep msec)
     "Sleep the current thread for MSECS milliseconds."
     (inject-runtime sleep! msec))
@@ -438,13 +438,13 @@ thread's termination."
     (inject-runtime current-thread!))
 
   (inline)
-  (declare mask-thread (Threads :rt :t :m => :t -> :m Unit))
+  (declare mask-thread (Threads :rt :t :m => :t -> :m Void))
   (define (mask-thread thread)
      "Mask the thread so it can't be stopped."
     (inject-runtime mask! thread))
 
   (inline)
-  (declare mask-current-thread (Threads :rt :t :m => :m Unit))
+  (declare mask-current-thread (Threads :rt :t :m => :m Void))
   (define mask-current-thread
     "Mask the current thread so it can't be stopped."
     (let m-prx = Proxy)
@@ -456,7 +456,7 @@ thread's termination."
      m-prx))
 
   (inline)
-  (declare unmask-thread (Threads :rt :t :m => :t -> :m Unit))
+  (declare unmask-thread (Threads :rt :t :m => :t -> :m Void))
   (define (unmask-thread thread)
     "Unmask the thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
@@ -464,7 +464,7 @@ stopped after being unmasked N times."
     (inject-runtime unmask! thread))
 
   (inline)
-  (declare unmask-current-thread (Threads :rt :t :m => :m Unit))
+  (declare unmask-current-thread (Threads :rt :t :m => :m Void))
   (define unmask-current-thread
     "Unmask the current thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
@@ -478,7 +478,7 @@ stopped after being unmasked N times."
 
   (inline)
   (declare unmask-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r)
-                                  => :t * (UnmaskFinallyMode -> :r :b) -> :m Unit))
+                                  => :t * (UnmaskFinallyMode -> :r :b) -> :m Void))
   (define (unmask-thread-finally thread op-finally)
     "Unmask the thread, run the provided action, and then honor any
  pending stop for that thread after the action finishes.
@@ -499,7 +499,7 @@ continuing."
   ;; correctly, or might have other problems.
   (inline)
   (declare unmask-current-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r)
-                                          => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
+                                          => (UnmaskFinallyMode -> :r Void) -> :m Void))
   (define (unmask-current-thread-finally op-finally)
     "Unmask the current thread, run the provided action, and then honor any pending stop
 for that thread after the action finishes.
@@ -524,7 +524,7 @@ the log file with a final message if the thread is continuing."
   ;; replace BaseIo here.
   (inline)
   (declare park-current-thread-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                                   => (Generation -> :io Unit) * :io Boolean -> :m Unit))
+                                   => (Generation -> :io Void) * :io Boolean -> :m Void))
   (define (park-current-thread-if with-gen should-park?)
     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
@@ -543,10 +543,10 @@ Concurrent:
 
   (inline)
   (declare park-current-thread-if-with ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                                        => (Generation -> :io Unit)
+                                        => (Generation -> :io Void)
                                         * :io Boolean
                                         * TimeoutStrategy
-                                        -> :m Unit))
+                                        -> :m Void))
   (define (park-current-thread-if-with with-gen should-park? strategy)
     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
@@ -565,7 +565,7 @@ Concurrent:
                                     strategy)))
 
   (inline)
-  (declare unpark-thread (Threads :rt :t :m => Generation * :t -> :m Unit))
+  (declare unpark-thread (Threads :rt :t :m => Generation * :t -> :m Void))
   (define (unpark-thread gen thread)
     "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread

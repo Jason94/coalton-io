@@ -28,7 +28,7 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (declare raise-timeout-exception (String -> Unit))
+  (declare raise-timeout-exception (String -> Void))
   (define (raise-timeout-exception msg)
     (let ((exc (TimeoutException msg)))
       (throw
@@ -37,13 +37,13 @@
            (fn ()
              (throw exc))))))
 
-  (declare lk-acquire-with (lk:Lock * TimeoutStrategy -> Unit))
+  (declare lk-acquire-with (lk:Lock * TimeoutStrategy -> Void))
   (define (lk-acquire-with lock strategy)
     "Acquire LOCK, optionally using a timeout."
     (match strategy
       ((NoTimeout)
        (lk:acquire lock)
-       Unit)
+       (values))
       ((Timeout timeout-time)
        (lisp (-> Unit) (lock timeout-time)
          (cl:if (bt2:acquire-lock lock :timeout (cl:/ timeout-time 1000.0d0))
@@ -52,15 +52,16 @@
                  (raise-timeout-exception
                   (build-str "Timed out acquiring lock after "
                              (lisp (-> Double-Float) () timeout-time)
-                             " milliseconds."))))))))
+                             " milliseconds.")))))
+       (values))))
 
-  (declare cv-await-with (cv:ConditionVariable * lk:Lock * TimeoutStrategy -> Unit))
+  (declare cv-await-with (cv:ConditionVariable * lk:Lock * TimeoutStrategy -> Void))
   (define (cv-await-with cv lock strategy)
     "Await CV while holding LOCK, optionally using a timeout."
     (match strategy
       ((NoTimeout)
        (cv:await cv lock)
-       Unit)
+       (values))
       ((Timeout timeout-time)
        (lisp (-> Unit) (cv lock timeout-time)
          (cl:if (bt2:condition-wait cv lock :timeout (cl:/ timeout-time 1000.0d0))
@@ -69,7 +70,8 @@
                  (raise-timeout-exception
                   (build-str "Timed out waiting on condition variable after "
                              (lisp (-> Double-Float) () timeout-time)
-                             " milliseconds."))))))))
+                             " milliseconds.")))))
+       (values))))
 
   ;; TODO: Standardize usage of 'finally' throughout the library.
   ;; There's two separate concepts: (1) Call a cleanup function only on failure,
@@ -82,8 +84,8 @@
                                              => Proxy :rt
                                              * cv:ConditionVariable
                                              * lk:Lock
-                                             * (Void -> Unit)
-                                             -> Unit))
+                                             * (Void -> Void)
+                                             -> Void))
   (define (unmask-and-await-safely-finally% rt-prx cv lock finally)
     "Unmask the thread. Finally, either await (still running) the CV
 or just release the LOCK. Masks after resuming post-await. FINALLY
@@ -96,8 +98,8 @@ is run AFTER the lock is released, and only if the thread is stopped!!"
                                                   * TimeoutStrategy
                                                   * cv:ConditionVariable
                                                   * lk:Lock
-                                                  * (Void -> Unit)
-                                                  -> Unit))
+                                                  * (Void -> Void)
+                                                  -> Void))
   (define (unmask-and-await-safely-finally-with% rt-prx strategy cv lock finally)
     "Unmask the thread. Finally, either await (still running) the CV
 or just release the LOCK. Masks after resuming post-await. FINALLY
@@ -116,7 +118,7 @@ is run AFTER the lock is released, and only if the thread is stopped!!"
   ;; TODO: Remove lambda when this is fixed:
   ;; https://github.com/coalton-lang/coalton/issues/1719
   (inline)
-  (declare unmask-and-await-safely% (Runtime :rt :t => Proxy :rt * cv:ConditionVariable * lk:Lock -> Unit))
+  (declare unmask-and-await-safely% (Runtime :rt :t => Proxy :rt * cv:ConditionVariable * lk:Lock -> Void))
   (define (unmask-and-await-safely% rt-prx cv lock)
     "Unmask the thread. Finally, either await (still running) the CV
 or just release the LOCK. Masks after resuming post-await."
@@ -129,7 +131,7 @@ or just release the LOCK. Masks after resuming post-await."
                                           * TimeoutStrategy
                                           * cv:ConditionVariable
                                           * lk:Lock
-                                          -> Unit))
+                                          -> Void))
   (define (unmask-and-await-safely-with% rt-prx strategy cv lock)
     "Unmask the thread. Finally, either await (still running) the CV
 or just release the LOCK. Masks after resuming post-await."

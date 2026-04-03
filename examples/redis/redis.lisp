@@ -277,7 +277,9 @@ This is a custom file format and is not compatible with Redis RDB files.
 
 For more information on the real Redis file format, for the curious:
 https://rdb.fnordig.de/file_format.html"
-    (io-f:do-with-open-file_ (f:Output (into filename) f:Overwrite) (fs)
+    (io-f:do-with-open-file_ (into filename) (fs)
+      :direction f:Output
+      :if-exists f:Overwrite
       ;; Peg type of FS to (FileStream U8)
       (let _ = (the (f:FileStream U8) fs))
       ;; For efficiency, allocate one buffer containing two Resp elements. Each loop,
@@ -311,7 +313,7 @@ https://rdb.fnordig.de/file_format.html"
     "Load the contents of a dump file into a fresh database with N-BUCKETS buckets."
     (do
      (db <- (new-database n-buckets))
-     (io-f:do-with-open-file_ (f:Input (into filename)) (fs)
+     (io-f:do-with-open-file_ (into filename) (fs)
        (do-loop-while-valM (resp-item (next-resp-item fs))
          (do-when-match resp-item (RespArray data)
            (do-when (== (v:length data) 2)

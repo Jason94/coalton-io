@@ -26,14 +26,18 @@
 (coalton-toplevel
 
   (declare with-open-file_ ((file:File :a) (UnliftIo :m IO) (LiftTo IO :m)
-                            => file:StreamOptions
+                            => file:Pathname
                             * ((file:FileStream :a) -> IO :b)
+                            &key
+                            (:direction file:OpenDirection)
+                            (:if-exists file:IfExists)
                             -> :m :b))
   (define with-open-file_ with-open-file)
 
   (declare with-temp-file_ ((file:File :a) (UnliftIo :m IO) (LiftTo IO :m)
-                            => String
-                            * ((file:FileStream :a) -> IO :b)
+                            => ((file:FileStream :a) -> IO :b)
+                            &key
+                            (:extension String)
                             -> :m :b))
   (define with-temp-file_ with-temp-file)
 
@@ -42,19 +46,31 @@
                                  -> :m :a))
   (define with-temp-directory_ with-temp-directory))
 
-(defmacro do-with-open-file_ (opts (fs) cl:&body body)
+(defmacro do-with-open-file_ (path (fs)
+                               cl:&key
+                               (direction 'file:Input)
+                               (if-exists 'file:EError)
+                               cl:&body body)
   "`do` sugar for `with-open-file_`. Expands to a continuation where BODY runs in `do`.
 
 Usage:
-  (do-with-open-file_ opts (fs)
+  (do-with-open-file_ path (fs)
     (line <- (read-char fs))
     ...)
+  (do-with-open-file_ path (fs)
+    :direction file:Output :if-exists file:Supersede
+    (write-line fs \"hello\")
+    ...)
 "
-  `(with-open-file_ ,opts (fn (,fs) (do ,@body))))
+  `(with-open-file_ ,path
+     (fn (,fs) (do ,@body))
+     :direction ,direction
+     :if-exists ,if-exists))
 
 (defmacro do-with-temp-file_ (type (fs) cl:&body body)
   "`do` sugar for `with-temp-file_` (TYPE is a string like \"txt\")."
-  `(with-temp-file_ ,type (fn (,fs) (do ,@body))))
+  `(with-temp-file_ (fn (,fs) (do ,@body))
+     :extension ,type))
 
 (defmacro do-with-temp-directory_ ((dir) cl:&body body)
   "`do` sugar for `with-temp-directory_`."

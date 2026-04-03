@@ -262,7 +262,7 @@
 (coalton-toplevel
 
   (inline)
-  (declare interrupt-iothread% (IoThread -> Unit))
+  (declare interrupt-iothread% (IoThread -> Void))
   (define (interrupt-iothread% thd)
     "Stop an IoThread. Does not check masked state, etc. Does check if the target
 thread is alive before interrupting.
@@ -279,8 +279,7 @@ Concurrent:
     (lk:acquire (.child-lk thd))
     (let should-interrupt = (== ThreadRunning (c:read (.status thd))))
     (when should-interrupt
-      (c:write! (.status thd) ThreadStopping)
-      Unit)
+      (c:write! (.status thd) ThreadStopping))
     (atomic-remove-pending-kill (.flags thd))
     (lk:release (.child-lk thd))
     (lk:release (.stop-lk thd))
@@ -294,8 +293,7 @@ Concurrent:
          (mask!% thd)
          (lisp (-> Void) (native-thread)
            (cl:when (bt:thread-alive-p native-thread)
-             (bt:error-in-thread native-thread (InterruptCurrentThread ""))))
-         Unit))))
+             (bt:error-in-thread native-thread (InterruptCurrentThread ""))))))))
 
   ;;;
   ;;; Basic Thread Operations
@@ -326,23 +324,22 @@ was stopping/stopped and the child should not start."
     (lk:acquire (.child-lk parent))
     (let should-run? = (== (c:read (.status parent)) ThreadRunning))
     (when should-run?
-      (c:push! (.children parent) child)
-      Unit)
+      (c:push! (.children parent) child))
     (lk:release (.child-lk parent))
     (unmask-current-thread!%)
     should-run?)
 
-  (declare stop-and-join-children!% (IoThread -> Unit))
+  (declare stop-and-join-children!% (IoThread -> Void))
   (define (stop-and-join-children!% thread)
     "Concurrent: WARNING, does not mask! This MUST be run inside a masked region."
     (lk:acquire (.child-lk thread))
-    (for child in (c:read (.children thread))
+    (foreach (child (c:read (.children thread)))
       (stop!% child))
-    (for child in (c:read (.children thread))
+    (foreach (child (c:read (.children thread)))
       (join!% child))
     (c:write! (.status thread) ThreadStopped)
     (lk:release (.child-lk thread))
-    Unit)
+    (values))
 
   (declare handle-thread-err-result!% (ForkStrategy IoThread * Dynamic -> Result Dynamic Unit))
   (define (handle-thread-err-result!% strategy e)
@@ -438,8 +435,7 @@ was stopping/stopped and the child should not start."
                    (Ok Unit)))))
     (c:write! (.handle thread-container) (Some native-thread))
     (when (not child-should-run?)
-      (c:write! (.status thread-container) ThreadStopped)
-      Unit)
+      (c:write! (.status thread-container) ThreadStopped))
     thread-container)
 
   (inline)
@@ -464,17 +460,17 @@ was stopping/stopped and the child should not start."
            join-result))))
 
   (inline)
-  (declare sleep!% (UFix -> Unit))
+  (declare sleep!% (UFix -> Void))
   (define (sleep!% msecs)
     (lisp (-> :a) (msecs)
       (cl:sleep (cl:/ msecs 1000)))
-    Unit)
+    (values))
 
   ;;;
   ;;; Stopping & Masking Threads
   ;;;
 
-  (declare mask!% (IoThread -> Unit))
+  (declare mask!% (IoThread -> Void))
   (define (mask!% thread)
     ;; CONCURRENT:
     ;;   - Stops thread if it was previously unmasked AND the pending stop was
@@ -488,11 +484,10 @@ was stopping/stopped and the child should not start."
           ;; The PENDING-KILL bitmask is the kill bit set with no masking bits set
           (when  (== old PENDING-KILL)
             (interrupt-iothread% thread))
-          (%)))
-    Unit)
+          (%))))
 
   (inline)
-  (declare mask-current-thread!% (Void -> Unit))
+  (declare mask-current-thread!% (Void -> Void))
   (define (mask-current-thread!%)
     (mask!%
      (lisp (-> IoThread) ()
@@ -607,10 +602,11 @@ just be limited to implementing only solutions #2 or #3.
     (unmask-finally!% (current-thread!%) thunk))
 
   (inline)
-  (declare unmask-current-thread!% (Void -> Unit))
+  (declare unmask-current-thread!% (Void -> Void))
   (define (unmask-current-thread!%)
     (unmask-current-thread-finally!%
-     (const Unit)))
+     (const Unit))
+    (values))
 
   (inline)
   (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m)
@@ -631,7 +627,7 @@ just be limited to implementing only solutions #2 or #3.
            (wrap-io (unmask-current-thread-finally!% (fn (m) (run! (run (thunk m))))))))))
 
   (inline)
-  (declare stop!% (IoThread -> Unit))
+  (declare stop!% (IoThread -> Void))
   (define (stop!% thread)
     (let flag-state = (atomic-fetch-or (.flags thread) PENDING-KILL))
     (when (unmasked? flag-state)
@@ -644,10 +640,10 @@ just be limited to implementing only solutions #2 or #3.
   ;; For full discussion of the park algorithm, see top of the file and docs/runtime.md
   (declare park-current-thread-if-with!% (Runtime :rt IoThread
                                           => Proxy :rt
-                                          * (Generation -> Unit)
+                                          * (Generation -> Void)
                                           * (Void -> Boolean)
                                           * TimeoutStrategy
-                                          -> Unit))
+                                          -> Void))
   (define (park-current-thread-if-with!% rt-prx with-gen should-park? strategy)
     ;; CONCURRENT:
     ;; - Masks before acquiring the lock and unmasks after releasing the lock,
@@ -699,13 +695,13 @@ just be limited to implementing only solutions #2 or #3.
   (inline)
   (declare park-current-thread-if!% (Runtime :rt IoThread
                                      => Proxy :rt
-                                     * (Generation -> Unit)
+                                     * (Generation -> Void)
                                      * (Void -> Boolean)
-                                     -> Unit))
+                                     -> Void))
   (define (park-current-thread-if!% rt-prx with-gen should-park?)
     (park-current-thread-if-with!% rt-prx with-gen should-park? NoTimeout))
 
-  (declare unpark-thread!% (Generation * IoThread -> Unit))
+  (declare unpark-thread!% (Generation * IoThread -> Void))
   (define (unpark-thread!% gen thread)
     ;; CONCURRENT:
     ;; - Masks around the critical region
@@ -741,22 +737,23 @@ just be limited to implementing only solutions #2 or #3.
   (define-instance (Concurrent IoThread Unit)
     (inline)
     (define (stop thread)
-      (wrap-io (stop!% thread)))
+      (wrap-io (stop!% thread) Unit))
     (inline)
     (define (await thread)
       (raise-result-dynamic (wrap-io (join!% thread))))
     (inline)
     (define (mask thread)
-      (wrap-io (mask!% thread)))
+      (wrap-io (mask!% thread) Unit))
     (inline)
     (define (unmask thread)
-      (wrap-io (unmask!% thread)))
+      (wrap-io (unmask!% thread) Unit))
     (inline)
     (define (unmask-finally thread callback)
       (lift-to
        (with-run-in-io
          (fn (run)
            (wrap-io (unmask-finally!% thread (fn (mode)
-                                               (run! (run (callback mode)))))))))))
+                                               (run! (run (callback mode)))))
+                    Unit))))))
 
   )

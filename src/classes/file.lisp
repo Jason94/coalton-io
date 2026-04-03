@@ -65,7 +65,12 @@
      "Returns True if a pathname names a directory that exists."
      (Into :a file:Pathname => :a -> :m (Result file:FileError Boolean)))
 
-    (open (file:File :a => file:StreamOptions -> :m (Result file:FileError (file:FileStream :a))))
+    (open (file:File :a
+           => file:Pathname
+           &key
+           (:direction file:OpenDirection)
+           (:if-exists file:IfExists)
+           -> :m (Result file:FileError (file:FileStream :a))))
     (close
      "Closes a FileStream."
      ((file:FileStream :a) -> :m (Result file:FileError :b)))
@@ -148,7 +153,7 @@
 
   (declare create-temp-file% (MonadIo :m => String -> :m (Result file:FileError file:Pathname)))
   (define (create-temp-file% file-ext)
-    (wrap-io (file:create-temp-file! file-ext)))
+    (wrap-io (file:create-temp-file! :extension file-ext)))
 
   )
 
@@ -162,7 +167,8 @@ Example:
      (define file-exists? (compose lift file-exists?))
      (define directory-exists? (compose lift directory-exists?))
 
-     (define open (compose lift open))
+     (define (open path &key (direction file:Input) (if-exists file:EError))
+       (lift (open path :direction direction :if-exists if-exists)))
      (define close (compose lift close))
      (define abort (compose lift abort))
 

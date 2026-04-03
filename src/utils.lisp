@@ -221,9 +221,10 @@ Coalton exceptions via `define-exception`."
       (cl:format cl:nil "~a" x)))
 
   (inline)
-  (declare compose2 ((:c -> :d) * (:a * :b -> :c) * :a * :b -> :d))
-  (define (compose2 fcd fabc a b)
-    (fcd (fabc a b)))
+  (declare compose2 ((:c -> :d) * (:a * :b -> :c) -> (:a * :b -> :d)))
+  (define (compose2 fcd fabc)
+    (fn (a b)
+      (fcd (fabc a b))))
 
   (inline)
   (declare proxies-eql (Proxy :a * Proxy :a -> Unit))
