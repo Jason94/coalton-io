@@ -89,13 +89,13 @@
   (declare random-elt# (Random :m => RandomState * List :a -> :m :a))
   (define (random-elt# rs lst)
     "Get a random element from LST. Errors if LST is empty."
-    (map (opt:from-some "Cannot get random element from empty list")
+    (map (fn (x) (opt:from-some "Cannot get random element from empty list" x))
          (random-elt rs lst)))
 
   (declare random-elt#_ (Random :m => List :a -> :m :a))
   (define (random-elt#_ lst)
     "Get a random element from LST. Errors if LST is empty."
-    (map (opt:from-some "Cannot get random element from empty list")
+    (map (fn (x) (opt:from-some "Cannot get random element from empty list" x))
          (random-elt_ lst)))
   )
 
