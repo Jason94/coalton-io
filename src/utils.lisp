@@ -11,6 +11,7 @@
    (:b #:coalton-library/bits))
   (:export
    #:foreach
+   #:while
    #:cl-maptree
    #:Word
    #:build-str
@@ -50,24 +51,25 @@
 
 (named-readtables:in-readtable coalton:coalton)
 
-(coalton-toplevel
-
- (declare %foreach (it:IntoIterator :i :a => :i * (:a -> :b) -> Void))
- (define (%foreach coll f)
-   (let iter = (it:into-iter coll))
-   (rec % ((item? (it:next! iter)))
-     (match item?
-       ((Some item)
-        (f item)
-        (% (it:next! iter)))
-       ((None)
-        (values))))))
-
 (defmacro foreach ((variable iter) cl:&body body)
   "Perform `body` with `variable` bound to each element in `iter`.
 
 `iter` must have a valid `IntoIter` instance."
-  `(%foreach ,iter (fn (,variable) ,@body (values))))
+  (cl:let ((iter-sym (cl:gensym "iter"))
+           (item?-sym (cl:gensym "item?")))
+   `(let ((,iter-sym (it:into-iter ,iter)))
+      (for ((,item?-sym (it:next! ,iter-sym) (it:next! ,iter-sym)))
+        (match ,item?-sym
+          ((Some ,variable)
+           ,@body)
+          ((None)
+           (break)))))))
+
+(defmacro while (condition cl:&body body)
+  "Perform `body` while `condition` is true."
+  `(for ()
+        :while ,condition
+     ,@body))
 
 (cl:defun cl-maptree (fn tree)
   "Recursively applies FN to all non-cons elements (atoms) in a tree structure."

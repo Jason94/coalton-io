@@ -50,7 +50,7 @@
   (define (checkout!% version version-entries)
     "Checkout the data for VERSION, decrementing the number of remaining subscribers.
 Errors if the version can't be found."
-    (for entry in version-entries
+    (foreach (entry version-entries)
       (let _ = (the (VersionEntry :a) entry))
       (when (== (.version entry) version)
         (at:atomic-dec1 (.remaining-subscribers entry))
@@ -96,7 +96,7 @@ interrupt during, for example, a publish."
                        (at:new-at-int 0)))
 
   (inline)
-  (declare cleanup-stack% (DataBroadcastPool :a -> Unit))
+  (declare cleanup-stack% (DataBroadcastPool :a -> Void))
   (define (cleanup-stack% pool)
     "Remove version entries of the stack that have no subscribers
 left to checkout the data. ASSUMES THE PUBLISH LOCK IS HELD AND
@@ -104,7 +104,7 @@ THE THREAD IS MASKED."
     (while (stale?% (at:at-st-peek (.version-entries pool)))
       (at:at-st-pop-front! (.version-entries pool))))
 
-  (declare publish (DataBroadcastPool :a * :a -> Unit))
+  (declare publish (DataBroadcastPool :a * :a -> Void))
   (define (publish pool data)
     (unless (zero? (at:read-at-int (.n-subscribers pool)))
       (mask-current-thread!%)
