@@ -386,7 +386,7 @@ causes inference issues in some cases."
          (wrap-io
            (fork! (get-runtime-for op)
                   strat
-                  (fn (_)
+                  (fn ()
                     (run-handled! (run op)))))))))
 
   (inline)
