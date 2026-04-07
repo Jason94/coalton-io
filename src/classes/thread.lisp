@@ -268,19 +268,19 @@ input."
 masked, this will pend a stop on the Concurrent. When/if the Concurrent becomes completely unmaksed,
 it will stop iself. Regardless of whether the target Concurrent is masked, STOP does not block or
 wait for the target to complete."
-     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Void))
+     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Unit))
     (await
      "Block the current thread until the target Concurrent is completed, and retrieve its value.
 Re-raises if the target Concurrent raised an unhandled exception"
      ((Exceptions :m) (Threads :rt :t :m) => :c -> :m :a))
     (mask
      "Mask the Concurrent so it can't be stopped."
-     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Void))
+     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Unit))
     (unmask
      "Unmask the Concurrent so it can be stopped. Unmask respects nested masks - if the
 Concurrent has been masked N times, it can only be stopped after being unmasked N times. When the
 Concurrent unmasks, if there are any pending stops, it will immediately stop itself."
-     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Void))
+     ((Exceptions :m) (Threads :rt :t :m) => :c -> :m Unit))
     (unmask-finally
      "Unmask the thread, run the provided action, and then honor any pending stop for that
 thread after the action finishes.
@@ -292,7 +292,7 @@ file if the thread is stopped, or closing the log file with a final message if t
 continuing."
      ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r) (Exceptions :m)
       (Threads :rt :t :m)
-      => :c * (UnmaskFinallyMode -> :r :b) -> :m Void)))
+      => :c * (UnmaskFinallyMode -> :r :b) -> :m Unit)))
 
   (inline)
   (declare concurrent-value-prx (Concurrent :c :a => :c -> Proxy :a))
@@ -358,6 +358,17 @@ Assumes the output has type :m :a for some Threads :m."
       (wrap-io (,f (runtime-for m-prx) ,@args))
       m-prx)))
 
+(defmacro inject-runtime-unit (f cl:&rest args)
+  "Weave proxies to inject the runtime proxy as the first argument of f.
+Assumes the output has type :m :a for some Threads :m. Returns Unit."
+  `(progn
+     (let m-prx = Proxy)
+     (as-proxy-of
+      (wrap-io
+       (,f (runtime-for m-prx) ,@args)
+       Unit)
+      m-prx)))
+
 (defmacro wrap-io-with-runtime ((rt-prx-sym) cl:&body body)
   "Wrap the body in a wrap-io and pass a proxy to the runtime with RT-PRX-SYM."
   (cl:let ((m-prx (cl:gensym)))
@@ -402,7 +413,7 @@ This is the default fork behavior: structured + log-and-swallow."
     (fork-thread-with (ForkStrategy LogAndSwallow Structured) op))
 
   (inline)
-  (declare join-thread ((Threads :rt :t :m) (Exceptions :m) => :t -> :m Void))
+  (declare join-thread ((Threads :rt :t :m) (Exceptions :m) => :t -> :m Unit))
   (define (join-thread thread)
     "Block the current thread until the target thread is completed.
 Does not a retrieve value. Raises an exception if the target thread
@@ -414,22 +425,22 @@ thread's termination."
     (as-proxy-of
      (do-matchM (wrap-io (join! rt-prx thread))
        ((Ok _)
-        (pure (values)))
+        (pure Unit))
        ((Err e)
         (raise (JoinedFailedThread e))))
      m-prx))
 
   (inline)
-  (declare stop-thread (Threads :rt :t :m => :t -> :m Void))
+  (declare stop-thread (Threads :rt :t :m => :t -> :m Unit))
   (define (stop-thread thread)
     "Stop a thread. If the thread has already stopped, does nothing."
-    (inject-runtime stop! thread))
+    (inject-runtime-unit stop! thread))
 
   (inline)
-  (declare sleep (Threads :rt :t :m => UFix -> :m Void))
+  (declare sleep (Threads :rt :t :m => UFix -> :m Unit))
   (define (sleep msec)
     "Sleep the current thread for MSECS milliseconds."
-    (inject-runtime sleep! msec))
+    (inject-runtime-unit sleep! msec))
 
   (inline)
   (declare current-thread (Threads :rt :t :m => :m :t))
@@ -438,13 +449,13 @@ thread's termination."
     (inject-runtime current-thread!))
 
   (inline)
-  (declare mask-thread (Threads :rt :t :m => :t -> :m Void))
+  (declare mask-thread (Threads :rt :t :m => :t -> :m Unit))
   (define (mask-thread thread)
      "Mask the thread so it can't be stopped."
-    (inject-runtime mask! thread))
+    (inject-runtime-unit mask! thread))
 
   (inline)
-  (declare mask-current-thread (Threads :rt :t :m => :m Void))
+  (declare mask-current-thread (Threads :rt :t :m => :m Unit))
   (define mask-current-thread
     "Mask the current thread so it can't be stopped."
     (let m-prx = Proxy)
@@ -452,19 +463,20 @@ thread's termination."
     (as-proxy-of
      (wrap-io
        (let current-thread = (current-thread! runtime-prx))
-       (mask! runtime-prx current-thread))
+       (mask! runtime-prx current-thread)
+       Unit)
      m-prx))
 
   (inline)
-  (declare unmask-thread (Threads :rt :t :m => :t -> :m Void))
+  (declare unmask-thread (Threads :rt :t :m => :t -> :m Unit))
   (define (unmask-thread thread)
     "Unmask the thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
 stopped after being unmasked N times."
-    (inject-runtime unmask! thread))
+    (inject-runtime-unit unmask! thread))
 
   (inline)
-  (declare unmask-current-thread (Threads :rt :t :m => :m Void))
+  (declare unmask-current-thread (Threads :rt :t :m => :m Unit))
   (define unmask-current-thread
     "Unmask the current thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
@@ -473,12 +485,13 @@ stopped after being unmasked N times."
     (as-proxy-of
      (wrap-io
        (let current-thread = (current-thread! (runtime-for m-prx)))
-       (unmask! (runtime-for m-prx) current-thread))
+       (unmask! (runtime-for m-prx) current-thread)
+       Unit)
      m-prx))
 
   (inline)
   (declare unmask-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r)
-                                  => :t * (UnmaskFinallyMode -> :r :b) -> :m Void))
+                                  => :t * (UnmaskFinallyMode -> :r :b) -> :m Unit))
   (define (unmask-thread-finally thread op-finally)
     "Unmask the thread, run the provided action, and then honor any
  pending stop for that thread after the action finishes.
@@ -493,13 +506,14 @@ continuing."
          (fn (run)
            (wrap-io (unmask-finally! (runtime-for (proxy-result-of op-finally))
                                      thread
-                                     (fn (m) (run! (run (op-finally m))))))))))
+                                     (fn (m) (run! (run (op-finally m)))))
+                    Unit)))))
 
   ;; BUG: These kinds of inner wrap-io nested run! calls may not propogate errors
   ;; correctly, or might have other problems.
   (inline)
   (declare unmask-current-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r)
-                                          => (UnmaskFinallyMode -> :r Void) -> :m Void))
+                                          => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-current-thread-finally op-finally)
     "Unmask the current thread, run the provided action, and then honor any pending stop
 for that thread after the action finishes.
@@ -517,14 +531,15 @@ the log file with a final message if the thread is continuing."
            (let runtime-prx = (runtime-for (proxy-result-of op-finally)))
            (unmask-finally! runtime-prx
                             (current-thread! runtime-prx)
-                            (fn (m) (run! (run (op-finally m))))))))))
+                            (fn (m) (run! (run (op-finally m)))))
+           Unit)))))
 
   ;; TODO: Currently unlifting :r :a with different :a's is difficult, maybe impossible
   ;; without existential qualifiers for the with-run-in-io type. Figure that out and
   ;; replace BaseIo here.
   (inline)
   (declare park-current-thread-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                                   => (Generation -> :io Void) * :io Boolean -> :m Void))
+                                   => (Generation -> :io Unit) * :io Boolean -> :m Unit))
   (define (park-current-thread-if with-gen should-park?)
     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
@@ -538,15 +553,19 @@ Concurrent:
      (wrap-io
       (let runtime-prx = (get-runtime-for should-park?))
       (park-current-thread-if! runtime-prx
-                               (fn (gen) (run! (with-gen gen)))
-                               (fn () (run! should-park?)))))
+                               (fn (gen)
+                                 (run! (with-gen gen))
+                                 (values))
+                               (fn ()
+                                 (run! should-park?)))
+      Unit))
 
   (inline)
   (declare park-current-thread-if-with ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                                        => (Generation -> :io Void)
+                                        => (Generation -> :io Unit)
                                         * :io Boolean
                                         * TimeoutStrategy
-                                        -> :m Void))
+                                        -> :m Unit))
   (define (park-current-thread-if-with with-gen should-park? strategy)
     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
@@ -560,12 +579,15 @@ Concurrent:
      (wrap-io
       (let runtime-prx = (get-runtime-for should-park?))
       (park-current-thread-if-with! runtime-prx
-                                    (fn (gen) (run! (with-gen gen)))
+                                    (fn (gen)
+                                      (run! (with-gen gen))
+                                      (values))
                                     (fn () (run! should-park?))
-                                    strategy)))
+                                    strategy)
+      Unit))
 
   (inline)
-  (declare unpark-thread (Threads :rt :t :m => Generation * :t -> :m Void))
+  (declare unpark-thread (Threads :rt :t :m => Generation * :t -> :m Unit))
   (define (unpark-thread gen thread)
     "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread
@@ -573,7 +595,7 @@ has unparked and re-parked since the initial park.
 
 Concurrent:
   - Can briefly block while trying to unpark the thread, if contended."
-    (inject-runtime unpark-thread! gen thread))
+    (inject-runtime-unit unpark-thread! gen thread))
   )
 
 (defmacro do-fork-thread (cl:&body body)
