@@ -104,12 +104,10 @@ is run AFTER the lock is released, and only if the thread is stopped!!"
     "Unmask the thread. Finally, either await (still running) the CV
 or just release the LOCK. Masks after resuming post-await. FINALLY
 is run AFTER the lock is released, and only if the thread is stopped!!"
-    (let f =
-      (fn ()
-        (unmask! rt-prx (current-thread! rt-prx))
-        (cv-await-with cv lock strategy)
-        (mask-current! rt-prx)))
-    (catch (inline (f))
+    (catch (progn
+             (unmask! rt-prx (current-thread! rt-prx))
+             (cv-await-with cv lock strategy)
+             (mask-current! rt-prx))
       ((InterruptCurrentThread msg)
        (lk:release lock)
        (finally)
@@ -135,12 +133,10 @@ or just release the LOCK. Masks after resuming post-await."
   (define (unmask-and-await-safely-with% rt-prx strategy cv lock)
     "Unmask the thread. Finally, either await (still running) the CV
 or just release the LOCK. Masks after resuming post-await."
-    (let f =
-      (fn ()
-        (unmask! rt-prx (current-thread! rt-prx))
-        (cv-await-with cv lock strategy)
-        (mask-current! rt-prx)))
-    (catch (inline (f))
+    (catch (progn
+             (unmask! rt-prx (current-thread! rt-prx))
+             (cv-await-with cv lock strategy)
+             (mask-current! rt-prx))
       ((InterruptCurrentThread msg)
        (lk:release lock)
        (throw (InterruptCurrentThread msg)))))
