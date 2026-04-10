@@ -154,7 +154,7 @@ conditions. DONT USE THIS!"
     (define (map f tx)
       (STM%
        (fn (tx-data)
-         (map (map f)
+         (map (fn (x) (map f x))
               (run-stm% tx-data tx))))))
 
   (inline)
@@ -219,7 +219,8 @@ conditions. DONT USE THIS!"
      (STM%
       (fn (tx-data)
         (reraise (run-stm% tx-data tx)
-                 (map (run-stm% tx-data) catch-tx)))))
+                 (map (fn (x) (run-stm% tx-data x))
+                      catch-tx)))))
     (inline)
     (define (handle tx catch-tx)
       (STM%
