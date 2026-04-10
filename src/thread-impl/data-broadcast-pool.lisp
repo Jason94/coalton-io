@@ -139,19 +139,17 @@ THE THREAD IS MASKED."
     (lk:acquire (.notify-lock pool))
     (at:atomic-inc1 (.n-subscribers pool))
     (let version = (at:read-at-int (.version pool)))
-    (let f =
-      (fn ()
-        (unmask-and-await-safely-finally-with%
-         rt-prx
-         strategy
-         (.notify-cv pool)
-         (.notify-lock pool)
-         (fn ()
-           (when (< version (at:read-at-int (.version pool)))
-             (checkout!% version (.version-entries pool))
-             Unit)))))
     (rec % ()
-      (catch (inline (f))
+      (catch 
+          (unmask-and-await-safely-finally-with%
+           rt-prx
+           strategy
+           (.notify-cv pool)
+           (.notify-lock pool)
+           (fn ()
+             (when (< version (at:read-at-int (.version pool)))
+               (checkout!% version (.version-entries pool))
+               Unit)))
        ((TimeoutException msg)
         (lk:release (.notify-lock pool))
         (at:atomic-dec1 (.n-subscribers pool))

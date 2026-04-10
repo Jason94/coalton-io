@@ -189,7 +189,7 @@ Concurrent:
   - On succesful take, one blocking writer is woken in order of acquisition"
     (take-mvar-with NoTimeout mvar))
 
-  (declare put-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a * :a -> :m Void))
+  (declare put-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a * :a -> :m Unit))
   (define (put-mvar-with strategy mvar val)
     "Fill an empty MVar, blocking until it becomes empty.
 
@@ -225,7 +225,7 @@ Concurrent:
                      (publish (.read-broadcast-pool mvar) val)
                      (cv:notify (.notify-full mvar))
                      (unmask-current! rt-prx)
-                     (values))
+                     Unit)
                     ((Some _)
                      (unmask-and-await-safely-finally-with%
                       rt-prx
@@ -239,7 +239,7 @@ Concurrent:
         (lp))))
 
   (inline)
-  (declare put-mvar (Threads :rt :t :m => MVar :a * :a -> :m Void))
+  (declare put-mvar (Threads :rt :t :m => MVar :a * :a -> :m Unit))
   (define (put-mvar mvar val)
     "Fill an empty MVar, blocking until it becomes empty.
 
@@ -520,7 +520,7 @@ Concurrent:
       (tail-var <- (new-mvar cell))
       (pure (MChan head-var tail-var))))
 
-  (declare push-chan (Threads :rt :t :m => MChan :a * :a -> :m Void))
+  (declare push-chan (Threads :rt :t :m => MChan :a * :a -> :m Unit))
   (define (push-chan chan val)
     "Push VAL onto CHAN."
     (do
