@@ -288,12 +288,14 @@ Concurrent:
       (let native-thread? = (c:read (.handle thd)))
       (match native-thread?
         ((None)
-         (error "Tried to kill misconstructed thread."))
+         (error "Tried to kill misconstructed thread.")
+         (values))
         ((Some native-thread)
          (mask!% thd)
-         (lisp (-> Void) (native-thread)
+         (lisp (-> :a) (native-thread)
            (cl:when (bt:thread-alive-p native-thread)
-             (bt:error-in-thread native-thread (InterruptCurrentThread ""))))))))
+             (bt:error-in-thread native-thread (InterruptCurrentThread ""))))
+         (values)))))
 
   ;;;
   ;;; Basic Thread Operations
@@ -610,21 +612,27 @@ just be limited to implementing only solutions #2 or #3.
 
   (inline)
   (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m)
-                            => IoThread * (UnmaskFinallyMode -> :r Void) -> :m Void))
+                            => IoThread * (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-finally% thread thunk)
     (lift-to
      (with-run-in-io
          (fn (run)
-           (wrap-io (unmask-finally!% thread (fn (m) (run! (run (thunk m))))))))))
+           (wrap-io
+            (unmask-finally!% thread (fn (m) (run! (run (thunk m)))))
+            Unit)))))
 
   (inline)
   (declare unmask-current-thread-finally% ((UnliftIo :r :io) (LiftTo :r :m)
-                                           => (UnmaskFinallyMode -> :r Void) -> :m Void))
+                                           => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-current-thread-finally% thunk)
     (lift-to
      (with-run-in-io
          (fn (run)
-           (wrap-io (unmask-current-thread-finally!% (fn (m) (run! (run (thunk m))))))))))
+           (wrap-io
+            (unmask-current-thread-finally!% (fn (m)
+                                               (run! (run (thunk m)))
+                                               (values)))
+            Unit)))))
 
   (inline)
   (declare stop!% (IoThread -> Void))
@@ -737,16 +745,16 @@ just be limited to implementing only solutions #2 or #3.
   (define-instance (Concurrent IoThread Unit)
     (inline)
     (define (stop thread)
-      (wrap-io (stop!% thread) (values)))
+      (wrap-io (stop!% thread) Unit))
     (inline)
     (define (await thread)
       (raise-result-dynamic (wrap-io (join!% thread))))
     (inline)
     (define (mask thread)
-      (wrap-io (mask!% thread) (values)))
+      (wrap-io (mask!% thread) Unit))
     (inline)
     (define (unmask thread)
-      (wrap-io (unmask!% thread) (values)))
+      (wrap-io (unmask!% thread) Unit))
     (inline)
     (define (unmask-finally thread callback)
       (lift-to
@@ -754,6 +762,6 @@ just be limited to implementing only solutions #2 or #3.
          (fn (run)
            (wrap-io (unmask-finally!% thread (fn (mode)
                                                (run! (run (callback mode)))))
-                    (values)))))))
+                    Unit))))))
 
   )
