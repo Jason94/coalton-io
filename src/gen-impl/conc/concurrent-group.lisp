@@ -5,7 +5,6 @@
    #:coalton-prelude
    #:coalton-library/types
    #:coalton-library/monad/classes
-   #:io/utils
    #:io/threads-exceptions
    #:io/classes/exceptions
    #:io/classes/monad-io
@@ -18,6 +17,8 @@
    #:collect
    #:foreach
    #:do-collect)
+  (:import-from #:io/utils
+   #:proxy-with-arg)
   (:export
    #:ConcurrentGroup
    #:fork-group
