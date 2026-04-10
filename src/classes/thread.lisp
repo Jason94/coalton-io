@@ -214,7 +214,7 @@ inconsistent with whether the Concurrent is ultimately stopped. Regardless of th
 callback should leave any resources in a valid state. An example of a valid callback: closing a log
 file if the thread is stopped, or closing the log file with a final message if the thread is
 continuing."
-      (Proxy :r * :t * (UnmaskFinallyMode -> :a) -> Void))
+      (Proxy :r * :t * (UnmaskFinallyMode -> Void) -> Void))
     (park-current-thread-if!
      "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
@@ -292,7 +292,7 @@ file if the thread is stopped, or closing the log file with a final message if t
 continuing."
      ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r) (Exceptions :m)
       (Threads :rt :t :m)
-      => :c * (UnmaskFinallyMode -> :r :b) -> :m Unit)))
+      => :c * (UnmaskFinallyMode -> :r Unit) -> :m Unit)))
 
   (inline)
   (declare concurrent-value-prx (Concurrent :c :a => :c -> Proxy :a))
@@ -491,7 +491,7 @@ stopped after being unmasked N times."
 
   (inline)
   (declare unmask-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r)
-                                  => :t * (UnmaskFinallyMode -> :r :b) -> :m Unit))
+                                  => :t * (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-thread-finally thread op-finally)
     "Unmask the thread, run the provided action, and then honor any
  pending stop for that thread after the action finishes.
@@ -506,7 +506,9 @@ continuing."
          (fn (run)
            (wrap-io (unmask-finally! (runtime-for (proxy-result-of op-finally))
                                      thread
-                                     (fn (m) (run! (run (op-finally m)))))
+                                     (fn (m)
+                                       (run! (run (op-finally m)))
+                                       (values)))
                     Unit)))))
 
   ;; BUG: These kinds of inner wrap-io nested run! calls may not propogate errors
@@ -531,7 +533,9 @@ the log file with a final message if the thread is continuing."
            (let runtime-prx = (runtime-for (proxy-result-of op-finally)))
            (unmask-finally! runtime-prx
                             (current-thread! runtime-prx)
-                            (fn (m) (run! (run (op-finally m)))))
+                            (fn (m)
+                              (run! (run (op-finally m)))
+                              (values)))
            Unit)))))
 
   ;; TODO: Currently unlifting :r :a with different :a's is difficult, maybe impossible
