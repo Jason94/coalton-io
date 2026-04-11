@@ -7,12 +7,16 @@
    #:coalton-library/monad/statet
    #:coalton-library/monad/environment
    #:coalton-library/experimental/do-control-core
-   #:coalton-library/experimental/do-control-loops
    #:io/utils
    #:io/simple-io
    #:io/term
    #:io/random
    #:io/exceptions)
+  (:import-from #:coalton/experimental/do-control-loops
+   #:do-foreach
+   #:do-loop-times
+   #:do-loop-while-valM
+   )
   (:local-nicknames
    (:lp #:coalton-library/experimental/do-control-loops-adv)
    (:itr #:coalton-library/iterator)
@@ -61,7 +65,8 @@
 
   (declare str-contains? (Char * String -> Boolean))
   (define (str-contains? c s)
-    (match (itr:find! (== c) (s:chars s))
+    (match (itr:find! (fn (x) (== c x))
+                      (s:chars s))
       ((Some _) True)
       ((None) False)))
 
@@ -233,15 +238,15 @@
     (do
      (n-words-var <- (m:new-var 0))
      (do-reraise
-         (f:do-with-open-file_ (into fname) (fs)
+         (f:do-with-open-file_ (fname fs)
            (do-loop-while-valM (_ (f:read-line fs))
-             (m:modify n-words-var (+ 1)))
+             (m:modify n-words-var 1+))
            (pure Unit))
        (write-line "Could not find dictionary file.")
        (write-line "(This often happens from Slime, try using ',cd')"))
      (n-words <- (m:read n-words-var))
      (n-word <- (random_ n-words))
-     (f:do-with-open-file_ (into fname) (fs)
+     (f:do-with-open-file_ (fname fs)
        (do-loop-times (_ n-word)
          (f:read-line fs))
        (raise-result
