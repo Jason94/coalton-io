@@ -270,10 +270,10 @@ in some cases. Try WITH-TEMP-DIRECTORY_ if you have issues."
 
   )
 
-(defmacro do-with-open-file (path (fs)
+(defmacro do-with-open-file ((path fs
                               cl:&key
                               (direction 'f_:Input)
-                              (if-exists 'f_:EError)
+                              (if-exists 'f_:EError))
                               cl:&body body)
   "`do` sugar for `with-open-file`. Expands to a continuation where BODY runs in `do`.
 

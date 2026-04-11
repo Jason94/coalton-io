@@ -23,7 +23,7 @@
 
   (declare new-unique% (MonadIo :m => :m Unique))
   (define new-unique%
-    (wrap-io (Unique% (at:atomic-update-swap counter% (+ 1))))))
+    (wrap-io (Unique% (at:atomic-update-swap counter% 1+)))))
 
 (defmacro implement-unique-gen (monad)
   `(define-instance (UniqueGen ,monad)
