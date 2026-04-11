@@ -17,7 +17,9 @@
    (:f #:io/file)
    (:r #:coalton-library/result)
    (:mv #:io/conc/mvar)
-   (:m #:io/mut)))
+   (:m #:io/mut))
+  (:export
+   #:run-example))
 (in-package :io/examples/channels-threading)
 
 (named-readtables:in-readtable coalton:coalton)
