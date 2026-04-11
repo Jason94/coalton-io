@@ -162,7 +162,7 @@ Example:
      (pure 10))))
 "
   `(handle-all ,op
-    (const
+    (fn ()
      (do
       ,@body))))
 

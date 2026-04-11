@@ -356,7 +356,9 @@
       (mask-thread thread)
       (stop-thread thread)
       (unmask-thread-finally_ thread (fn (mode)
-                                       (write hit-finally (Some mode))))
+                                       (do
+                                        (write hit-finally (Some mode))
+                                        (pure Unit))))
       (s-signal stopped-gate)
       (sleep 2)
       (val <- (read value))
@@ -381,7 +383,9 @@
       (s-await started-gate)
       (mask-thread thread)
       (unmask-thread-finally_ thread (fn (mode)
-                                       (write hit-finally (Some mode))))
+                                       (do
+                                        (write hit-finally (Some mode))
+                                        (pure Unit))))
       (s-signal continue-gate)
       (sleep 2)
       (val <- (read value))
