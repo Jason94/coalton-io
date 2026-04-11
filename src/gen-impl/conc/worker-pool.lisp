@@ -5,7 +5,6 @@
    #:coalton-prelude
    #:coalton-library/monad/classes
    #:coalton-library/experimental/do-control-core
-   #:coalton-library/experimental/do-control-loops
    #:io/utils
    #:io/threads-exceptions
    #:io/classes/exceptions
@@ -14,6 +13,8 @@
    #:io/classes/conc/scheduler
    #:io/gen-impl/conc/group
    )
+  (:import-from #:coalton-library/experimental/do-control-loops
+   #:do-loop-times)
   (:local-nicknames
    (:l #:coalton-library/list))
   (:export

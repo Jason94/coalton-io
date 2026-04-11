@@ -91,7 +91,7 @@
      (cv:new)
      (cv:new)))
 
-  (declare enqueue-with!% (Runtime :rt :t => Proxy :rt * :a * TimeoutStrategy * RingBuffer :a -> Unit))
+  (declare enqueue-with!% (Runtime :rt :t => Proxy :rt * :a * TimeoutStrategy * RingBuffer :a -> Void))
   (define (enqueue-with!% rt-prx elt strategy buffer)
     "Add ELT to BUFFER.
 
@@ -128,7 +128,9 @@ Concurrent:
                     (Some elt)
                     (.data buffer))
             (update! 1+ (.count buffer))
-            (update! (increment% buffer) (.insert-ptr buffer))
+            (update! (fn (n)
+                       (increment% buffer n))
+                     (.insert-ptr buffer))
             (lk:release (.lock buffer))
             (when should-notify
               (cv:broadcast (.notify-not-empty buffer)))
@@ -136,7 +138,7 @@ Concurrent:
             )))
 
   (inline)
-  (declare enqueue!% (Runtime :rt :t => Proxy :rt * :a * RingBuffer :a -> Unit))
+  (declare enqueue!% (Runtime :rt :t => Proxy :rt * :a * RingBuffer :a -> Void))
   (define (enqueue!% rt-prx elt buffer)
     "Add ELT to BUFFER.
 
@@ -174,7 +176,9 @@ Concurrent: Can block acquiring lock on buffer."
                   (Some elt)
                   (.data buffer))
           (update! 1+ (.count buffer))
-          (update! (increment% buffer) (.insert-ptr buffer))
+          (update! (fn (n)
+                     (increment% buffer n))
+                   (.insert-ptr buffer))
           (lk:release (.lock buffer))
           (when should-notify
             (cv:broadcast (.notify-not-empty buffer)))
@@ -223,7 +227,9 @@ Concurrent:
                     None
                     (.data buffer))
             (update! 1- (.count buffer))
-            (update! (increment% buffer) (.read-ptr buffer))
+            (update! (fn (n)
+                       (increment% buffer n))
+                     (.read-ptr buffer))
             (lk:release (.lock buffer))
             (when should-notify
               (cv:broadcast (.notify-not-full buffer)))
@@ -262,7 +268,7 @@ Concurrent:
 Concurrent:
   - Can block acquiring lock on buffer.
   - If full, blocks until BUFFER is not full, possibly timing out based on STRATEGY."
-    (inject-runtime enqueue-with!% elt strategy buffer))
+    (inject-runtime-unit enqueue-with!% elt strategy buffer))
 
   (inline)
   (declare enqueue (Threads :rt :t :m => :a * RingBuffer :a -> :m Unit))
@@ -272,7 +278,7 @@ Concurrent:
 Concurrent:
   - Can block acquiring lock on buffer.
   - If full, blocks until BUFFER is not full."
-    (inject-runtime enqueue!% elt buffer))
+    (inject-runtime-unit enqueue!% elt buffer))
 
   (inline)
   (declare try-enqueue (Threads :rt :t :m => :a * RingBuffer :a -> :m Boolean))

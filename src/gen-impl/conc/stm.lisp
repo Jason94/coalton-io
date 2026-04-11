@@ -216,23 +216,25 @@ conditions. DONT USE THIS!"
       (tx-const-io!% (raise-dynamic dyn-e)))
     (inline)
     (define (reraise tx catch-tx)
-     (STM%
-      (fn (tx-data)
-        (reraise (run-stm% tx-data tx)
-                 (map (fn (x) (run-stm% tx-data x))
-                      catch-tx)))))
+      (STM%
+       (fn (tx-data)
+         (reraise (run-stm% tx-data tx)
+                  (fn ()
+                    (run-stm% tx-data (catch-tx)))))))
     (inline)
     (define (handle tx catch-tx)
       (STM%
        (fn (tx-data)
          (handle (run-stm% tx-data tx)
-                 (map (run-stm% tx-data) catch-tx)))))
+                 (fn (e)
+                   (run-stm% tx-data (catch-tx e)))))))
     (inline)
     (define (handle-all tx catch-tx)
       (STM%
        (fn (tx-data)
          (handle-all (run-stm% tx-data tx)
-                     (map (run-stm% tx-data) catch-tx)))))
+                     (fn ()
+                       (run-stm% tx-data (catch-tx)))))))
     (inline)
     (define (try-dynamic tx)
       (STM%
@@ -451,14 +453,14 @@ For safety, disconnects the transactions when done."
     (at:read-at-int global-lock))
 
   (inline)
-  (declare broadcast-write-tx!% (TxData% -> Unit))
+  (declare broadcast-write-tx!% (TxData% -> Void))
   (define (broadcast-write-tx!% tx-data)
     ;; CONCURRENT:
     ;;   - WARNING: Should be run in a masked region to ensure writes aren't committed
     ;;     without unparking the corresponding psets
     ;;   - Because assuming masked, no need to mask to ensure consistent unparks in
     ;;     the presence of an asynchronous stop
-    (for pset in (logged-write-psets% (.write-log tx-data))
+    (foreach (pset (logged-write-psets% (.write-log tx-data)))
       (unpark-set% pset)))
 
   (inline)

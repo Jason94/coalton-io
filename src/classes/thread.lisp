@@ -86,6 +86,7 @@
 
    ;; Library Private
    #:inject-runtime
+   #:inject-runtime-unit
    #:wrap-io-with-runtime
    #:prxs-same-runtime
    #:concurrent-value-prx
