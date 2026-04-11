@@ -53,7 +53,6 @@
     (inline)
     (define (write-line into-str)
       (f:liftF (WriteLine% (into into-str) Unit)))
-    (inline)
     (define read-line
       (f:liftF (ReadLine% id))))
 
