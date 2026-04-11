@@ -5,7 +5,6 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/experimental/do-control-core
-   #:coalton-library/experimental/do-control-loops
    #:io/utils
    #:io/exceptions
    #:io/monad-io
@@ -16,6 +15,11 @@
    #:io/examples/redis/protocol
    #:io/examples/redis/cli
    #:io/examples/redis/rw-lock
+   )
+  (:import-from #:coalton/experimental/do-control-loops
+   #:do-loop-times
+   #:do-collect
+   #:do-loop-while-valM
    )
   (:local-nicknames
    (:l #:coalton-library/list)
@@ -251,14 +255,14 @@ it was missing."
     (let bucket = (bucket-for key db))
     (do
      (bucket-map <- (read-tvar bucket))
-     (let (Tuple bucket-map2 val?) =
+     (let (values bucket-map2 val?) =
        (hm:update bucket-map key
                   (fn (k?)
                     (match k?
                       ((None)
-                       (Tuple None None))
+                       (values None None))
                       ((Some val)
-                       (Tuple None (Some val)))))))
+                       (values None (Some val)))))))
      (do-match val?
        ((None)
         (pure False))
@@ -277,9 +281,8 @@ This is a custom file format and is not compatible with Redis RDB files.
 
 For more information on the real Redis file format, for the curious:
 https://rdb.fnordig.de/file_format.html"
-    (io-f:do-with-open-file_ (into filename) (fs)
-      :direction f:Output
-      :if-exists f:Overwrite
+    (io-f:do-with-open-file_ (filename fs :direction f:Output
+                                          :if-exists f:Overwrite)
       ;; Peg type of FS to (FileStream U8)
       (let _ = (the (f:FileStream U8) fs))
       ;; For efficiency, allocate one buffer containing two Resp elements. Each loop,
@@ -292,7 +295,8 @@ https://rdb.fnordig.de/file_format.html"
         (do-foreach-io_ ((Tuple key val) bucket)
           (wrap-io
            (v:set! 0 (RespBulkString key) buffer)
-           (v:set! 1 (RespBulkString val) buffer))
+           (v:set! 1 (RespBulkString val) buffer)
+           Unit)
           (write-resp (RespArray buffer) fs)))))
 
   (declare next-resp-item (f:FileStream U8 -> IO (Optional Resp)))
@@ -313,7 +317,7 @@ https://rdb.fnordig.de/file_format.html"
     "Load the contents of a dump file into a fresh database with N-BUCKETS buckets."
     (do
      (db <- (new-database n-buckets))
-     (io-f:do-with-open-file_ (into filename) (fs)
+     (io-f:do-with-open-file_ (filename fs)
        (do-loop-while-valM (resp-item (next-resp-item fs))
          (do-when-match resp-item (RespArray data)
            (do-when (== (v:length data) 2)

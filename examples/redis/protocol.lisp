@@ -5,7 +5,6 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/experimental/do-control-core
-   #:coalton-library/experimental/do-control-loops
    #:io/utils
    #:io/monad-io
    #:io/exceptions
@@ -194,9 +193,9 @@ Example stream input, where the '*' type byte has already been read:
     (do
      (num-elements-bytes <- (read-until-terminator conn))
      (do-match (tryinto (bytes->int num-elements-bytes))
-       ((Err e)
-        (pure (Err e)))
-       ((Ok num-elements)
+       ((None)
+        (pure (Err "Failed to convert num-elements-bytes -> integer")))
+       ((Some num-elements)
         (buffer <- (wrap-io (v:with-capacity num-elements)))
         (result? <-
           (rec % ()
@@ -258,9 +257,9 @@ Example stream input, where the '$' type byte has already been read:
     (do
      (length-bytes <- (read-until-terminator conn))
      (do-match (tryinto (bytes->int length-bytes))
-       ((Err e)
-        (pure (Err (<> "Error parsing bulk string length: " e))))
-       ((Ok length)
+       ((None)
+        (pure (Err "Error parsing bulk string length")))
+       ((Some length)
         (str-bytes <- (read-exactly length conn))
         ;; Consume the trailing \r\n delimiter
         (read-until-terminator conn)
