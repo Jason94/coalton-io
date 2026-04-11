@@ -13,7 +13,6 @@
   (:local-nicknames
    (:bt  #:io/utilities/bt-compat)
    (:c #:coalton-library/cell)
-   (:cv  #:coalton-threads/condition-variable)
    (:at #:io/threads-impl/atomics)
    )
   (:export
@@ -76,7 +75,7 @@ The pool takes care of masking itself during critical periods, so it can't
 be left in an inconsistent state if another thread were to attempt an
 interrupt during, for example, a publish."
     (version-entries (at:AtomicStack (VersionEntry :a)))
-    (notify-cv       cv:ConditionVariable)
+    (notify-cv       bt:ConditionVariable)
     ;; Lock used for waking subscribers
     (notify-lock     bt:Lock)
     ;; Lock blocking publishes
@@ -89,7 +88,7 @@ interrupt during, for example, a publish."
   (declare new-broadcast-pool (Void -> DataBroadcastPool :a))
   (define (new-broadcast-pool)
     (DataBroadcastPool (at:new-atomic-stack)
-                       (cv:new)
+                       (bt:new-cv)
                        (bt:new-lk)
                        (bt:new-lk)
                        (at:new-at-int 0)
@@ -122,7 +121,7 @@ THE THREAD IS MASKED."
         (let new-entry = (new-version-entry version n-subscribers data))
         (at:at-st-push-front! new-entry (.version-entries pool))
         ;; Fourth, notify subscribers.
-        (cv:broadcast (.notify-cv pool))
+        (bt:broadcast (.notify-cv pool))
         )
       (bt:release (.notify-lock pool))
       (bt:release (.publish-lock pool))
@@ -140,7 +139,7 @@ THE THREAD IS MASKED."
     (at:atomic-inc1 (.n-subscribers pool))
     (let version = (at:read-at-int (.version pool)))
     (rec % ()
-      (catch 
+      (catch
           (unmask-and-await-safely-finally-with%
            rt-prx
            strategy

@@ -17,7 +17,6 @@
    (:i #:coalton-library/iterator)
    (:c #:coalton-library/cell)
    (:bt  #:io/utilities/bt-compat)
-   (:cv  #:coalton-threads/condition-variable)
    (:at #:io/threads-impl/atomics)
    )
   (:export
@@ -740,7 +739,7 @@ a consistent snapshot of the data. Therefore, TX must be pure."
            (if commit-succeeded?
                (pure val)
                (%))))))
-     m-prx))     
+     m-prx))
   )
 
 (defmacro do-run-tx (cl:&body body)

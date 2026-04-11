@@ -18,9 +18,7 @@
    (:c #:coalton-library/cell)
    (:b #:coalton-library/bits)
    (:v #:coalton-library/vector)
-   (:t #:coalton-threads/thread)
-      (:bt2 #:bordeaux-threads-2)
-      (:cv #:coalton-threads/condition-variable)
+   (:bt2 #:bordeaux-threads-2)
    )
   (:export
    ;; Library Public
@@ -93,9 +91,9 @@
       (cl:logtest a b)))
 
   (inline)
-  (declare current-native-thread% (Void -> t:Thread (Result Dynamic :a)))
+  (declare current-native-thread% (Void -> bt:Thread (Result Dynamic :a)))
   (define (current-native-thread%)
-    (lisp (-> t:Thread (Result Dynamic :a)) ()
+    (lisp (-> bt:Thread (Result Dynamic :a)) ()
       (bt2:current-thread)))
 
   ;;;
@@ -108,9 +106,6 @@
     ThreadRunning
     ThreadStopping
     ThreadStopped)
-
-  ;; TODO: (t:Thread :a) is just bt2:Thread. Given the design differences, this should
-  ;; just use bt2 directly and coalton-threads dependency should be dropped.
 
   ;; TODO: Like in STM, currently using the coalton-threads AtomicInteger instead of
   ;; my Atomics package. Not sure if there is a performance benefit or not to that.
@@ -134,7 +129,7 @@
   ;; To unpark a thread, the waking thread must call (signal-unpark-thread! GEN THREAD).
   ;; If the generation used to park == the generation used to signal, then the thread
   ;; will unpark.
-  ;; 
+  ;;
   ;; The purpose of the parking mechanism is to support waiting on multiple conditions.
   ;; If a thread wants to wait on conditions A, B, and C, and it is woken by the process
   ;; concerning condition A, then it would need to unsubscribe from conditions B & C.
@@ -153,7 +148,7 @@
   ;; but not parked; or (2) have re-parked since being unparked, but ignores the unpark
   ;; signal from B or C because they signal with a stale generation.
   (define-struct IoThread
-    (handle     (c:Cell (Optional (t:Thread (Result Dynamic Unit)))))
+    (handle     (c:Cell (Optional (bt:Thread (Result Dynamic Unit)))))
     ;; Masking/Unmasking
     (flags      bt:AtomicInteger)
     (stop-lk    bt:Lock)
@@ -161,7 +156,7 @@
     (generation bt:AtomicInteger)
     (fired-gen  bt:AtomicInteger)
     (park-lock  bt:Lock)
-    (park-cv    cv:ConditionVariable)
+    (park-cv    bt:ConditionVariable)
     ;; Structured Concurrency
     ;; NOTE: status is protected by the child-lk, and can only be touched with that
     ;; lock held.
@@ -188,7 +183,7 @@
      (bt:new-at 0)
      (bt:new-at 0)
      (bt:new-lk)
-     (cv:new)
+     (bt:new-cv)
      (c:new ThreadRunning)
      (bt:new-lk)
      (c:new Nil)
@@ -239,7 +234,7 @@
      (bt:new-at 0)
      (bt:new-at 0)
      (bt:new-lk)
-     (cv:new)
+     (bt:new-cv)
      (c:new ThreadRunning)
      (bt:new-lk)
      (c:new Nil)
@@ -291,8 +286,8 @@ Concurrent:
         ((Some native-thread)
          (mask!% thd)
          (lisp (-> :a) (native-thread)
-           (cl:when (bt:thread-alive-p native-thread)
-             (bt:error-in-thread native-thread (InterruptCurrentThread ""))))
+           (cl:when (bt2:thread-alive-p native-thread)
+             (bt2:error-in-thread native-thread (InterruptCurrentThread ""))))
          (values)))))
 
   ;;;
@@ -426,7 +421,7 @@ was stopping/stopped and the child should not start."
       ;; dynamic binding nonsense?? That would involve wrapping bt directly but honestly
       ;; we're basically there.
       ;; See https://sionescu.github.io/bordeaux-threads/threads/make-thread/
-      (t:spawn (fn ()
+      (bt:spawn (fn ()
                  (if child-should-run?
                      (lisp (-> Result Dynamic :a) (strategy thunk thread-container global-thread)
                        (cl:let ((*current-thread* thread-container)
@@ -554,7 +549,7 @@ the MVar implementation:
     (unmask-current-thread-finally!%
      (fn (mode)
        (if (== Running mode)
-           (cv:await cv lock)
+           (bt:await cv lock)
            (progn
              (bt:release lock)
              Unit)))))
@@ -723,7 +718,7 @@ just be limited to implementing only solutions #2 or #3.
           (progn
             (atomic-set-generation%! gen (.fired-gen thread))
             (bt:release (.park-lock thread))
-            (cv:notify (.park-cv thread))
+            (bt:notify (.park-cv thread))
             (unmask-current-thread!%))
           (progn
             (bt:release (.park-lock thread))

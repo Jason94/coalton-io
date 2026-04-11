@@ -8,13 +8,13 @@
    #:io/thread
    #:io/threads-exceptions
    #:io/conc/mvar
-   #:io/exceptions)
+   #:io/exceptions
+   #:io/tests/utils)
   (:import-from #:io/term
    #:write-line)
   (:local-nicknames
-   (:s #:coalton-threads/semaphore)
-   )
-  )
+   (:bt #:io/utilities/bt-compat)
+   ))
 (in-package :coalton-io/tests/resource)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -31,20 +31,7 @@
 
   (define-instance (Signalable BracketError)
     (define (error (BE s))
-      (error s))))
-
-;; NOTE: Not using MVar's for this because they *also* mask.
-
-(coalton-toplevel
-  (declare s-new (MonadIo :m => :m s:Semaphore))
-  (define s-new
-    (wrap-io (s:new)))
-
-  (define (s-signal s)
-    (wrap-io (s:signal s 1)))
-
-  (define (s-await s)
-    (wrap-io (s:await s)))
+      (error s)))
   )
 
 (define-test test-bracket-io_-cleanup-on-error ()

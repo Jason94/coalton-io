@@ -20,7 +20,7 @@
    (:opt #:coalton-library/optional)
    (:at #:io/threads-impl/atomics)
    (:bt #:io/utilities/bt-compat)
-   (:cv #:coalton-threads/condition-variable)
+
    )
   (:export
    #:MVar
@@ -66,8 +66,8 @@ All critical MVar operations are masked. However, irresponsible stopping could s
 deadlocks and other race conditions."
     (lock                bt:Lock)
     (read-broadcast-pool (DataBroadcastPool :a))
-    (notify-full         cv:ConditionVariable)
-    (notify-empty        cv:ConditionVariable)
+    (notify-full         bt:ConditionVariable)
+    (notify-empty        bt:ConditionVariable)
     (data                (at:Atomic (Optional :a))))
 
   (inline)
@@ -77,8 +77,8 @@ deadlocks and other race conditions."
     (wrap-io
       (MVar (bt:new-lk)
             (new-broadcast-pool)
-            (cv:new)
-            (cv:new)
+            (bt:new-cv)
+            (bt:new-cv)
             (at:new (Some val)))))
 
   (inline)
@@ -88,8 +88,8 @@ deadlocks and other race conditions."
     (wrap-io
       (MVar (bt:new-lk)
             (new-broadcast-pool)
-            (cv:new)
-            (cv:new)
+            (bt:new-cv)
+            (bt:new-cv)
             (at:new None))))
 
   (declare take-mvar-masked-inner% (Runtime :rt :t => TimeoutStrategy * MVar :a * Proxy :rt -> :a))
@@ -115,7 +115,7 @@ deadlocks and other race conditions."
                   ((Some val)
                    (at:atomic-write (.data mvar) None)
                    (bt:release (.lock mvar))
-                   (cv:notify (.notify-empty mvar))
+                   (bt:notify (.notify-empty mvar))
                    val)
                   ((None)
                    (unmask-and-await-safely-finally-with%
@@ -124,7 +124,7 @@ deadlocks and other race conditions."
                     (.notify-full mvar)
                     (.lock mvar)
                     (fn ()
-                      (cv:notify (.notify-full mvar))
+                      (bt:notify (.notify-full mvar))
                       (values)))
                     (lp))))))
       (lp)))
@@ -223,7 +223,7 @@ Concurrent:
                      (at:atomic-write data (Some val))
                      (bt:release lock)
                      (publish (.read-broadcast-pool mvar) val)
-                     (cv:notify (.notify-full mvar))
+                     (bt:notify (.notify-full mvar))
                      (unmask-current! rt-prx)
                      Unit)
                     ((Some _)
@@ -233,7 +233,7 @@ Concurrent:
                       (.notify-empty mvar)
                       lock
                       (fn ()
-                        (cv:notify (.notify-empty mvar))
+                        (bt:notify (.notify-empty mvar))
                         (values)))
                      (lp))))))
         (lp))))
@@ -275,7 +275,7 @@ Concurrent:
          ((Some x)
           (at:atomic-write (.data mvar) None)
           (bt:release (.lock mvar))
-          (cv:notify (.notify-empty mvar))
+          (bt:notify (.notify-empty mvar))
           (Some x))
          ((None)
          (bt:release (.lock mvar))
@@ -349,7 +349,7 @@ Concurrent:
             (at:atomic-write (.data mvar) (Some val))
             (bt:release (.lock mvar))
             (publish (.read-broadcast-pool mvar) val)
-            (cv:notify (.notify-full mvar))
+            (bt:notify (.notify-full mvar))
             (unmask-current! rt-prx)
             True))))))
 
@@ -359,7 +359,7 @@ Concurrent:
 
 Concurrent:
   - Blocks while the MVar is empty
-  - Blocking read-non-consumers (including `read-mvar`) are woken simultaneously on 
+  - Blocking read-non-consumers (including `read-mvar`) are woken simultaneously on
     succesful put. Data is handed directly to woken readers, which don't contend on mvar."
     ;; CONCURRENT:
     ;; - Does not need to mask around read-only atomic happy path.
@@ -377,7 +377,7 @@ Concurrent:
 
 Concurrent:
   - Blocks while the MVar is empty
-  - Blocking read-non-consumers (including `read-mvar`) are woken simultaneously on 
+  - Blocking read-non-consumers (including `read-mvar`) are woken simultaneously on
     succesful put. Data is handed directly to woken readers, which don't contend on mvar."
     (read-mvar-with NoTimeout mvar))
 
@@ -412,7 +412,7 @@ Concurrent:
                     ((Some old-val)
                      (at:atomic-write (.data mvar) (Some new-val))
                      (bt:release (.lock mvar))
-                     (cv:notify (.notify-full mvar))
+                     (bt:notify (.notify-full mvar))
                      (unmask-current! rt-prx)
                      old-val)
                     ((None)
@@ -422,7 +422,7 @@ Concurrent:
                       (.notify-full mvar)
                       (.lock mvar)
                       (fn ()
-                        (cv:notify (.notify-full mvar))
+                        (bt:notify (.notify-full mvar))
                         (values)))
                      (lp))))))
         (lp))))
@@ -557,5 +557,5 @@ Concurrent:
        (put-mvar (.head-var chan) new-head-var)
        unmask-current-thread ;; Cleanup after take-mvar-masked
        (pure (Some val)))))
-    
+
   )

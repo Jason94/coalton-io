@@ -163,7 +163,6 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
 
 (coalton-toplevel
 
-  ;; https://github.com/garlic0x1/coalton-threads/blob/master/src/atomic.lisp
   (define-type-alias Word #+32-bit U32 #+64-bit U64
     "An integer that fits in a CPU word.")
 

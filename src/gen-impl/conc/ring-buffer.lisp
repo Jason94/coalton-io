@@ -13,7 +13,7 @@
    (:opt #:coalton-library/optional)
    (:v #:coalton-library/vector)
    (:bt #:io/utilities/bt-compat)
-   (:cv #:coalton-threads/condition-variable)
+
    )
   (:export
    ;; Library Public
@@ -25,7 +25,7 @@
    #:try-enqueue
    #:dequeue
    #:dequeue-with
-   
+
    ;; Library Private
    #:new-ring-buffer%
    #:enqueue!%
@@ -54,8 +54,8 @@
     (insert-ptr       (Cell UFix))
     (read-ptr         (Cell UFix))
     (lock             bt:Lock)
-    (notify-not-empty cv:ConditionVariable)
-    (notify-not-full  cv:ConditionVariable))
+    (notify-not-empty bt:ConditionVariable)
+    (notify-not-full  bt:ConditionVariable))
 
   (inline)
   (declare increment% (RingBuffer :a * UFix -> UFix))
@@ -75,7 +75,7 @@
   (declare full?% (RingBuffer :a -> Boolean))
   (define (full?% buffer)
     (== (read (.count buffer)) (.capacity buffer)))
-  
+
   (inline)
   (declare new-ring-buffer% (UFix -> RingBuffer :a))
   (define (new-ring-buffer% capacity)
@@ -88,8 +88,8 @@
      (new 0)
      (new 0)
      (bt:new-lk)
-     (cv:new)
-     (cv:new)))
+     (bt:new-cv)
+     (bt:new-cv)))
 
   (declare enqueue-with!% (Runtime :rt :t => Proxy :rt * :a * TimeoutStrategy * RingBuffer :a -> Void))
   (define (enqueue-with!% rt-prx elt strategy buffer)
@@ -133,7 +133,7 @@ Concurrent:
                      (.insert-ptr buffer))
             (bt:release (.lock buffer))
             (when should-notify
-              (cv:broadcast (.notify-not-empty buffer)))
+              (bt:broadcast (.notify-not-empty buffer)))
             (unmask-current! rt-prx))
             )))
 
@@ -181,7 +181,7 @@ Concurrent: Can block acquiring lock on buffer."
                    (.insert-ptr buffer))
           (bt:release (.lock buffer))
           (when should-notify
-            (cv:broadcast (.notify-not-empty buffer)))
+            (bt:broadcast (.notify-not-empty buffer)))
           (unmask-current! rt-prx)
           True)
         ))
@@ -232,7 +232,7 @@ Concurrent:
                      (.read-ptr buffer))
             (bt:release (.lock buffer))
             (when should-notify
-              (cv:broadcast (.notify-not-full buffer)))
+              (bt:broadcast (.notify-not-full buffer)))
             (unmask-current! rt-prx)
             elt)
           )))
