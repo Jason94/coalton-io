@@ -19,7 +19,7 @@
   (:local-nicknames
    (:opt #:coalton-library/optional)
    (:at #:io/threads-impl/atomics)
-   (:lk #:coalton-threads/lock)
+   (:bt #:io/utilities/bt-compat)
    (:cv #:coalton-threads/condition-variable)
    )
   (:export
@@ -64,7 +64,7 @@
 
 All critical MVar operations are masked. However, irresponsible stopping could still cause
 deadlocks and other race conditions."
-    (lock                lk:Lock)
+    (lock                bt:Lock)
     (read-broadcast-pool (DataBroadcastPool :a))
     (notify-full         cv:ConditionVariable)
     (notify-empty        cv:ConditionVariable)
@@ -75,7 +75,7 @@ deadlocks and other race conditions."
   (define (new-mvar val)
     "Create a new MVar containing VAL."
     (wrap-io
-      (MVar (lk:new)
+      (MVar (bt:new-lk)
             (new-broadcast-pool)
             (cv:new)
             (cv:new)
@@ -86,7 +86,7 @@ deadlocks and other race conditions."
   (define new-empty-mvar
     "Create a new empty MVar."
     (wrap-io
-      (MVar (lk:new)
+      (MVar (bt:new-lk)
             (new-broadcast-pool)
             (cv:new)
             (cv:new)
@@ -114,7 +114,7 @@ deadlocks and other race conditions."
                 (match (at:read (.data mvar))
                   ((Some val)
                    (at:atomic-write (.data mvar) None)
-                   (lk:release (.lock mvar))
+                   (bt:release (.lock mvar))
                    (cv:notify (.notify-empty mvar))
                    val)
                   ((None)
@@ -221,7 +221,7 @@ Concurrent:
                   (match (at:read data)
                     ((None)
                      (at:atomic-write data (Some val))
-                     (lk:release lock)
+                     (bt:release lock)
                      (publish (.read-broadcast-pool mvar) val)
                      (cv:notify (.notify-full mvar))
                      (unmask-current! rt-prx)
@@ -274,11 +274,11 @@ Concurrent:
        (match (at:read (.data mvar))
          ((Some x)
           (at:atomic-write (.data mvar) None)
-          (lk:release (.lock mvar))
+          (bt:release (.lock mvar))
           (cv:notify (.notify-empty mvar))
           (Some x))
          ((None)
-         (lk:release (.lock mvar))
+         (bt:release (.lock mvar))
          None)))))
 
   (inline)
@@ -339,15 +339,15 @@ Concurrent:
          False)
         ((None)
          (mask-current! rt-prx)
-         (lk:acquire (.lock mvar))
+         (bt:acquire (.lock mvar))
          (match (at:read (.data mvar))
            ((Some _)
-            (lk:release (.lock mvar))
+            (bt:release (.lock mvar))
             (unmask-current! rt-prx)
             False)
            ((None)
             (at:atomic-write (.data mvar) (Some val))
-            (lk:release (.lock mvar))
+            (bt:release (.lock mvar))
             (publish (.read-broadcast-pool mvar) val)
             (cv:notify (.notify-full mvar))
             (unmask-current! rt-prx)
@@ -411,7 +411,7 @@ Concurrent:
                   (match (at:read (.data mvar))
                     ((Some old-val)
                      (at:atomic-write (.data mvar) (Some new-val))
-                     (lk:release (.lock mvar))
+                     (bt:release (.lock mvar))
                      (cv:notify (.notify-full mvar))
                      (unmask-current! rt-prx)
                      old-val)

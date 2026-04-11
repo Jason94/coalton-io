@@ -16,7 +16,7 @@
    (:opt #:coalton-library/optional)
    (:i #:coalton-library/iterator)
    (:c #:coalton-library/cell)
-   (:lk  #:coalton-threads/lock)
+   (:bt  #:io/utilities/bt-compat)
    (:cv  #:coalton-threads/condition-variable)
    (:at #:io/threads-impl/atomics)
    )

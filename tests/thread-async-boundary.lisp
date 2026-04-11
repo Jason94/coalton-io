@@ -13,7 +13,7 @@
   (:local-nicknames
    (:c #:coalton-library/cell)
    (:s #:coalton-threads/semaphore)
-   (:lk #:coalton-threads/lock))
+   (:bt #:io/utilities/bt-compat))
   )
 (in-package :coalton-io/tests/thread-async-boundary)
 

@@ -12,7 +12,7 @@
   (:local-nicknames
    (:opt #:coalton-library/optional)
    (:v #:coalton-library/vector)
-   (:lk #:coalton-threads/lock)
+   (:bt #:io/utilities/bt-compat)
    (:cv #:coalton-threads/condition-variable)
    )
   (:export
@@ -53,7 +53,7 @@
     (count            (Cell UFix))
     (insert-ptr       (Cell UFix))
     (read-ptr         (Cell UFix))
-    (lock             lk:Lock)
+    (lock             bt:Lock)
     (notify-not-empty cv:ConditionVariable)
     (notify-not-full  cv:ConditionVariable))
 
@@ -87,7 +87,7 @@
      (new 0)
      (new 0)
      (new 0)
-     (lk:new)
+     (bt:new-lk)
      (cv:new)
      (cv:new)))
 
@@ -112,7 +112,7 @@ Concurrent:
     ;;   condition and interpose lock acquisition before waiting/notifying.
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
     (mask-current! rt-prx)
-    (lk:acquire (.lock buffer))
+    (bt:acquire (.lock buffer))
     (rec % ()
       (if (full?% buffer)
           (progn
@@ -131,7 +131,7 @@ Concurrent:
             (update! (fn (n)
                        (increment% buffer n))
                      (.insert-ptr buffer))
-            (lk:release (.lock buffer))
+            (bt:release (.lock buffer))
             (when should-notify
               (cv:broadcast (.notify-not-empty buffer)))
             (unmask-current! rt-prx))
@@ -164,10 +164,10 @@ Concurrent: Can block acquiring lock on buffer."
     ;;   condition and interpose lock acquisition before waiting/notifying.
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
     (mask-current! rt-prx)
-    (lk:acquire (.lock buffer))
+    (bt:acquire (.lock buffer))
     (if (full?% buffer)
         (progn
-          (lk:release (.lock buffer))
+          (bt:release (.lock buffer))
           (unmask-current! rt-prx)
           False)
         (progn
@@ -179,7 +179,7 @@ Concurrent: Can block acquiring lock on buffer."
           (update! (fn (n)
                      (increment% buffer n))
                    (.insert-ptr buffer))
-          (lk:release (.lock buffer))
+          (bt:release (.lock buffer))
           (when should-notify
             (cv:broadcast (.notify-not-empty buffer)))
           (unmask-current! rt-prx)
@@ -207,7 +207,7 @@ Concurrent:
     ;;   condition and interpose lock acquisition before waiting/notifying.
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
     (mask-current! rt-prx)
-    (lk:acquire (.lock buffer))
+    (bt:acquire (.lock buffer))
     (rec % ()
       (if (empty?% buffer)
           (progn
@@ -230,7 +230,7 @@ Concurrent:
             (update! (fn (n)
                        (increment% buffer n))
                      (.read-ptr buffer))
-            (lk:release (.lock buffer))
+            (bt:release (.lock buffer))
             (when should-notify
               (cv:broadcast (.notify-not-full buffer)))
             (unmask-current! rt-prx)

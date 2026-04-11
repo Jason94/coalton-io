@@ -12,7 +12,7 @@
    #:io/resource
    )
   (:local-nicknames
-   (:lk #:coalton-threads/lock))
+   (:bt #:io/utilities/bt-compat))
   (:import-from #:coalton-library/experimental/do-control-loops
    #:collect
    #:foreach
@@ -54,7 +54,7 @@ Concurrent:
     and `unmask-finally` to guarantee atomicity of the enclosed Concurrents
   - `await` is not masked"
     (pool (List :c))
-    (lock lk:Lock))
+    (lock bt:Lock))
 
   (inline)
   (declare concurrent-prx (ConcurrentGroup :c :a -> Proxy :c))
@@ -77,7 +77,7 @@ Concurrent:
     To guarantee forking completion, caller should mask the call to `fork-group`."
     (do
      (concurrents <- (sequence fork-concurrents))
-     (pure (ConcurrentGroup concurrents (lk:new)))))
+     (pure (ConcurrentGroup concurrents (bt:new-lk)))))
 
   (declare enclose-group ((Threads :rt :t :m) (Concurrent :c :a)
                        => List :c -> :m (ConcurrentGroup :c :a)))
@@ -85,7 +85,7 @@ Concurrent:
     "Enclose already forked Concurrents in a ConcurrentGroup.
 
 Warning: After calling, the enclosed Concurrents should only be managed through the group."
-    (wrap-io (ConcurrentGroup concurrents (lk:new))))
+    (wrap-io (ConcurrentGroup concurrents (bt:new-lk))))
 
   (inline)
   (declare await% ((Threads :rt :t :m) (Exceptions :m) (Concurrent :c :a)
@@ -103,9 +103,9 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     ;; consistent state.
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
     (bracket-io-masked_
-     (wrap-io (lk:acquire (.lock group)))
+     (wrap-io (bt:acquire (.lock group)))
      (fn (_)
-       (wrap-io (lk:release (.lock group))))
+       (wrap-io (bt:release (.lock group))))
      (fn (_)
        (foreach (.pool group) (as-proxy-of stop
                                            (proxy-with-arg cnc-prx))))))
@@ -117,9 +117,9 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     ;; consistent state.
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
     (bracket-io-masked_
-     (wrap-io (lk:acquire (.lock group)))
+     (wrap-io (bt:acquire (.lock group)))
      (fn (_)
-       (wrap-io (lk:release (.lock group))))
+       (wrap-io (bt:release (.lock group))))
      (fn (_)
        (foreach (.pool group) (as-proxy-of mask
                                            (proxy-with-arg cnc-prx))))))
@@ -131,9 +131,9 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     ;; consistent state.
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
     (bracket-io-masked_
-     (wrap-io (lk:acquire (.lock group)))
+     (wrap-io (bt:acquire (.lock group)))
      (fn (_)
-       (wrap-io (lk:release (.lock group))))
+       (wrap-io (bt:release (.lock group))))
      (fn (_)
        (foreach (.pool group) (as-proxy-of unmask
                                            (proxy-with-arg cnc-prx))))))
@@ -146,9 +146,9 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     ;; consistent state.
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
     (bracket-io-masked_
-     (wrap-io (lk:acquire (.lock group)))
+     (wrap-io (bt:acquire (.lock group)))
      (fn (_)
-       (wrap-io (lk:release (.lock group))))
+       (wrap-io (bt:release (.lock group))))
      (fn (_)
        (foreach (.pool group)
                 (as-proxy-of

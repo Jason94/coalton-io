@@ -10,7 +10,7 @@
    #:io/classes/thread
    )
   (:local-nicknames
-   (:lk #:coalton-threads/lock)
+   (:bt #:io/utilities/bt-compat)
    (:cv #:coalton-threads/condition-variable)
    (:bt2 #:bordeaux-threads-2)
    )
@@ -37,12 +37,12 @@
            (fn ()
              (throw exc))))))
 
-  (declare lk-acquire-with (lk:Lock * TimeoutStrategy -> Void))
+  (declare lk-acquire-with (bt:Lock * TimeoutStrategy -> Void))
   (define (lk-acquire-with lock strategy)
     "Acquire LOCK, optionally using a timeout."
     (match strategy
       ((NoTimeout)
-       (lk:acquire lock)
+       (bt:acquire lock)
        (values))
       ((Timeout timeout-time)
        (lisp (-> Unit) (lock timeout-time)
@@ -55,7 +55,7 @@
                              " milliseconds.")))))
        (values))))
 
-  (declare cv-await-with (cv:ConditionVariable * lk:Lock * TimeoutStrategy -> Void))
+  (declare cv-await-with (cv:ConditionVariable * bt:Lock * TimeoutStrategy -> Void))
   (define (cv-await-with cv lock strategy)
     "Await CV while holding LOCK, optionally using a timeout."
     (match strategy
@@ -83,7 +83,7 @@
   (declare unmask-and-await-safely-finally% (Runtime :rt :t
                                              => Proxy :rt
                                              * cv:ConditionVariable
-                                             * lk:Lock
+                                             * bt:Lock
                                              * (Void -> Void)
                                              -> Void))
   (define (unmask-and-await-safely-finally% rt-prx cv lock finally)
@@ -97,7 +97,7 @@ is run AFTER the lock is released, and only if the thread is stopped!!"
                                                   => Proxy :rt
                                                   * TimeoutStrategy
                                                   * cv:ConditionVariable
-                                                  * lk:Lock
+                                                  * bt:Lock
                                                   * (Void -> Void)
                                                   -> Void))
   (define (unmask-and-await-safely-finally-with% rt-prx strategy cv lock finally)
@@ -109,14 +109,14 @@ is run AFTER the lock is released, and only if the thread is stopped!!"
              (cv-await-with cv lock strategy)
              (mask-current! rt-prx))
       ((InterruptCurrentThread msg)
-       (lk:release lock)
+       (bt:release lock)
        (finally)
        (throw (InterruptCurrentThread msg)))))
 
   ;; TODO: Remove lambda when this is fixed:
   ;; https://github.com/coalton-lang/coalton/issues/1719
   (inline)
-  (declare unmask-and-await-safely% (Runtime :rt :t => Proxy :rt * cv:ConditionVariable * lk:Lock -> Void))
+  (declare unmask-and-await-safely% (Runtime :rt :t => Proxy :rt * cv:ConditionVariable * bt:Lock -> Void))
   (define (unmask-and-await-safely% rt-prx cv lock)
     "Unmask the thread. Finally, either await (still running) the CV
 or just release the LOCK. Masks after resuming post-await."
@@ -128,7 +128,7 @@ or just release the LOCK. Masks after resuming post-await."
                                           => Proxy :rt
                                           * TimeoutStrategy
                                           * cv:ConditionVariable
-                                          * lk:Lock
+                                          * bt:Lock
                                           -> Void))
   (define (unmask-and-await-safely-with% rt-prx strategy cv lock)
     "Unmask the thread. Finally, either await (still running) the CV
@@ -138,6 +138,6 @@ or just release the LOCK. Masks after resuming post-await."
              (cv-await-with cv lock strategy)
              (mask-current! rt-prx))
       ((InterruptCurrentThread msg)
-       (lk:release lock)
+       (bt:release lock)
        (throw (InterruptCurrentThread msg)))))
   )
