@@ -44,9 +44,7 @@
       (do-loop-while
         (sleep 2)
         (num-parked <- (num-waiters p-set))
-        ;; NOTE: do-loop-while on booleans is backwards
-        ;; https://github.com/coalton-lang/coalton/issues/1742
-        (pure (not (zero? num-parked))))
+        (pure (zero? num-parked)))
       ;; Unpark the set and wait for the finish
       (unpark-set p-set)
       (s-await finished-gate)

@@ -151,7 +151,7 @@ Returns the old value stored in `atm` after applying F."
   (declare atomic-write (Atomic :a * :a -> Unit))
   (define (atomic-write atm val)
     "Atomically set the value in `atm` to `val`."
-    (atomic-update atm (const val))
+    (atomic-update atm (fn (_) val))
     Unit)
   )
 

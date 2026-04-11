@@ -156,7 +156,7 @@ Example:
   (pure 10))
 ===>
 (handle-all add-three-ints
-  (const
+  (fn ()
     (do
      (modify (cons 2))
      (pure 10))))
