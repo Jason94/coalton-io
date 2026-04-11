@@ -1,7 +1,6 @@
 (defpackage :coalton-io/tests/conc/parking
   (:use #:coalton #:coalton-prelude #:coalton-testing
    #:coalton-library/types
-   #:coalton-library/experimental/do-control-loops
    #:io/utils
    #:io/monad-io
    #:io/simple-io
@@ -9,6 +8,9 @@
    #:io/thread
    #:io/conc/parking
    #:io/tests/utils
+   )
+  (:import-from #:coalton-library/experimental/do-control-loops
+   #:do-loop-while
    )
   (:import-from #:io/gen-impl/conc/parking
    #:num-waiters)

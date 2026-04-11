@@ -65,7 +65,8 @@
       (a <- (new-tvar 0))
       (do-run-tx
         (write-tvar a 10)
-        (modify-result <- (modify-tvar a (* 2)))
+        (modify-result <- (modify-tvar a (fn (x)
+                                           (* 2 x))))
         (read-result <- (read-tvar a))
         (pure (Tuple modify-result read-result))))))
   (is (== (Tuple 20 20) result)))
@@ -182,7 +183,7 @@
            (n-retries <- (tx-io!% (read retry-count)))
            (x-val <- (read-tvar x))
            (do-when (zero? x-val)
-             (tx-io!% (modify retry-count (+ 1)))
+             (tx-io!% (modify retry-count 1+))
              (tx-io!% (try-put-mvar retry-gate Unit))
              retry)
            (pure x-val))))
@@ -212,7 +213,7 @@
         (do-run-tx
           (x-val <- (read-tvar used-tvar))
           (do-when (zero? x-val)
-            (tx-io!% (modify retry-count (+ 1)))
+            (tx-io!% (modify retry-count 1+))
             (tx-io!% (try-put-mvar retry-gate Unit))
             retry)
           (tx-io!% (try-put-mvar finished-gate Unit))))
@@ -246,13 +247,15 @@
         (fork-future_
          (do-run-tx
            (a-val <- (read-tvar a))
-           (tx-io!% (modify observed-as (Cons a-val)))
+           (tx-io!% (modify observed-as (fn (lst)
+                                          (Cons a-val lst))))
            ;; Let the write-tx know that we've read the first tvar
            (tx-io!% (put-mvar read-gate Unit))
            ;; Wait for the write-tx to write to both tvars
            (tx-io!% (take-mvar write-gate))
            (b-val <- (read-tvar b))
-           (tx-io!% (modify observed-bs (Cons b-val)))
+           (tx-io!% (modify observed-bs (fn (lst)
+                                          (Cons b-val lst))))
            (pure (Tuple a-val b-val)))))
       (do-fork-thread_
         (take-mvar read-gate)
@@ -290,18 +293,21 @@
         (fork-future_
          (do-run-tx
            (a-val <- (read-tvar a))
-           (tx-io!% (modify observed-as (Cons a-val)))
+           (tx-io!% (modify observed-as (fn (lst)
+                                          (Cons a-val lst))))
            (b-val <-
              (if (even? a-val)
                (read-tvar b)
                (pure -10)))
-           (tx-io!% (modify observed-bs (Cons b-val)))
+           (tx-io!% (modify observed-bs (fn (lst)
+                                          (Cons b-val lst))))
            ;; Let the write-tx know that we've read
            (tx-io!% (put-mvar read-gate Unit))
            ;; Wait for the write-tx to write to its tvars
            (tx-io!% (take-mvar write-gate))
            (c-val <- (read-tvar c))
-           (tx-io!% (modify observed-cs (Cons c-val)))
+           (tx-io!% (modify observed-cs (fn (lst)
+                                          (Cons c-val lst))))
            (pure (Tuple3 a-val b-val c-val)))))
       (take-mvar read-gate)
       (do-run-tx
