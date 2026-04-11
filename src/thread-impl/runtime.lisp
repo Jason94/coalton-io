@@ -13,16 +13,12 @@
    #:io/classes/runtime-utils
    )
   (:local-nicknames
+   (:bt #:io/utilities/bt-compat)
    (:opt #:coalton-library/optional)
    (:c #:coalton-library/cell)
    (:b #:coalton-library/bits)
    (:v #:coalton-library/vector)
-   (:t #:coalton-threads/thread)
-   (:t/l #:coalton-threads/lock)
-   (:at #:coalton-threads/atomic)
-   (:bt #:bordeaux-threads-2)
-   (:lk #:coalton-threads/lock)
-   (:cv #:coalton-threads/condition-variable)
+   (:bt2 #:bordeaux-threads-2)
    )
   (:export
    ;; Library Public
@@ -69,36 +65,36 @@
 
 (coalton-toplevel
 
-  (define write-term-lock% (t/l:new))
+  (define write-term-lock% (bt:new-lk))
 
   (define (write-line-sync% msg)
     (let thread-name =
-      (lisp String ()
-        (bt:thread-name (bt:current-thread))))
-    (t/l:acquire write-term-lock%)
+      (lisp (-> String) ()
+        (bt2:thread-name (bt2:current-thread))))
+    (bt:acquire write-term-lock%)
     (trace (build-str (force-string msg) " <" thread-name ">"))
-    (t/l:release write-term-lock%))
+    (bt:release write-term-lock%))
 
-  (declare atomic-fetch-or (at:AtomicInteger -> Word -> Word))
+  (declare atomic-fetch-or (bt:AtomicInteger * Word -> Word))
   (define (atomic-fetch-or at-int mask)
-    (let old = (at:read at-int))
+    (let old = (bt:read at-int))
     (let new = (b:or old mask))
-    (if (at:cas! at-int old new)
+    (if (bt:cas! at-int old new)
         new
         (atomic-fetch-or at-int mask)))
 
   (inline)
-  (declare matches-flag (Word -> Word -> Boolean))
+  (declare matches-flag (Word * Word -> Boolean))
   (define (matches-flag a b)
     "Check if A and B share any 1 bits."
-    (lisp Boolean (a b)
+    (lisp (-> Boolean) (a b)
       (cl:logtest a b)))
 
   (inline)
-  (declare current-native-thread% (Unit -> t:Thread (Result Dynamic :a)))
+  (declare current-native-thread% (Void -> bt:Thread (Result Dynamic :a)))
   (define (current-native-thread%)
-    (lisp (t:Thread (Result Dynamic :a)) ()
-      (bt:current-thread)))
+    (lisp (-> bt:Thread (Result Dynamic :a)) ()
+      (bt2:current-thread)))
 
   ;;;
   ;;; Basic Thread Type
@@ -110,9 +106,6 @@
     ThreadRunning
     ThreadStopping
     ThreadStopped)
-
-  ;; TODO: (t:Thread :a) is just bt2:Thread. Given the design differences, this should
-  ;; just use bt2 directly and coalton-threads dependency should be dropped.
 
   ;; TODO: Like in STM, currently using the coalton-threads AtomicInteger instead of
   ;; my Atomics package. Not sure if there is a performance benefit or not to that.
@@ -136,7 +129,7 @@
   ;; To unpark a thread, the waking thread must call (signal-unpark-thread! GEN THREAD).
   ;; If the generation used to park == the generation used to signal, then the thread
   ;; will unpark.
-  ;; 
+  ;;
   ;; The purpose of the parking mechanism is to support waiting on multiple conditions.
   ;; If a thread wants to wait on conditions A, B, and C, and it is woken by the process
   ;; concerning condition A, then it would need to unsubscribe from conditions B & C.
@@ -155,20 +148,20 @@
   ;; but not parked; or (2) have re-parked since being unparked, but ignores the unpark
   ;; signal from B or C because they signal with a stale generation.
   (define-struct IoThread
-    (handle     (c:Cell (Optional (t:Thread (Result Dynamic Unit)))))
+    (handle     (c:Cell (Optional (bt:Thread (Result Dynamic Unit)))))
     ;; Masking/Unmasking
-    (flags      at:AtomicInteger)
-    (stop-lk    lk:Lock)
+    (flags      bt:AtomicInteger)
+    (stop-lk    bt:Lock)
     ;; Parking/Unparking
-    (generation at:AtomicInteger)
-    (fired-gen  at:AtomicInteger)
-    (park-lock  lk:Lock)
-    (park-cv    cv:ConditionVariable)
+    (generation bt:AtomicInteger)
+    (fired-gen  bt:AtomicInteger)
+    (park-lock  bt:Lock)
+    (park-cv    bt:ConditionVariable)
     ;; Structured Concurrency
     ;; NOTE: status is protected by the child-lk, and can only be touched with that
     ;; lock held.
     (status     (c:Cell ThreadStatus))
-    (child-lk   lk:Lock)
+    (child-lk   bt:Lock)
     (children   (c:Cell (List IoThread)))
     )
 
@@ -181,18 +174,18 @@
   (define CLEAN 0)
 
   (inline)
-  (declare new-io-thread (Unit -> IoThread))
+  (declare new-io-thread (Void -> IoThread))
   (define (new-io-thread)
     (IoThread
      (c:new None)
-     (at:new CLEAN)
-     (lk:new)
-     (at:new 0)
-     (at:new 0)
-     (lk:new)
-     (cv:new)
+     (bt:new-at CLEAN)
+     (bt:new-lk)
+     (bt:new-at 0)
+     (bt:new-at 0)
+     (bt:new-lk)
+     (bt:new-cv)
      (c:new ThreadRunning)
-     (lk:new)
+     (bt:new-lk)
      (c:new Nil)
      ))
 
@@ -200,12 +193,12 @@
   (define PENDING-KILL (b:shift 0 1))
 
   (inline)
-  (declare atomic-remove-pending-kill (at:AtomicInteger -> Word))
+  (declare atomic-remove-pending-kill (bt:AtomicInteger -> Word))
   (define (atomic-remove-pending-kill at-int)
     "Atomically remove the pending kill bit. Return the old bitmask."
-    (let old = (at:read at-int))
+    (let old = (bt:read at-int))
     (let new = (b:shift 1 (b:shift -1 old)))
-    (if (at:cas! at-int old new)
+    (if (bt:cas! at-int old new)
         old
         (atomic-remove-pending-kill at-int)))
 
@@ -223,27 +216,27 @@
   (declare masked-once? (Word -> Boolean))
   (define (masked-once? word)
     "Check that WORD is masked only once."
-    (== 1 (lisp Word (word)
+    (== 1 (lisp (-> Word) (word)
             (cl:ash word -1))))
 
   (inline)
   (declare unmasked? (Word -> Boolean))
   (define (unmasked? word)
-    (zero? (lisp Word (word)
+    (zero? (lisp (-> Word) (word)
              (cl:ash word -1))))
 
-  (declare construct-toplevel-current-thread (Unit -> IoThread))
+  (declare construct-toplevel-current-thread (Void -> IoThread))
   (define (construct-toplevel-current-thread)
     (IoThread
      (c:new (Some (current-native-thread%)))
-     (at:new CLEAN)
-     (lk:new)
-     (at:new 0)
-     (at:new 0)
-     (lk:new)
-     (cv:new)
+     (bt:new-at CLEAN)
+     (bt:new-lk)
+     (bt:new-at 0)
+     (bt:new-at 0)
+     (bt:new-lk)
+     (bt:new-cv)
      (c:new ThreadRunning)
-     (lk:new)
+     (bt:new-lk)
      (c:new Nil)
      ))
   )
@@ -262,7 +255,7 @@
 (coalton-toplevel
 
   (inline)
-  (declare interrupt-iothread% (IoThread -> Unit))
+  (declare interrupt-iothread% (IoThread -> Void))
   (define (interrupt-iothread% thd)
     "Stop an IoThread. Does not check masked state, etc. Does check if the target
 thread is alive before interrupting.
@@ -275,45 +268,45 @@ Concurrent:
     ;; TODO: It might be possible to only use the child lock here, but I'd be nervous about
     ;; leaning on that for too much
     (mask-current-thread!%)
-    (lk:acquire (.stop-lk thd))
-    (lk:acquire (.child-lk thd))
+    (bt:acquire (.stop-lk thd))
+    (bt:acquire (.child-lk thd))
     (let should-interrupt = (== ThreadRunning (c:read (.status thd))))
     (when should-interrupt
-      (c:write! (.status thd) ThreadStopping)
-      Unit)
+      (c:write! (.status thd) ThreadStopping))
     (atomic-remove-pending-kill (.flags thd))
-    (lk:release (.child-lk thd))
-    (lk:release (.stop-lk thd))
+    (bt:release (.child-lk thd))
+    (bt:release (.stop-lk thd))
     (unmask-current-thread!%)
     (when should-interrupt
       (let native-thread? = (c:read (.handle thd)))
       (match native-thread?
         ((None)
-         (error "Tried to kill misconstructed thread."))
+         (error "Tried to kill misconstructed thread.")
+         (values))
         ((Some native-thread)
          (mask!% thd)
-         (lisp Void (native-thread)
-           (cl:when (bt:thread-alive-p native-thread)
-             (bt:error-in-thread native-thread (InterruptCurrentThread ""))))
-         Unit))))
+         (lisp (-> :a) (native-thread)
+           (cl:when (bt2:thread-alive-p native-thread)
+             (bt2:error-in-thread native-thread (InterruptCurrentThread ""))))
+         (values)))))
 
   ;;;
   ;;; Basic Thread Operations
   ;;;
 
   (inline)
-  (declare current-thread!% (Unit -> IoThread))
+  (declare current-thread!% (Void -> IoThread))
   (define (current-thread!%)
-    (lisp IoThread ()
+    (lisp (-> IoThread) ()
       *current-thread*))
 
   (inline)
-  (declare global-thread!% (Unit -> IoThread))
+  (declare global-thread!% (Void -> IoThread))
   (define (global-thread!%)
-    (lisp IoThread ()
+    (lisp (-> IoThread) ()
       *global-thread*))
 
-  (declare subscribe-child!% (IoThread -> IoThread -> Boolean))
+  (declare subscribe-child!% (IoThread * IoThread -> Boolean))
   (define (subscribe-child!% child parent)
     "Subscribe child to parent if the parent has Running status. Returns TRUE
 if the parent was running and the child should continue, FALSE if the parent
@@ -323,28 +316,27 @@ was stopping/stopped and the child should not start."
     ;; - Don't need to mask parent thread beacuse holding the child lock prevents race
     ;;   condition in case where parent tries to stop before child gets subscribed
     (mask-current-thread!%)
-    (lk:acquire (.child-lk parent))
+    (bt:acquire (.child-lk parent))
     (let should-run? = (== (c:read (.status parent)) ThreadRunning))
     (when should-run?
-      (c:push! (.children parent) child)
-      Unit)
-    (lk:release (.child-lk parent))
+      (c:push! (.children parent) child))
+    (bt:release (.child-lk parent))
     (unmask-current-thread!%)
     should-run?)
 
-  (declare stop-and-join-children!% (IoThread -> Unit))
+  (declare stop-and-join-children!% (IoThread -> Void))
   (define (stop-and-join-children!% thread)
     "Concurrent: WARNING, does not mask! This MUST be run inside a masked region."
-    (lk:acquire (.child-lk thread))
-    (for child in (c:read (.children thread))
+    (bt:acquire (.child-lk thread))
+    (foreach (child (c:read (.children thread)))
       (stop!% child))
-    (for child in (c:read (.children thread))
+    (foreach (child (c:read (.children thread)))
       (join!% child))
     (c:write! (.status thread) ThreadStopped)
-    (lk:release (.child-lk thread))
-    Unit)
+    (bt:release (.child-lk thread))
+    (values))
 
-  (declare handle-thread-err-result!% (ForkStrategy IoThread -> Dynamic -> Result Dynamic Unit))
+  (declare handle-thread-err-result!% (ForkStrategy IoThread * Dynamic -> Result Dynamic Unit))
   (define (handle-thread-err-result!% strategy e)
     (if (can-cast-to? e (the (Proxy ThreadingException) Proxy))
         (Ok Unit)
@@ -353,7 +345,7 @@ was stopping/stopped and the child should not start."
            (if (dynamic-is-threading-exception? e)
                (Ok Unit)
                (progn
-                 (lisp :a (e)
+                 (lisp (-> :a) (e)
                    (cl:format cl:*error-output*
                               "~%Unhandled exception occurred: ~a~%"
                               e))
@@ -363,7 +355,7 @@ was stopping/stopped and the child should not start."
           ((ThrowException)
            (throw-dynamic e)))))
 
-  (declare thread-runner!% (ForkStrategy IoThread -> IoThread -> (Unit -> Result Dynamic :a) -> Result Dynamic Unit))
+  (declare thread-runner!% (ForkStrategy IoThread * IoThread * (Void -> Result Dynamic :a) -> Result Dynamic Unit))
   (define (thread-runner!% strategy thread-container thunk)
     ;; CONCURRENT:
     ;; - Once the catch machinery is set up, unmask from the initial mask. Prevents
@@ -398,7 +390,7 @@ was stopping/stopped and the child should not start."
        (handle-thread-err-result!% strategy
                                    (to-dynamic (InterruptCurrentThread msg))))))
 
-  (declare fork-inner!% (ForkStrategy IoThread -> (Unit -> Result Dynamic :a) -> IoThread))
+  (declare fork-inner!% (ForkStrategy IoThread * (Void -> Result Dynamic :a) -> IoThread))
   (define (fork-inner!% strategy thunk)
     ;; Both the returning thread handle and the one made available to the child
     ;; thread have to have the IoThread packaged together before they do anything
@@ -429,21 +421,20 @@ was stopping/stopped and the child should not start."
       ;; dynamic binding nonsense?? That would involve wrapping bt directly but honestly
       ;; we're basically there.
       ;; See https://sionescu.github.io/bordeaux-threads/threads/make-thread/
-      (t:spawn (fn ()
+      (bt:spawn (fn ()
                  (if child-should-run?
-                     (lisp (Result Dynamic :a) (strategy thunk thread-container global-thread)
+                     (lisp (-> Result Dynamic :a) (strategy thunk thread-container global-thread)
                        (cl:let ((*current-thread* thread-container)
                                 (*global-thread* global-thread))
                          (call-coalton-function thread-runner!% strategy thread-container thunk)))
                    (Ok Unit)))))
     (c:write! (.handle thread-container) (Some native-thread))
     (when (not child-should-run?)
-      (c:write! (.status thread-container) ThreadStopped)
-      Unit)
+      (c:write! (.status thread-container) ThreadStopped))
     thread-container)
 
   (inline)
-  (declare fork!% (ForkStrategy IoThread -> (Unit -> Result Dynamic :a) -> IoThread))
+  (declare fork!% (ForkStrategy IoThread * (Void -> Result Dynamic :a) -> IoThread))
   (define (fork!% strategy thunk)
     (fork-inner!% strategy thunk))
 
@@ -453,8 +444,8 @@ was stopping/stopped and the child should not start."
     (let native-thread = (opt:from-some "Error: IoThread leaked without setting native thread handle"
                                         (c:read (.handle thread))))
     (let join-result =
-      (lisp (Result Dynamic Unit) (native-thread)
-        (bt:join-thread native-thread)))
+      (lisp (-> Result Dynamic Unit) (native-thread)
+        (bt2:join-thread native-thread)))
     (match join-result
       ((Ok _)
        join-result)
@@ -464,17 +455,17 @@ was stopping/stopped and the child should not start."
            join-result))))
 
   (inline)
-  (declare sleep!% (UFix -> Unit))
+  (declare sleep!% (UFix -> Void))
   (define (sleep!% msecs)
-    (lisp :a (msecs)
+    (lisp (-> :a) (msecs)
       (cl:sleep (cl:/ msecs 1000)))
-    Unit)
+    (values))
 
   ;;;
   ;;; Stopping & Masking Threads
   ;;;
 
-  (declare mask!% (IoThread -> Unit))
+  (declare mask!% (IoThread -> Void))
   (define (mask!% thread)
     ;; CONCURRENT:
     ;;   - Stops thread if it was previously unmasked AND the pending stop was
@@ -482,25 +473,24 @@ was stopping/stopped and the child should not start."
     ;;     masked between checking for unmasked and throwing the exception.
     (let flags = (.flags thread))
     (rec % ()
-      (let old = (at:read flags))
+      (let old = (bt:read flags))
       (let new = (mask-once% old))
-      (if (at:cas! flags old new)
+      (if (bt:cas! flags old new)
           ;; The PENDING-KILL bitmask is the kill bit set with no masking bits set
           (when  (== old PENDING-KILL)
             (interrupt-iothread% thread))
-          (%)))
-    Unit)
+          (%))))
 
   (inline)
-  (declare mask-current-thread!% (Unit -> Unit))
+  (declare mask-current-thread!% (Void -> Void))
   (define (mask-current-thread!%)
     (mask!%
-     (lisp IoThread ()
+     (lisp (-> IoThread) ()
        *current-thread*)))
 
   ;; TODO: Merge this with unmask-current-thread-finally!% when Threads
   ;; loses the unmask other thread functions
-  (declare unmask-finally!% (IoThread -> (UnmaskFinallyMode -> :a) -> Unit))
+  (declare unmask-finally!% (IoThread * (UnmaskFinallyMode -> :a) -> Void))
   (define (unmask-finally!% thread thunk)
     "Unmask the thread. Guarantees that THUNK will be run, regardless of pending
 stop, with either the RUNNING or STOPPED mode. Finally, checks if there is a pending
@@ -559,9 +549,9 @@ the MVar implementation:
     (unmask-current-thread-finally!%
      (fn (mode)
        (if (== Running mode)
-           (cv:await cv lock)
+           (bt:await cv lock)
            (progn
-             (lk:release lock)
+             (bt:release lock)
              Unit)))))
 
 Where both codepaths release the lock, but in a slightly different way. And notice that our
@@ -577,7 +567,7 @@ just be limited to implementing only solutions #2 or #3.
 "
     (let flags = (.flags thread))
     ;; Wait to unmask until *after* we guarantee thunk has been run.
-    (let flag-state = (at:read flags))
+    (let flag-state = (bt:read flags))
     ;; Only stop if there are no other masks applied besides the one
     ;; we're undoing now.
     (if (and (matches-flag flag-state PENDING-KILL)
@@ -586,40 +576,43 @@ just be limited to implementing only solutions #2 or #3.
         (thunk Running))
     (let new-flag-state =
       (rec % ()
-        (let old = (at:read flags))
+        (let old = (bt:read flags))
         (let new = (unmask-once% old))
-        (if (at:cas! flags old new)
+        (if (bt:cas! flags old new)
             new
             (%))))
     (when (and (masked-once? flag-state)
                (matches-flag new-flag-state PENDING-KILL))
       (interrupt-iothread% thread))
-    Unit)
+    (values))
 
   (inline)
-  (declare unmask!% (IoThread -> Unit))
+  (declare unmask!% (IoThread -> Void))
   (define (unmask!% thread)
-    (unmask-finally!% thread (const Unit)))
+    (unmask-finally!% thread (fn (_) (values))))
 
   (inline)
-  (declare unmask-current-thread-finally!% ((UnmaskFinallyMode -> Unit) -> Unit))
+  (declare unmask-current-thread-finally!% ((UnmaskFinallyMode -> Void) -> Void))
   (define (unmask-current-thread-finally!% thunk)
     (unmask-finally!% (current-thread!%) thunk))
 
   (inline)
-  (declare unmask-current-thread!% (Unit -> Unit))
+  (declare unmask-current-thread!% (Void -> Void))
   (define (unmask-current-thread!%)
     (unmask-current-thread-finally!%
-     (const Unit)))
+     (fn (_) (values)))
+    (values))
 
   (inline)
   (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m)
-                            => IoThread -> (UnmaskFinallyMode -> :r Unit) -> :m Unit))
+                            => IoThread * (UnmaskFinallyMode -> :r Unit) -> :m Unit))
   (define (unmask-finally% thread thunk)
     (lift-to
      (with-run-in-io
          (fn (run)
-           (wrap-io (unmask-finally!% thread (fn (m) (run! (run (thunk m))))))))))
+           (wrap-io
+            (unmask-finally!% thread (fn (m) (run! (run (thunk m)))))
+            Unit)))))
 
   (inline)
   (declare unmask-current-thread-finally% ((UnliftIo :r :io) (LiftTo :r :m)
@@ -628,10 +621,14 @@ just be limited to implementing only solutions #2 or #3.
     (lift-to
      (with-run-in-io
          (fn (run)
-           (wrap-io (unmask-current-thread-finally!% (fn (m) (run! (run (thunk m))))))))))
+           (wrap-io
+            (unmask-current-thread-finally!% (fn (m)
+                                               (run! (run (thunk m)))
+                                               (values)))
+            Unit)))))
 
   (inline)
-  (declare stop!% (IoThread -> Unit))
+  (declare stop!% (IoThread -> Void))
   (define (stop!% thread)
     (let flag-state = (atomic-fetch-or (.flags thread) PENDING-KILL))
     (when (unmasked? flag-state)
@@ -644,10 +641,10 @@ just be limited to implementing only solutions #2 or #3.
   ;; For full discussion of the park algorithm, see top of the file and docs/runtime.md
   (declare park-current-thread-if-with!% (Runtime :rt IoThread
                                           => Proxy :rt
-                                          -> (Generation -> Unit)
-                                          -> (Unit -> Boolean)
-                                          -> TimeoutStrategy
-                                          -> Unit))
+                                          * (Generation -> Void)
+                                          * (Void -> Boolean)
+                                          * TimeoutStrategy
+                                          -> Void))
   (define (park-current-thread-if-with!% rt-prx with-gen should-park? strategy)
     ;; CONCURRENT:
     ;; - Masks before acquiring the lock and unmasks after releasing the lock,
@@ -663,21 +660,21 @@ just be limited to implementing only solutions #2 or #3.
     ;; - (C) unmask the mask from unmask-and-await-safely%
     (mask-current-thread!%)
     (let thread = (current-thread!%))
-    (lk:acquire (.park-lock thread))
+    (bt:acquire (.park-lock thread))
     ;; Checkout a new generation for the thread
-    (let new-gen = (at:incf! (.generation thread) 1))
+    (let new-gen = (bt:incf! (.generation thread) 1))
     ;; Run any subscriptions with the new generation
     (with-gen (Generation new-gen))
     ;; (Re)check the "should I park?" pred now that the subscriptions have processed
     (if (should-park?)
         (progn
           ;; If another thread beat us to parking, re-attempt if SHOULD-PARK?
-          (if (>= (at:read (.fired-gen thread)) new-gen)
+          (if (>= (bt:read (.fired-gen thread)) new-gen)
               (progn
-                (lk:release (.park-lock thread))
+                (bt:release (.park-lock thread))
                 (unmask-current-thread!%) ;; (A)
                 (when (should-park?)
-                  (park-current-thread-if!% rt-prx with-gen should-park?)))
+                  (park-current-thread-if-with!% rt-prx with-gen should-park? strategy)))
               ;; If another thread did not beat us to parking, wait on the CV
               (rec wait-loop ()
                 (unmask-and-await-safely-with% ;; (B)
@@ -686,26 +683,26 @@ just be limited to implementing only solutions #2 or #3.
                  (.park-cv thread)
                  (.park-lock thread))
                 ;; If we've been woken up, unmask, release, and return
-                (if (>= (at:read (.fired-gen thread)) new-gen)
+                (if (>= (bt:read (.fired-gen thread)) new-gen)
                     (progn
-                      (lk:release (.park-lock thread))
+                      (bt:release (.park-lock thread))
                       (unmask-current-thread!%)) ;; (C)
                     ;; Otherwise, re-loop
                     (wait-loop)))))
         (progn
-          (lk:release (.park-lock thread))
+          (bt:release (.park-lock thread))
           (unmask-current-thread!%))))
 
   (inline)
   (declare park-current-thread-if!% (Runtime :rt IoThread
                                      => Proxy :rt
-                                     -> (Generation -> Unit)
-                                     -> (Unit -> Boolean)
-                                     -> Unit))
+                                     * (Generation -> Void)
+                                     * (Void -> Boolean)
+                                     -> Void))
   (define (park-current-thread-if!% rt-prx with-gen should-park?)
     (park-current-thread-if-with!% rt-prx with-gen should-park? NoTimeout))
 
-  (declare unpark-thread!% (Generation -> IoThread -> Unit))
+  (declare unpark-thread!% (Generation * IoThread -> Void))
   (define (unpark-thread!% gen thread)
     ;; CONCURRENT:
     ;; - Masks around the critical region
@@ -714,17 +711,17 @@ just be limited to implementing only solutions #2 or #3.
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
 
     ;; Only unpark if the targeted gen is more recent than the last fired gen
-    (when (> gen (Generation (at:read (.fired-gen thread))))
+    (when (> gen (Generation (bt:read (.fired-gen thread))))
       (mask-current-thread!%)
-      (lk:acquire (.park-lock thread))
-      (if (> gen (Generation (at:read (.fired-gen thread))))
+      (bt:acquire (.park-lock thread))
+      (if (> gen (Generation (bt:read (.fired-gen thread))))
           (progn
             (atomic-set-generation%! gen (.fired-gen thread))
-            (lk:release (.park-lock thread))
-            (cv:notify (.park-cv thread))
+            (bt:release (.park-lock thread))
+            (bt:notify (.park-cv thread))
             (unmask-current-thread!%))
           (progn
-            (lk:release (.park-lock thread))
+            (bt:release (.park-lock thread))
             (unmask-current-thread!%)))))
   )
 
@@ -741,22 +738,23 @@ just be limited to implementing only solutions #2 or #3.
   (define-instance (Concurrent IoThread Unit)
     (inline)
     (define (stop thread)
-      (wrap-io (stop!% thread)))
+      (wrap-io (stop!% thread) Unit))
     (inline)
     (define (await thread)
       (raise-result-dynamic (wrap-io (join!% thread))))
     (inline)
     (define (mask thread)
-      (wrap-io (mask!% thread)))
+      (wrap-io (mask!% thread) Unit))
     (inline)
     (define (unmask thread)
-      (wrap-io (unmask!% thread)))
+      (wrap-io (unmask!% thread) Unit))
     (inline)
     (define (unmask-finally thread callback)
       (lift-to
        (with-run-in-io
          (fn (run)
            (wrap-io (unmask-finally!% thread (fn (mode)
-                                               (run! (run (callback mode)))))))))))
+                                               (run! (run (callback mode)))))
+                    Unit))))))
 
   )

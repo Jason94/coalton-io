@@ -109,7 +109,9 @@
       (mask group)
       (stop group)
       (unmask-finally_ group (fn (_)
-                               (at:modify finally-counts 1+)))
+                               (do
+                                (at:modify finally-counts 1+)
+                                (pure Unit))))
       (sleep 2)
       (res-1 <- (read store-1))
       (res-2 <- (read store-2))

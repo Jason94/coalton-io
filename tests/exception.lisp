@@ -68,7 +68,7 @@
   (let result =
     (run-io!
      (try-all (wrap-error
-               (lisp Void ()
+               (lisp (-> Void) ()
                  (cl:error "Unhandled lisp error!"))
                1))))
   (is (== None result)))
@@ -120,7 +120,7 @@
             (s-signal s-start)
             (s-await s-stopped)
             (m:write m-result (Some True)))
-           (const (m:write m-result (Some False))))))
+           (fn () (m:write m-result (Some False))))))
       (s-await s-start)
       (stop thread)
       (s-signal s-stopped)
@@ -172,7 +172,7 @@
      (c <- pop-return)
      (pure (+ a (+ b c)))))
 
-  (declare run-test (List Integer -> StateT (List Integer) IO :a -> (Tuple (List Integer) :a)))
+  (declare run-test (List Integer * StateT (List Integer) IO :a -> (Tuple (List Integer) :a)))
   (define (run-test ints op)
     (run-io! (run-stateT op ints))))
 
@@ -190,7 +190,7 @@
   (let result =
     (run-test (make-list 1)
               (do-handle-all add-three-ints
-                (modify (Cons 2))
+                (modify (fn (lst) (Cons 2 lst)))
                 (pure 10))
               ))
   (is (== (Tuple (make-list 2 1) 10)
@@ -201,7 +201,7 @@
     (run-test (make-list 1)
               (do-handle add-three-ints (e)
                 (let _ = (the TestException e))
-                (modify (Cons 2))
+                (modify (fn (lst) (Cons 2 lst)))
                 (pure 10))
               ))
   (is (== (Tuple (make-list 2 1) 10)
@@ -213,7 +213,7 @@
               (try
                (do-handle add-three-ints (e)
                  (let _ = (the TestException2 e))
-                 (modify (Cons 2))
+                 (modify (fn (lst) (Cons 2 lst)))
                  (pure 10))
                )))
   (is (== (Tuple (make-list 1) (Err (TE "No ints left")))

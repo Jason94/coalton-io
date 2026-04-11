@@ -58,7 +58,7 @@
   (define-class (Monad :m => MonadIo :m)
     (wrap-io_
      "Wrap a (potentially) side-effectful function in the monad."
-     ((Unit -> :a) -> :m :a)))
+     ((Void -> :a) -> :m :a)))
 
   (define-class (MonadIo :m => BaseIo :m)
     "A 'base' IO implementation, which can be run to execute some
@@ -123,14 +123,14 @@ Example:
 
   (define-instance ((BaseIo :r) (UnliftIo :m :r) => UnliftIo (e:EnvT :env :m) :r)
     (inline)
-    (define (with-run-in-io enva->ioa-->iob)
+    (define (with-run-in-io enva*ioa-->iob)
       (e:EnvT
        (fn (env)
          (with-run-in-io
-           (fn (ma->ioa-->iob)
-             (enva->ioa-->iob
+           (fn (ma*ioa-->iob)
+             (enva*ioa-->iob
               (fn (m-env)
-               (ma->ioa-->iob
+               (ma*ioa-->iob
                 (e:run-envT m-env env))))))))))
 
   (inline)
@@ -156,7 +156,7 @@ Supports any MonadIo instance.
 
 Example:
   (wrap-io
-    (lisp :a (str)
+    (lisp (-> :a) (str)
       (cl:print str))"
   `(wrap-io_ (fn () ,@body)))
 
@@ -184,7 +184,7 @@ putting in the full type of M-OP, not just (IO :a).
 
 (coalton-toplevel
   (declare map-into-io ((UnliftIo :r :io) (LiftTo :r :m) (it:IntoIterator :i :a)
-                         => :i -> (:a -> :r :b) -> :m (List :b)))
+                         => :i * (:a -> :r :b) -> :m (List :b)))
   (define (map-into-io itr a->rb)
     "Efficiently perform a monadic operation for each element of an iterator
 and return the results. If you're having inference issues, try map-into-io_"
@@ -193,12 +193,12 @@ and return the results. If you're having inference issues, try map-into-io_"
          (fn (run)
            (wrap-io
              (let results = (c:new (make-list)))
-             (for a in (it:into-iter itr)
+             (foreach (a itr)
                (c:push! results (run! (run (a->rb a)))))
              (reverse (c:read results)))))))
 
   (declare foreach-io ((UnliftIo :r :io) (LiftTo :r :m) (it:IntoIterator :i :a)
-                       => :i -> (c:Cell :a -> :r :b) -> :m Unit))
+                       => :i * (c:Cell :a -> :r :b) -> :m Unit))
   (define (foreach-io coll a->mb)
     "Efficiently perform a monadic operation for each element of an iterator.
 The next element of the iterator is passed into the operation via a cell.
@@ -217,11 +217,12 @@ faster!"
               (let c = (c:new initial-val))
               (let monad-op = (run (a->mb c)))
               (run! monad-op)
-              (for a in itr
+              (foreach (a itr)
                 (c:write! c a)
-                (run! monad-op)))))))))
+                (run! monad-op))
+              Unit)))))))
 
-  (declare times-io ((UnliftIo :r :io) (LiftTo :r :m) => UFix -> :r :b -> :m Unit))
+  (declare times-io ((UnliftIo :r :io) (LiftTo :r :m) => UFix * :r :b -> :m Unit))
   (define (times-io n io-op)
     "Efficiently perform an IO operation N times. If the effect can be run in
 simple-io/IO, the version in that package will be faster!"
@@ -231,7 +232,8 @@ simple-io/IO, the version in that package will be faster!"
          (let base-op = (run io-op))
          (wrap-io
            (dotimes (_ n)
-             (run! base-op)))))))
+             (run! base-op))
+           Unit)))))
   )
 
 ;;

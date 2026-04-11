@@ -12,8 +12,8 @@
   (:local-nicknames
    (:opt #:coalton-library/optional)
    (:v #:coalton-library/vector)
-   (:lk #:coalton-threads/lock)
-   (:cv #:coalton-threads/condition-variable)
+   (:bt #:io/utilities/bt-compat)
+
    )
   (:export
    ;; Library Public
@@ -25,7 +25,7 @@
    #:try-enqueue
    #:dequeue
    #:dequeue-with
-   
+
    ;; Library Private
    #:new-ring-buffer%
    #:enqueue!%
@@ -53,12 +53,12 @@
     (count            (Cell UFix))
     (insert-ptr       (Cell UFix))
     (read-ptr         (Cell UFix))
-    (lock             lk:Lock)
-    (notify-not-empty cv:ConditionVariable)
-    (notify-not-full  cv:ConditionVariable))
+    (lock             bt:Lock)
+    (notify-not-empty bt:ConditionVariable)
+    (notify-not-full  bt:ConditionVariable))
 
   (inline)
-  (declare increment% (RingBuffer :a -> UFix -> UFix))
+  (declare increment% (RingBuffer :a * UFix -> UFix))
   (define (increment% buffer i)
     "Get the next index in BUFFER."
     (let next = (1+ i))
@@ -75,23 +75,23 @@
   (declare full?% (RingBuffer :a -> Boolean))
   (define (full?% buffer)
     (== (read (.count buffer)) (.capacity buffer)))
-  
+
   (inline)
   (declare new-ring-buffer% (UFix -> RingBuffer :a))
   (define (new-ring-buffer% capacity)
     "Create a new ring buffer with the given capacity."
     (RingBuffer
      capacity
-     (lisp (Vector :a) (capacity)
+     (lisp (-> Vector :a) (capacity)
        (cl:make-array capacity :element-type cl:t :adjustable cl:nil :fill-pointer cl:nil))
      (new 0)
      (new 0)
      (new 0)
-     (lk:new)
-     (cv:new)
-     (cv:new)))
+     (bt:new-lk)
+     (bt:new-cv)
+     (bt:new-cv)))
 
-  (declare enqueue-with!% (Runtime :rt :t => Proxy :rt -> :a -> TimeoutStrategy -> RingBuffer :a -> Unit))
+  (declare enqueue-with!% (Runtime :rt :t => Proxy :rt * :a * TimeoutStrategy * RingBuffer :a -> Void))
   (define (enqueue-with!% rt-prx elt strategy buffer)
     "Add ELT to BUFFER.
 
@@ -112,7 +112,7 @@ Concurrent:
     ;;   condition and interpose lock acquisition before waiting/notifying.
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
     (mask-current! rt-prx)
-    (lk:acquire (.lock buffer))
+    (bt:acquire (.lock buffer))
     (rec % ()
       (if (full?% buffer)
           (progn
@@ -128,15 +128,17 @@ Concurrent:
                     (Some elt)
                     (.data buffer))
             (update! 1+ (.count buffer))
-            (update! (increment% buffer) (.insert-ptr buffer))
-            (lk:release (.lock buffer))
+            (update! (fn (n)
+                       (increment% buffer n))
+                     (.insert-ptr buffer))
+            (bt:release (.lock buffer))
             (when should-notify
-              (cv:broadcast (.notify-not-empty buffer)))
+              (bt:broadcast (.notify-not-empty buffer)))
             (unmask-current! rt-prx))
             )))
 
   (inline)
-  (declare enqueue!% (Runtime :rt :t => Proxy :rt -> :a -> RingBuffer :a -> Unit))
+  (declare enqueue!% (Runtime :rt :t => Proxy :rt * :a * RingBuffer :a -> Void))
   (define (enqueue!% rt-prx elt buffer)
     "Add ELT to BUFFER.
 
@@ -145,7 +147,7 @@ Concurrent:
   - If full, blocks until BUFFER is not full."
     (enqueue-with!% rt-prx elt NoTimeout buffer))
 
-  (declare try-enqueue!% (Runtime :rt :t => Proxy :rt -> :a -> RingBuffer :a -> Boolean))
+  (declare try-enqueue!% (Runtime :rt :t => Proxy :rt * :a * RingBuffer :a -> Boolean))
   (define (try-enqueue!% rt-prx elt buffer)
     "Attempt to add ELT to BUFFER. Returns True if equeue succeeded, False otherwise.
 
@@ -162,10 +164,10 @@ Concurrent: Can block acquiring lock on buffer."
     ;;   condition and interpose lock acquisition before waiting/notifying.
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
     (mask-current! rt-prx)
-    (lk:acquire (.lock buffer))
+    (bt:acquire (.lock buffer))
     (if (full?% buffer)
         (progn
-          (lk:release (.lock buffer))
+          (bt:release (.lock buffer))
           (unmask-current! rt-prx)
           False)
         (progn
@@ -174,15 +176,17 @@ Concurrent: Can block acquiring lock on buffer."
                   (Some elt)
                   (.data buffer))
           (update! 1+ (.count buffer))
-          (update! (increment% buffer) (.insert-ptr buffer))
-          (lk:release (.lock buffer))
+          (update! (fn (n)
+                     (increment% buffer n))
+                   (.insert-ptr buffer))
+          (bt:release (.lock buffer))
           (when should-notify
-            (cv:broadcast (.notify-not-empty buffer)))
+            (bt:broadcast (.notify-not-empty buffer)))
           (unmask-current! rt-prx)
           True)
         ))
 
-  (declare dequeue-with!% (Runtime :rt :t => Proxy :rt -> TimeoutStrategy -> RingBuffer :a -> :a))
+  (declare dequeue-with!% (Runtime :rt :t => Proxy :rt * TimeoutStrategy * RingBuffer :a -> :a))
   (define (dequeue-with!% rt-prx strategy buffer)
     "Pop an element from BUFFER.
 
@@ -203,7 +207,7 @@ Concurrent:
     ;;   condition and interpose lock acquisition before waiting/notifying.
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
     (mask-current! rt-prx)
-    (lk:acquire (.lock buffer))
+    (bt:acquire (.lock buffer))
     (rec % ()
       (if (empty?% buffer)
           (progn
@@ -223,16 +227,18 @@ Concurrent:
                     None
                     (.data buffer))
             (update! 1- (.count buffer))
-            (update! (increment% buffer) (.read-ptr buffer))
-            (lk:release (.lock buffer))
+            (update! (fn (n)
+                       (increment% buffer n))
+                     (.read-ptr buffer))
+            (bt:release (.lock buffer))
             (when should-notify
-              (cv:broadcast (.notify-not-full buffer)))
+              (bt:broadcast (.notify-not-full buffer)))
             (unmask-current! rt-prx)
             elt)
           )))
 
   (inline)
-  (declare dequeue!% (Runtime :rt :t => Proxy :rt -> RingBuffer :a -> :a))
+  (declare dequeue!% (Runtime :rt :t => Proxy :rt * RingBuffer :a -> :a))
   (define (dequeue!% rt-prx buffer)
     "Pop an element from BUFFER.
 
@@ -255,27 +261,27 @@ Concurrent:
     (wrap-io (new-ring-buffer% capacity)))
 
   (inline)
-  (declare enqueue-with (Threads :rt :t :m => :a -> TimeoutStrategy -> RingBuffer :a -> :m Unit))
+  (declare enqueue-with (Threads :rt :t :m => :a * TimeoutStrategy * RingBuffer :a -> :m Unit))
   (define (enqueue-with elt strategy buffer)
     "Add ELT to BUFFER.
 
 Concurrent:
   - Can block acquiring lock on buffer.
   - If full, blocks until BUFFER is not full, possibly timing out based on STRATEGY."
-    (inject-runtime enqueue-with!% elt strategy buffer))
+    (inject-runtime-unit enqueue-with!% elt strategy buffer))
 
   (inline)
-  (declare enqueue (Threads :rt :t :m => :a -> RingBuffer :a -> :m Unit))
+  (declare enqueue (Threads :rt :t :m => :a * RingBuffer :a -> :m Unit))
   (define (enqueue elt buffer)
     "Add ELT to BUFFER.
 
 Concurrent:
   - Can block acquiring lock on buffer.
   - If full, blocks until BUFFER is not full."
-    (inject-runtime enqueue!% elt buffer))
+    (inject-runtime-unit enqueue!% elt buffer))
 
   (inline)
-  (declare try-enqueue (Threads :rt :t :m => :a -> RingBuffer :a -> :m Boolean))
+  (declare try-enqueue (Threads :rt :t :m => :a * RingBuffer :a -> :m Boolean))
   (define (try-enqueue elt buffer)
     "Attempt to add ELT to BUFFER. Returns True if equeue succeeded, False otherwise.
 
@@ -283,7 +289,7 @@ Concurrent: Can block acquiring lock on buffer."
     (inject-runtime try-enqueue!% elt buffer))
 
   (inline)
-  (declare dequeue-with (Threads :rt :t :m => TimeoutStrategy -> RingBuffer :a -> :m :a))
+  (declare dequeue-with (Threads :rt :t :m => TimeoutStrategy * RingBuffer :a -> :m :a))
   (define (dequeue-with strategy buffer)
     "Pop an element from BUFFER.
 

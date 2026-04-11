@@ -34,24 +34,24 @@
 
   (inline)
   (declare fork-thread-with_ ((Threads IoRuntime IoThread :m) (LiftTo IO :m)
-                  => ForkStrategy IoThread -> IO :a -> :m IoThread))
+                  => ForkStrategy IoThread * IO :a -> :m IoThread))
   (define fork-thread-with_ fork-thread-with)
 
   (inline)
   (declare unmask-thread-finally_ ((LiftTo IO :m) (Exceptions :m)
                             (Threads IoRuntime IoThread :m)
-                            => IoThread -> (UnmaskFinallyMode -> IO :b) -> :m Unit))
+                            => IoThread * (UnmaskFinallyMode -> IO Unit) -> :m Unit))
   (define unmask-thread-finally_ unmask-thread-finally)
 
   (inline)
   (declare unmask-finally_ ((LiftTo IO :m) (Exceptions :m) (Concurrent :c :a)
                             (Threads IoRuntime IoThread :m)
-                            => :c -> (UnmaskFinallyMode -> IO :b) -> :m Unit))
+                            => :c * (UnmaskFinallyMode -> IO Unit) -> :m Unit))
   (define unmask-finally_ unmask-finally)
 
   (inline)
   (declare park-current-thread-if_ (MonadIo :m
-                                    => (Generation -> IO Unit) -> IO Boolean -> :m Unit))
+                                    => (Generation -> IO Unit) * IO Boolean -> :m Unit))
   (define park-current-thread-if_
     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if

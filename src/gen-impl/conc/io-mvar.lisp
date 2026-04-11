@@ -19,8 +19,8 @@
   (:local-nicknames
    (:opt #:coalton-library/optional)
    (:at #:io/threads-impl/atomics)
-   (:lk #:coalton-threads/lock)
-   (:cv #:coalton-threads/condition-variable)
+   (:bt #:io/utilities/bt-compat)
+
    )
   (:export
    #:MVar
@@ -64,10 +64,10 @@
 
 All critical MVar operations are masked. However, irresponsible stopping could still cause
 deadlocks and other race conditions."
-    (lock                lk:Lock)
+    (lock                bt:Lock)
     (read-broadcast-pool (DataBroadcastPool :a))
-    (notify-full         cv:ConditionVariable)
-    (notify-empty        cv:ConditionVariable)
+    (notify-full         bt:ConditionVariable)
+    (notify-empty        bt:ConditionVariable)
     (data                (at:Atomic (Optional :a))))
 
   (inline)
@@ -75,10 +75,10 @@ deadlocks and other race conditions."
   (define (new-mvar val)
     "Create a new MVar containing VAL."
     (wrap-io
-      (MVar (lk:new)
+      (MVar (bt:new-lk)
             (new-broadcast-pool)
-            (cv:new)
-            (cv:new)
+            (bt:new-cv)
+            (bt:new-cv)
             (at:new (Some val)))))
 
   (inline)
@@ -86,13 +86,13 @@ deadlocks and other race conditions."
   (define new-empty-mvar
     "Create a new empty MVar."
     (wrap-io
-      (MVar (lk:new)
+      (MVar (bt:new-lk)
             (new-broadcast-pool)
-            (cv:new)
-            (cv:new)
+            (bt:new-cv)
+            (bt:new-cv)
             (at:new None))))
 
-  (declare take-mvar-masked-inner% (Runtime :rt :t => TimeoutStrategy -> MVar :a -> Proxy :rt -> :a))
+  (declare take-mvar-masked-inner% (Runtime :rt :t => TimeoutStrategy * MVar :a * Proxy :rt -> :a))
   (define (take-mvar-masked-inner% strategy mvar rt-prx)
     "Concurrent: Leaves the thread masked once."
     ;; CONCURRENT: Masks before entering the critical region.
@@ -114,8 +114,8 @@ deadlocks and other race conditions."
                 (match (at:read (.data mvar))
                   ((Some val)
                    (at:atomic-write (.data mvar) None)
-                   (lk:release (.lock mvar))
-                   (cv:notify (.notify-empty mvar))
+                   (bt:release (.lock mvar))
+                   (bt:notify (.notify-empty mvar))
                    val)
                   ((None)
                    (unmask-and-await-safely-finally-with%
@@ -124,12 +124,13 @@ deadlocks and other race conditions."
                     (.notify-full mvar)
                     (.lock mvar)
                     (fn ()
-                      (cv:notify (.notify-full mvar))))
+                      (bt:notify (.notify-full mvar))
+                      (values)))
                     (lp))))))
       (lp)))
 
   (inline)
-  (declare take-mvar-masked-with (Threads :rt :t :m => TimeoutStrategy -> MVar :a -> :m :a))
+  (declare take-mvar-masked-with (Threads :rt :t :m => TimeoutStrategy * MVar :a -> :m :a))
   (define (take-mvar-masked-with strategy mvar)
     "Take a value from an MVar, blocking until one is available.
 
@@ -159,7 +160,7 @@ Concurrent:
     (take-mvar-masked-with NoTimeout mvar))
 
   (inline)
-  (declare take-mvar-with (Threads :rt :t :m => TimeoutStrategy -> MVar :a -> :m :a))
+  (declare take-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a -> :m :a))
   (define (take-mvar-with strategy mvar)
     "Take a value from an MVar, blocking until one is available.
 
@@ -188,7 +189,7 @@ Concurrent:
   - On succesful take, one blocking writer is woken in order of acquisition"
     (take-mvar-with NoTimeout mvar))
 
-  (declare put-mvar-with (Threads :rt :t :m => TimeoutStrategy -> MVar :a -> :a -> :m Unit))
+  (declare put-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a * :a -> :m Unit))
   (define (put-mvar-with strategy mvar val)
     "Fill an empty MVar, blocking until it becomes empty.
 
@@ -220,9 +221,9 @@ Concurrent:
                   (match (at:read data)
                     ((None)
                      (at:atomic-write data (Some val))
-                     (lk:release lock)
+                     (bt:release lock)
                      (publish (.read-broadcast-pool mvar) val)
-                     (cv:notify (.notify-full mvar))
+                     (bt:notify (.notify-full mvar))
                      (unmask-current! rt-prx)
                      Unit)
                     ((Some _)
@@ -232,12 +233,13 @@ Concurrent:
                       (.notify-empty mvar)
                       lock
                       (fn ()
-                        (cv:notify (.notify-empty mvar))))
+                        (bt:notify (.notify-empty mvar))
+                        (values)))
                      (lp))))))
         (lp))))
 
   (inline)
-  (declare put-mvar (Threads :rt :t :m => MVar :a -> :a -> :m Unit))
+  (declare put-mvar (Threads :rt :t :m => MVar :a * :a -> :m Unit))
   (define (put-mvar mvar val)
     "Fill an empty MVar, blocking until it becomes empty.
 
@@ -251,7 +253,7 @@ Concurrent:
     (put-mvar-with NoTimeout mvar val))
 
   (declare try-take-mvar-masked-inner%-with
-           (Runtime :rt :t => TimeoutStrategy -> MVar :a -> Proxy :rt -> Optional :a))
+           (Runtime :rt :t => TimeoutStrategy * MVar :a * Proxy :rt -> Optional :a))
   (define (try-take-mvar-masked-inner%-with strategy mvar rt-prx)
     "Concurrent: Leaves the thread masked once."
     ;; CONCURRENT:
@@ -272,15 +274,15 @@ Concurrent:
        (match (at:read (.data mvar))
          ((Some x)
           (at:atomic-write (.data mvar) None)
-          (lk:release (.lock mvar))
-          (cv:notify (.notify-empty mvar))
+          (bt:release (.lock mvar))
+          (bt:notify (.notify-empty mvar))
           (Some x))
          ((None)
-         (lk:release (.lock mvar))
+         (bt:release (.lock mvar))
          None)))))
 
   (inline)
-  (declare try-take-mvar-masked-inner% (Runtime :rt :t => MVar :a -> Proxy :rt -> Optional :a))
+  (declare try-take-mvar-masked-inner% (Runtime :rt :t => MVar :a * Proxy :rt -> Optional :a))
   (define (try-take-mvar-masked-inner% mvar rt-prx)
     "Concurrent: Leaves the thread masked once."
     (try-take-mvar-masked-inner%-with NoTimeout mvar rt-prx))
@@ -313,7 +315,7 @@ Concurrent:
     (wrap-io-with-runtime (rt-prx)
       (try-take-mvar-masked-inner% mvar rt-prx)))
 
-  (declare try-put-mvar (Threads :rt :t :m => MVar :a -> :a -> :m Boolean))
+  (declare try-put-mvar (Threads :rt :t :m => MVar :a * :a -> :m Boolean))
   (define (try-put-mvar mvar val)
     "Attempt to immediately put a value into an MVar. Returns True if succeeded.
 
@@ -337,27 +339,27 @@ Concurrent:
          False)
         ((None)
          (mask-current! rt-prx)
-         (lk:acquire (.lock mvar))
+         (bt:acquire (.lock mvar))
          (match (at:read (.data mvar))
            ((Some _)
-            (lk:release (.lock mvar))
+            (bt:release (.lock mvar))
             (unmask-current! rt-prx)
             False)
            ((None)
             (at:atomic-write (.data mvar) (Some val))
-            (lk:release (.lock mvar))
+            (bt:release (.lock mvar))
             (publish (.read-broadcast-pool mvar) val)
-            (cv:notify (.notify-full mvar))
+            (bt:notify (.notify-full mvar))
             (unmask-current! rt-prx)
             True))))))
 
-  (declare read-mvar-with (Threads :rt :t :m => TimeoutStrategy -> MVar :a -> :m :a))
+  (declare read-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a -> :m :a))
   (define (read-mvar-with strategy mvar)
     "Read a value from an MVar, blocking until one is available. Does not consume value.
 
 Concurrent:
   - Blocks while the MVar is empty
-  - Blocking read-non-consumers (including `read-mvar`) are woken simultaneously on 
+  - Blocking read-non-consumers (including `read-mvar`) are woken simultaneously on
     succesful put. Data is handed directly to woken readers, which don't contend on mvar."
     ;; CONCURRENT:
     ;; - Does not need to mask around read-only atomic happy path.
@@ -375,7 +377,7 @@ Concurrent:
 
 Concurrent:
   - Blocks while the MVar is empty
-  - Blocking read-non-consumers (including `read-mvar`) are woken simultaneously on 
+  - Blocking read-non-consumers (including `read-mvar`) are woken simultaneously on
     succesful put. Data is handed directly to woken readers, which don't contend on mvar."
     (read-mvar-with NoTimeout mvar))
 
@@ -385,7 +387,7 @@ Concurrent:
     (wrap-io
       (at:read (.data mvar))))
 
-  (declare swap-mvar-with (Threads :rt :t :m => TimeoutStrategy -> MVar :a -> :a -> :m :a))
+  (declare swap-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a * :a -> :m :a))
   (define (swap-mvar-with strategy mvar new-val)
     "Atomically replace the value in an MVar and return the old value.
 
@@ -409,8 +411,8 @@ Concurrent:
                   (match (at:read (.data mvar))
                     ((Some old-val)
                      (at:atomic-write (.data mvar) (Some new-val))
-                     (lk:release (.lock mvar))
-                     (cv:notify (.notify-full mvar))
+                     (bt:release (.lock mvar))
+                     (bt:notify (.notify-full mvar))
                      (unmask-current! rt-prx)
                      old-val)
                     ((None)
@@ -420,12 +422,13 @@ Concurrent:
                       (.notify-full mvar)
                       (.lock mvar)
                       (fn ()
-                        (cv:notify (.notify-full mvar))))
+                        (bt:notify (.notify-full mvar))
+                        (values)))
                      (lp))))))
         (lp))))
 
   (inline)
-  (declare swap-mvar (Threads :rt :t :m => MVar :a -> :a -> :m :a))
+  (declare swap-mvar (Threads :rt :t :m => MVar :a * :a -> :m :a))
   (define (swap-mvar mvar new-val)
     "Atomically replace the value in an MVar and return the old value.
 
@@ -449,7 +452,7 @@ Concurrent:
   ;; TODO: Possibly check and restore if it's a non-thread stop exception? But is the
   ;; inconsistent behavior worth it? Probably not?
   (declare with-mvar ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :i)
-                       => MVar :a -> (:a -> :r :b) -> :m :b))
+                       => MVar :a * (:a -> :r :b) -> :m :b))
   (define (with-mvar mvar op)
     "Run an operation with the value from an MVar, blocking until one is available.
 Restore the MVar value and return the result of the operation.
@@ -517,7 +520,7 @@ Concurrent:
       (tail-var <- (new-mvar cell))
       (pure (MChan head-var tail-var))))
 
-  (declare push-chan (Threads :rt :t :m => MChan :a -> :a -> :m Unit))
+  (declare push-chan (Threads :rt :t :m => MChan :a * :a -> :m Unit))
   (define (push-chan chan val)
     "Push VAL onto CHAN."
     (do
@@ -533,7 +536,7 @@ Concurrent:
     "Pop the front value in CHAN. Blocks while CHAN is empty."
     (pop-chan-with NoTimeout chan))
 
-  (declare pop-chan-with (Threads :rt :t :m => TimeoutStrategy -> MChan :a -> :m :a))
+  (declare pop-chan-with (Threads :rt :t :m => TimeoutStrategy * MChan :a -> :m :a))
   (define (pop-chan-with strategy chan)
     "Pop the front value in CHAN. Blocks while CHAN is empty."
     (do
@@ -554,5 +557,5 @@ Concurrent:
        (put-mvar (.head-var chan) new-head-var)
        unmask-current-thread ;; Cleanup after take-mvar-masked
        (pure (Some val)))))
-    
+
   )

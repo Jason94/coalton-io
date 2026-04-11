@@ -17,7 +17,9 @@
    (:f #:io/file)
    (:r #:coalton-library/result)
    (:mv #:io/conc/mvar)
-   (:m #:io/mut)))
+   (:m #:io/mut))
+  (:export
+   #:run-example))
 (in-package :io/examples/channels-threading)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -47,11 +49,12 @@
   (declare write-data-file (IO Unit))
   (define write-data-file
     (do
-     (exists? <- (map (r:ok-or-def False)
+     (exists? <- (map (fn (file?) (r:ok-or-def False file?))
                       (f:exists? data-filename)))
      (do-when (not exists?)
        (write-line "Writing data file...")
-       (f:do-with-open-file_ (f_:Output (into data-filename) f_:Overwrite) (fs)
+       (f:do-with-open-file_ (data-filename fs :direction f_:Output
+                                               :if-exists f_:Overwrite)
          (do-loop-times (_ data-rows)
            (x <- (random_ data-max))
            (f:write-line fs (into x)))
@@ -61,14 +64,14 @@
   (declare reader-thread (mv:MChan (Optional String) -> IO Unit))
   (define (reader-thread mchan-input)
     (do
-     (f:do-with-open-file_ (f_:Input (into data-filename)) (fs)
+     (f:do-with-open-file_ (data-filename fs)
        (do-loop-while-valM (line (f:read-line fs))
          (mv:push-chan mchan-input (Some line)))
        (pure Unit))
      (do-loop-times (_ n-workers)
        (mv:push-chan mchan-input None))))
 
-  (declare parser-thread (mv:MChan (Optional String) -> mv:MChan (Optional Integer) -> IO Unit))
+  (declare parser-thread (mv:MChan (Optional String) * mv:MChan (Optional Integer) -> IO Unit))
   (define (parser-thread mchan-input mchan-int)
     (do-if-not-valM (str (mv:pop-chan mchan-input))
           (mv:push-chan mchan-int None)
@@ -84,10 +87,11 @@
      (do-loop-while
        (do-if-valM (x (mv:pop-chan mchan-int))
              (do
-              (m:modify sum (+ x))
+              (m:modify sum (fn (val) (+ x val)))
               (pure True))
-         (m:modify closed-parsers (+ 1))
-         (map (> (into n-workers)) (m:read closed-parsers))))
+         (m:modify closed-parsers 1+)
+         (map (fn (val) (> (into n-workers) val))
+              (m:read closed-parsers))))
      (m:read sum)))
 
   (declare sum-file (IO Integer))

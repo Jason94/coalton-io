@@ -5,26 +5,25 @@
    #:io/monad-io
    )
   (:local-nicknames
-   (:s #:coalton-threads/semaphore)
+   (:bt #:io/utilities/bt-compat)
    )
   (:export
    #:s-new
    #:s-signal
    #:s-await
-   )
-  )
+   ))
 (in-package :io/tests/utils)
 
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (declare s-new (MonadIo :m => :m s:Semaphore))
+  (declare s-new (MonadIo :m => :m bt:Semaphore))
   (define s-new
-    (wrap-io (s:new)))
+    (wrap-io (bt:new-sm)))
 
   (define (s-signal s)
-    (wrap-io (s:signal s 1)))
+    (wrap-io (bt:signal s 1)))
 
   (define (s-await s)
-    (wrap-io (s:await s)))
+    (wrap-io (bt:await-sm s)))
   )

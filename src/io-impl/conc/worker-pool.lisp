@@ -27,17 +27,17 @@
 
   (declare new-worker-pool_ ((Threads IoRuntime IoThread :m) (Exceptions :m)
                              (LiftIo IO :m) (Scheduler :s)
-                             => UFix -> :s (Optional (IO Unit)) -> :m (WorkerPool :s IO IoThread)))
+                             => UFix * :s (Optional (IO Unit)) -> :m (WorkerPool :s IO IoThread)))
   (define new-worker-pool_ new-worker-pool)
 
   (declare submit-job_ ((Threads IoRuntime IoThread :m)
                         (LiftTo IO :m) (Scheduler :s)
-                        => WorkerPool :s IO IoThread -> IO :a -> :m Unit))
+                        => WorkerPool :s IO IoThread * IO :a -> :m Unit))
   (define submit-job_ submit-job)
 
   (declare submit-job-with_ ((Threads IoRuntime IoThread :m)
                              (LiftTo IO :m) (Scheduler :s)
-                             => TimeoutStrategy -> WorkerPool :s IO IoThread -> IO :a -> :m Unit))
+                             => TimeoutStrategy * WorkerPool :s IO IoThread * IO :a -> :m Unit))
   (define submit-job-with_ submit-job-with)
   )
 

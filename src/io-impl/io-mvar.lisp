@@ -21,7 +21,7 @@
 (coalton-toplevel
 
   (declare with-mvar_ ((Threads IoRuntime IoThread :m) (LiftTo IO :m)
-                       => MVar :a -> (:a -> IO :b) -> :m :b))
+                       => MVar :a * (:a -> IO :b) -> :m :b))
   (define with-mvar_
     "Run an operation with the value from an MVar, blocking until one is available.
 Restore the MVar value and return the result of the operation.

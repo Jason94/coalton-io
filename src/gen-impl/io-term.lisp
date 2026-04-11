@@ -17,7 +17,7 @@
   (define (write% obj)
     (let str = (the String (into obj)))
     (wrap-io
-      (lisp :a (str)
+      (lisp (-> :a) (str)
         (cl:format cl:t "~a" str))
       Unit))
 
@@ -25,13 +25,13 @@
   (define (write-line% obj)
     (let str = (the String (into obj)))
     (wrap-io
-      (lisp :a (str)
+      (lisp (-> :a) (str)
         (cl:format cl:t "~a~%" str))
       Unit))
 
   (declare read-line% (MonadIo :m => :m String))
   (define read-line%
-    (wrap-io (lisp :a ()
+    (wrap-io (lisp (-> :a) ()
                (cl:read-line)))))
 
 (defmacro implement-terminal (monad)

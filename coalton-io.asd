@@ -5,7 +5,7 @@
   :maintainer "Jason Walker"
   :mailto "Jason0@pm.me"
   :license "MIT"
-  :depends-on ("uiop" "coalton" "named-readtables" "atomics" "coalton-threads" "usocket" "usocket-server")
+  :depends-on ("uiop" "coalton" "named-readtables" "atomics" "usocket" "usocket-server")
   :components ((:module "src"
                 :serial t
                 :components
@@ -13,6 +13,7 @@
                  ;;; Library Private Packages
                  ;;;
                  (:file "utils")
+                 (:file "utilities/bt-compat")
                  (:file "thread-exceptions")
                  ;; Load the two main "core classes" files first, before thread-impl/
                  (:file "classes/exceptions")
@@ -174,7 +175,6 @@ mutable variables, multithreading, and several data structures to safely share s
                 ((:file "greeter")
                  (:file "channels-threading")
                  (:file "hangman")
-                 (:file "fork-laws")
                  (:file "network-demo")
                  (:file "redis/protocol")
                  (:file "redis/client_cli")

@@ -5,7 +5,6 @@
    #:coalton-prelude
    #:coalton-library/monad/classes
    #:coalton-library/experimental/do-control-core
-   #:coalton-library/experimental/do-control-loops
    #:io/utils
    #:io/threads-exceptions
    #:io/classes/exceptions
@@ -14,6 +13,8 @@
    #:io/classes/conc/scheduler
    #:io/gen-impl/conc/group
    )
+  (:import-from #:coalton-library/experimental/do-control-loops
+   #:do-loop-times)
   (:local-nicknames
    (:l #:coalton-library/list))
   (:export
@@ -38,7 +39,7 @@
     (scheduler (:s (Optional (:i Unit)))))
 
   (declare worker-op ((BaseIo :i) (Threads :rt :t :i) (Scheduler :s)
-                      => UFix -> :s (Optional (:i Unit)) -> :i Unit))
+                      => UFix * :s (Optional (:i Unit)) -> :i Unit))
   (define (worker-op thread-index scheduler)
     (do-matchM (take-item thread-index scheduler)
       ((None)
@@ -49,7 +50,7 @@
 
   (declare fork-worker-op ((Threads :rt :t :i) (UnliftIo :i :i) (Exceptions :i)
                            (Scheduler :s)
-                           => UFix -> :s (Optional (:i Unit)) -> :i :t))
+                           => UFix * :s (Optional (:i Unit)) -> :i :t))
   (define (fork-worker-op thread-index scheduler)
     (fork-thread (worker-op thread-index scheduler)))
 
@@ -57,7 +58,7 @@
                             (Exceptions :i)
                             (Exceptions :m) (Concurrent :t Unit) (LiftIo :i :m)
                             (Scheduler :s)
-                            => UFix -> :s (Optional (:i Unit)) -> :m (WorkerPool :s :i :t)))
+                            => UFix * :s (Optional (:i Unit)) -> :m (WorkerPool :s :i :t)))
   (define (new-worker-pool n-threads scheduler)
     "Create a new worker pool. Automatically forks N-THREADS worker threads."
     ;; CONCURRENT:
@@ -74,7 +75,7 @@
 
   (declare submit-job-with ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :i)
                             (Exceptions :i) (Scheduler :s)
-                            => TimeoutStrategy -> WorkerPool :s :i :t -> :r :a -> :m Unit))
+                            => TimeoutStrategy * WorkerPool :s :i :t * :r :a -> :m Unit))
   (define (submit-job-with strategy pool job)
     "Submit a job to the worker pool. Any jobs submitted after a shutdown request will
 be ignored.
@@ -92,7 +93,7 @@ Concurrent:
   (inline)
   (declare submit-job ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :i)
                        (Exceptions :i) (Scheduler :s)
-                       => WorkerPool :s :i :t -> :r :a -> :m Unit))
+                       => WorkerPool :s :i :t * :r :a -> :m Unit))
   (define (submit-job pool job)
     "Submit a job to the worker pool. Any jobs submitted after a shutdown request will
 be ignored.

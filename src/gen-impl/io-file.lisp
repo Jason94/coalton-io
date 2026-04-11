@@ -73,9 +73,14 @@
   (define (directory-exists?% pth)
     (wrap-io (f_:directory-exists? pth)))
 
-  (declare open% ((f_:File :a) (MonadIo :m) => f_:StreamOptions -> :m (Result f_:FileError (f_:FileStream :a))))
-  (define (open% opts)
-    (wrap-io (f_:open opts)))
+  (declare open% ((f_:File :a) (MonadIo :m)
+                  => f_:Pathname
+                  &key
+                  (:direction f_:OpenDirection)
+                  (:if-exists f_:IfExists)
+                  -> :m (Result f_:FileError (f_:FileStream :a))))
+  (define (open% pth &key (direction f_:Input) (if-exists f_:EError))
+    (wrap-io (f_:open pth :direction direction :if-exists if-exists)))
 
   (declare close% (MonadIo :m => (f_:FileStream :a) -> :m (Result f_:FileError :b)))
   (define (close% fs)
@@ -85,7 +90,7 @@
   (define (abort% fs)
     (wrap-io (f_:abort fs)))
 
-  (declare copy% ((Into :a f_:Pathname) (Into :b f_:Pathname) (MonadIo :m) => :a -> :b -> :m (Result f_:FileError Unit)))
+  (declare copy% ((Into :a f_:Pathname) (Into :b f_:Pathname) (MonadIo :m) => :a * :b -> :m (Result f_:FileError Unit)))
   (define (copy% a b)
     (wrap-io (f_:copy! a b)))
 
@@ -105,7 +110,7 @@
   (define (remove-directory-recursive% p)
     (wrap-io (f_:remove-directory-recursive! p)))
 
-  (declare system-relative-pathname% ((Into :sys String) (MonadIo :m) => :sys -> String -> :m (Result f_:FileError f_:Pathname)))
+  (declare system-relative-pathname% ((Into :sys String) (MonadIo :m) => :sys * String -> :m (Result f_:FileError f_:Pathname)))
   (define (system-relative-pathname% sys name)
     (wrap-io (f_:system-relative-pathname sys name)))
 
@@ -117,11 +122,11 @@
   (define (read-file-lines% p)
     (wrap-io (f_:read-file-lines p)))
 
-  (declare write-to-file% ((Into :p f_:Pathname) (f_:File :a) (RuntimeRepr :a) (MonadIo :m) => :p -> (Vector :a) -> :m (Result f_:FileError Unit)))
+  (declare write-to-file% ((Into :p f_:Pathname) (f_:File :a) (RuntimeRepr :a) (MonadIo :m) => :p * (Vector :a) -> :m (Result f_:FileError Unit)))
   (define (write-to-file% p v)
     (wrap-io (f_:write-to-file! p v)))
 
-  (declare append-to-file% ((Into :p f_:Pathname) (f_:File :a) (RuntimeRepr :a) (MonadIo :m) => :p -> (Vector :a) -> :m (Result f_:FileError Unit)))
+  (declare append-to-file% ((Into :p f_:Pathname) (f_:File :a) (RuntimeRepr :a) (MonadIo :m) => :p * (Vector :a) -> :m (Result f_:FileError Unit)))
   (define (append-to-file% p v)
     (wrap-io (f_:append-to-file! p v)))
 
@@ -133,15 +138,15 @@
   (define (read-line% fs)
     (wrap-io (f_:read-line fs)))
 
-  (declare write-char% (MonadIo :m => (f_:FileStream Char) -> Char -> :m (Result f_:FileError Unit)))
+  (declare write-char% (MonadIo :m => (f_:FileStream Char) * Char -> :m (Result f_:FileError Unit)))
   (define (write-char% fs c)
     (wrap-io (f_:write-char fs c)))
 
-  (declare write-line% (MonadIo :m => (f_:FileStream Char) -> String -> :m (Result f_:FileError Unit)))
+  (declare write-line% (MonadIo :m => (f_:FileStream Char) * String -> :m (Result f_:FileError Unit)))
   (define (write-line% fs s)
     (wrap-io (f_:write-line fs s)))
 
-  (declare write-string% (MonadIo :m => (f_:FileStream Char) -> String -> :m (Result f_:FileError Unit)))
+  (declare write-string% (MonadIo :m => (f_:FileStream Char) * String -> :m (Result f_:FileError Unit)))
   (define (write-string% fs s)
     (wrap-io (f_:write-string fs s)))
 
@@ -149,15 +154,15 @@
   (define (read-file-to-vector% fs)
     (wrap-io (f_:read-file-to-vector fs)))
 
-  (declare read-vector% ((f_:File :a) (MonadIo :m) => (f_:FileStream :a) -> UFix -> :m (Result f_:FileError (Vector :a))))
+  (declare read-vector% ((f_:File :a) (MonadIo :m) => (f_:FileStream :a) * UFix -> :m (Result f_:FileError (Vector :a))))
   (define (read-vector% fs n)
     (wrap-io (f_:read-vector fs n)))
 
-  (declare write-vector% ((f_:File :a) (RuntimeRepr :a) (MonadIo :m) => (f_:FileStream :a) -> (Vector :a) -> :m (Result f_:FileError Unit)))
+  (declare write-vector% ((f_:File :a) (RuntimeRepr :a) (MonadIo :m) => (f_:FileStream :a) * (Vector :a) -> :m (Result f_:FileError Unit)))
   (define (write-vector% fs v)
     (wrap-io (f_:write-vector fs v)))
 
-  (declare set-file-position% (MonadIo :m => (f_:FileStream :a) -> UFix -> :m (Result f_:FileError Unit)))
+  (declare set-file-position% (MonadIo :m => (f_:FileStream :a) * UFix -> :m (Result f_:FileError Unit)))
   (define (set-file-position% fs pos)
     (wrap-io (f_:set-file-position fs pos)))
 )
@@ -203,12 +208,15 @@
 ;;
 
 (coalton-toplevel
-  (declare with-open-file ((f_:File :a) (Files :i) (UnliftIo :r :i)
+  (declare with-open-file ((f_:File :a) (Files :i) (UnliftIo :r :i) (Into :p f_:Pathname)
                            (LiftTo :r :m) (Exceptions :i) (Threads :rt :t :i)
-                           => f_:StreamOptions
-                           -> ((f_:FileStream :a) -> :r :b)
+                           => :p
+                           * ((f_:FileStream :a) -> :r :b)
+                           &key
+                           (:direction f_:OpenDirection)
+                           (:if-exists f_:IfExists)
                            -> :m :b))
-  (define (with-open-file opts k)
+  (define (with-open-file pth k &key (direction f_:Input) (if-exists f_:EError))
      "Opens a file stream, performs K on it, then closes the stream.
 Can run any underlying BaseIo, which can be useful but can also cause inference issues
 in some cases. Try WITH-OPEN-FILE_ if you have issues."
@@ -216,7 +224,7 @@ in some cases. Try WITH-OPEN-FILE_ if you have issues."
      (with-run-in-io
          (fn (run)
            (lift-io
-            (bracket-io_ (raise-result (open opts))
+            (bracket-io_ (raise-result (open (as f_:Pathname pth) :direction direction :if-exists if-exists))
                          (fn (file)
                            (raise-result (close file)))
                          (fn (file)
@@ -224,10 +232,11 @@ in some cases. Try WITH-OPEN-FILE_ if you have issues."
 
   (declare with-temp-file ((f_:File :a) (Files :i) (Threads :rt :t :i)
                            (UnliftIo :r :i) (LiftTo :r :m) (Exceptions :i)
-                           => String
-                           -> ((f_:FileStream :a) -> :r :b)
+                           => ((f_:FileStream :a) -> :r :b)
+                           &key
+                           (:extension String)
                            -> :m :b))
-  (define (with-temp-file file-type k)
+  (define (with-temp-file k &key (extension ""))
      "Performs an operation `thunk` on a temporary file. File type extensions need to include `.`
 Can run any underlying BaseIo, which can be useful but can also cause inference issues
 in some cases. Try WITH-TEMP-FILE_ if you have issues."
@@ -235,8 +244,8 @@ in some cases. Try WITH-TEMP-FILE_ if you have issues."
      (with-run-in-io
          (fn (run)
            (lift-io
-            (let ((filepath (f_::%make-temp-file-pathname file-type)))
-              (bracket-io_ (raise-result  (open (f_:Bidirectional filepath f_:Overwrite)))
+            (let ((filepath (f_::%make-temp-file-pathname extension)))
+              (bracket-io_ (raise-result (open filepath :direction f_:Bidirectional :if-exists f_:Overwrite))
                            (fn (_)
                              (raise-result (delete-file filepath)))
                            (fn (file)
@@ -261,19 +270,31 @@ in some cases. Try WITH-TEMP-DIRECTORY_ if you have issues."
 
   )
 
-(defmacro do-with-open-file (opts (fs) cl:&body body)
+(defmacro do-with-open-file ((path fs
+                              cl:&key
+                              (direction 'f_:Input)
+                              (if-exists 'f_:EError))
+                              cl:&body body)
   "`do` sugar for `with-open-file`. Expands to a continuation where BODY runs in `do`.
 
 Usage:
-  (do-with-open-file opts (fs)
+  (do-with-open-file path (fs)
     (line <- (read-char fs))
     ...)
+  (do-with-open-file path (fs)
+    :direction f_:Output :if-exists f_:Supersede
+    (write-line fs \"hello\")
+    ...)
 "
-  `(with-open-file ,opts (fn (,fs) (do ,@body))))
+  `(with-open-file ,path
+     (fn (,fs) (do ,@body))
+     :direction ,direction
+     :if-exists ,if-exists))
 
 (defmacro do-with-temp-file (type (fs) cl:&body body)
   "`do` sugar for `with-temp-file` (TYPE is a string like \"txt\")."
-  `(with-temp-file ,type (fn (,fs) (do ,@body))))
+  `(with-temp-file (fn (,fs) (do ,@body))
+     :extension ,type))
 
 (defmacro do-with-temp-directory ((dir) cl:&body body)
   "`do` sugar for `with-temp-directory`."

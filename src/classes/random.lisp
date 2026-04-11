@@ -59,7 +59,7 @@
      (RandomState -> :m Unit))
     (random
      "Generate a random value less than LIMIT using the given random state."
-     (RandomLimit :a => RandomState -> :a -> :m :a))
+     (RandomLimit :a => RandomState * :a -> :m :a))
     (random_
      "Generate a random value less than LIMIT using the current random state."
      (RandomLimit :a => :a -> :m :a)))
@@ -68,7 +68,7 @@
   ;;; Extra Functions
   ;;;
 
-  (declare random-elt (Random :m => RandomState -> List :a -> :m (Optional :a)))
+  (declare random-elt (Random :m => RandomState * List :a -> :m (Optional :a)))
   (define (random-elt rs lst)
     "Get a random element from LST. Returns NONE if LST is empty."
     (let len = (length lst))
@@ -86,16 +86,16 @@
       (r <- (random_ len))
       (pure (l:index r lst))))
 
-  (declare random-elt# (Random :m => RandomState -> List :a -> :m :a))
+  (declare random-elt# (Random :m => RandomState * List :a -> :m :a))
   (define (random-elt# rs lst)
     "Get a random element from LST. Errors if LST is empty."
-    (map (opt:from-some "Cannot get random element from empty list")
+    (map (fn (x) (opt:from-some "Cannot get random element from empty list" x))
          (random-elt rs lst)))
 
   (declare random-elt#_ (Random :m => List :a -> :m :a))
   (define (random-elt#_ lst)
     "Get a random element from LST. Errors if LST is empty."
-    (map (opt:from-some "Cannot get random element from empty list")
+    (map (fn (x) (opt:from-some "Cannot get random element from empty list" x))
          (random-elt_ lst)))
   )
 

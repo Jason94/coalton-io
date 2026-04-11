@@ -11,9 +11,8 @@
    #:io/classes/thread
    )
   (:local-nicknames
-   (:lk  #:coalton-threads/lock)
+   (:bt  #:io/utilities/bt-compat)
    (:c #:coalton-library/cell)
-   (:cv  #:coalton-threads/condition-variable)
    (:at #:io/threads-impl/atomics)
    )
   (:export
@@ -46,11 +45,11 @@
        False)))
 
   (inline)
-  (declare checkout!% (Word -> (at:AtomicStack (VersionEntry :a)) -> :a))
+  (declare checkout!% (Word * (at:AtomicStack (VersionEntry :a)) -> :a))
   (define (checkout!% version version-entries)
     "Checkout the data for VERSION, decrementing the number of remaining subscribers.
 Errors if the version can't be found."
-    (for entry in version-entries
+    (foreach (entry version-entries)
       (let _ = (the (VersionEntry :a) entry))
       (when (== (.version entry) version)
         (at:atomic-dec1 (.remaining-subscribers entry))
@@ -58,7 +57,7 @@ Errors if the version can't be found."
     (error (build-str "ERROR: DataBroadcastPool missing data for version " version)))
 
   (inline)
-  (declare new-version-entry (Word -> Word -> :a -> VersionEntry :a))
+  (declare new-version-entry (Word * Word * :a -> VersionEntry :a))
   (define (new-version-entry version n-subscribers val)
     (VersionEntry version
                   (at:new-at-int n-subscribers)
@@ -76,27 +75,27 @@ The pool takes care of masking itself during critical periods, so it can't
 be left in an inconsistent state if another thread were to attempt an
 interrupt during, for example, a publish."
     (version-entries (at:AtomicStack (VersionEntry :a)))
-    (notify-cv       cv:ConditionVariable)
+    (notify-cv       bt:ConditionVariable)
     ;; Lock used for waking subscribers
-    (notify-lock     lk:Lock)
+    (notify-lock     bt:Lock)
     ;; Lock blocking publishes
-    (publish-lock    lk:Lock)
+    (publish-lock    bt:Lock)
     ;; TODO: This can probably just be a cell.
     (n-subscribers   at:AtomicInteger)
     (version         at:AtomicInteger))
 
   (inline)
-  (declare new-broadcast-pool (Unit -> DataBroadcastPool :a))
+  (declare new-broadcast-pool (Void -> DataBroadcastPool :a))
   (define (new-broadcast-pool)
     (DataBroadcastPool (at:new-atomic-stack)
-                       (cv:new)
-                       (lk:new)
-                       (lk:new)
+                       (bt:new-cv)
+                       (bt:new-lk)
+                       (bt:new-lk)
                        (at:new-at-int 0)
                        (at:new-at-int 0)))
 
   (inline)
-  (declare cleanup-stack% (DataBroadcastPool :a -> Unit))
+  (declare cleanup-stack% (DataBroadcastPool :a -> Void))
   (define (cleanup-stack% pool)
     "Remove version entries of the stack that have no subscribers
 left to checkout the data. ASSUMES THE PUBLISH LOCK IS HELD AND
@@ -104,12 +103,12 @@ THE THREAD IS MASKED."
     (while (stale?% (at:at-st-peek (.version-entries pool)))
       (at:at-st-pop-front! (.version-entries pool))))
 
-  (declare publish (DataBroadcastPool :a -> :a -> Unit))
+  (declare publish (DataBroadcastPool :a * :a -> Void))
   (define (publish pool data)
     (unless (zero? (at:read-at-int (.n-subscribers pool)))
       (mask-current-thread!%)
-      (lk:acquire (.publish-lock pool))
-      (lk:acquire (.notify-lock pool))
+      (bt:acquire (.publish-lock pool))
+      (bt:acquire (.notify-lock pool))
       ;; First, check to make sure that the pool didn't receive another publish
       ;; in between checking the number of subscribers and acquiring the lock.
       (unless (zero? (at:read-at-int (.n-subscribers pool)))
@@ -122,50 +121,48 @@ THE THREAD IS MASKED."
         (let new-entry = (new-version-entry version n-subscribers data))
         (at:at-st-push-front! new-entry (.version-entries pool))
         ;; Fourth, notify subscribers.
-        (cv:broadcast (.notify-cv pool))
+        (bt:broadcast (.notify-cv pool))
         )
-      (lk:release (.notify-lock pool))
-      (lk:release (.publish-lock pool))
+      (bt:release (.notify-lock pool))
+      (bt:release (.publish-lock pool))
       (unmask-current-thread!%)
       ))
 
   ;; TODO: Remove lambda when this is fixed:
   ;; https://github.com/coalton-lang/coalton/issues/1719
   (declare subscribe-with (Runtime :rt :t
-                           => Proxy :rt -> TimeoutStrategy -> DataBroadcastPool :a -> :a))
+                           => Proxy :rt * TimeoutStrategy * DataBroadcastPool :a -> :a))
   (define (subscribe-with rt-prx strategy pool)
     "Subscribe to the pool, and block until a publish is made."
     (mask-current-thread!%)
-    (lk:acquire (.notify-lock pool))
+    (bt:acquire (.notify-lock pool))
     (at:atomic-inc1 (.n-subscribers pool))
     (let version = (at:read-at-int (.version pool)))
-    (let f =
-      (fn ()
-        (unmask-and-await-safely-finally-with%
-         rt-prx
-         strategy
-         (.notify-cv pool)
-         (.notify-lock pool)
-         (fn ()
-           (when (< version (at:read-at-int (.version pool)))
-             (checkout!% version (.version-entries pool))
-             Unit)))))
     (rec % ()
-      (catch (inline (f))
+      (catch
+          (unmask-and-await-safely-finally-with%
+           rt-prx
+           strategy
+           (.notify-cv pool)
+           (.notify-lock pool)
+           (fn ()
+             (when (< version (at:read-at-int (.version pool)))
+               (checkout!% version (.version-entries pool))
+               Unit)))
        ((TimeoutException msg)
-        (lk:release (.notify-lock pool))
+        (bt:release (.notify-lock pool))
         (at:atomic-dec1 (.n-subscribers pool))
         (unmask-current-thread!%)
         (throw (TimeoutException msg))))
       ;; Protect against spurious wake-ups
       (when (== version (at:read-at-int (.version pool)))
         (%)))
-    (lk:release (.notify-lock pool))
+    (bt:release (.notify-lock pool))
     (let result = (checkout!% version (.version-entries pool)))
     (unmask-current-thread!%)
     result)
 
-  (declare subscribe (Runtime :rt :t => Proxy :rt -> DataBroadcastPool :a -> :a))
+  (declare subscribe (Runtime :rt :t => Proxy :rt * DataBroadcastPool :a -> :a))
   (define (subscribe rt-prx pool)
     "Subscribe to the pool, and block until a publish is made."
     (subscribe-with rt-prx NoTimeout pool))

@@ -17,34 +17,34 @@
 (coalton-toplevel
   (declare make-random-state% (MonadIo :m => :m RandomState))
   (define make-random-state%
-    (wrap-io (lisp :a ()
+    (wrap-io (lisp (-> :a) ()
                (cl:make-random-state cl:t))))
 
   (declare copy-random-state% (MonadIo :m => RandomState -> :m RandomState))
   (define (copy-random-state% rs)
-    (wrap-io (lisp :a (rs)
+    (wrap-io (lisp (-> :a) (rs)
                (cl:make-random-state rs))))
 
   (declare get-current-random-state% (MonadIo :m => :m RandomState))
   (define get-current-random-state%
-    (wrap-io (lisp :a ()
+    (wrap-io (lisp (-> :a) ()
                cl:*random-state*)))
 
   (declare set-current-random-state% (MonadIo :m => RandomState -> :m Unit))
   (define (set-current-random-state% rs)
     (wrap-io
-      (lisp :a (rs)
+      (lisp (-> :a) (rs)
         (cl:setf cl:*random-state* rs))
       Unit))
 
-  (declare random% ((RandomLimit :a) (MonadIo :m) => RandomState -> :a -> :m :a))
+  (declare random% ((RandomLimit :a) (MonadIo :m) => RandomState * :a -> :m :a))
   (define (random% rs limit)
-    (wrap-io (lisp :a (rs limit)
+    (wrap-io (lisp (-> :a) (rs limit)
                (cl:random limit rs))))
 
   (declare random_% ((RandomLimit :a) (MonadIo :m) => :a -> :m :a))
   (define (random_% limit)
-    (wrap-io (lisp :a (limit)
+    (wrap-io (lisp (-> :a) (limit)
                (cl:random limit))))
   )
 

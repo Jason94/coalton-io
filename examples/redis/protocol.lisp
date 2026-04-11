@@ -5,7 +5,6 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/experimental/do-control-core
-   #:coalton-library/experimental/do-control-loops
    #:io/utils
    #:io/monad-io
    #:io/exceptions
@@ -79,9 +78,9 @@
 
   (define-class (ByteStream :s)
     (read-exactly
-     (UFix -> :s -> IO (Vector U8)))
+     (UFix * :s -> IO (Vector U8)))
     (write-bytes
-     (Vector U8 -> :s -> IO Unit)))
+     (Vector U8 * :s -> IO Unit)))
 
   (define-instance (ByteStream nt:ByteConnectionSocket)
     (define read-exactly nt:read-exactly)
@@ -118,20 +117,20 @@
 
   (declare char->u8 (Char -> U8))
   (define (char->u8 c)
-    (lisp U8 (c)
+    (lisp (-> U8) (c)
       (cl:the (cl:unsigned-byte 8) (cl:char-code c))))
 
   (declare bytes->int (Vector U8 -> Integer))
   (define (bytes->int v)
     ;; "This type is a CRLF-terminated string that represents a signed, base-10, 64-bit integer."
     ;; https://redis.io/docs/latest/develop/reference/protocol-spec/#integers
-    (lisp Integer (v)
+    (lisp (-> Integer) (v)
       (cl:parse-integer
        (cl:map 'cl:string (cl:lambda (b) (cl:code-char b)) v))))
 
   (declare bytes->str (Vector U8 -> String))
   (define (bytes->str v)
-    (lisp String (v)
+    (lisp (-> String) (v)
       (cl:coerce
        (cl:map 'cl:list (cl:lambda (b) (cl:code-char b)) v)
        'cl:string)))
@@ -194,9 +193,9 @@ Example stream input, where the '*' type byte has already been read:
     (do
      (num-elements-bytes <- (read-until-terminator conn))
      (do-match (tryinto (bytes->int num-elements-bytes))
-       ((Err e)
-        (pure (Err e)))
-       ((Ok num-elements)
+       ((None)
+        (pure (Err "Failed to convert num-elements-bytes -> integer")))
+       ((Some num-elements)
         (buffer <- (wrap-io (v:with-capacity num-elements)))
         (result? <-
           (rec % ()
@@ -258,9 +257,9 @@ Example stream input, where the '$' type byte has already been read:
     (do
      (length-bytes <- (read-until-terminator conn))
      (do-match (tryinto (bytes->int length-bytes))
-       ((Err e)
-        (pure (Err (<> "Error parsing bulk string length: " e))))
-       ((Ok length)
+       ((None)
+        (pure (Err "Error parsing bulk string length")))
+       ((Some length)
         (str-bytes <- (read-exactly length conn))
         ;; Consume the trailing \r\n delimiter
         (read-until-terminator conn)
@@ -304,7 +303,7 @@ Example stream input, where the '_' type byte has already been read:
 (coalton-toplevel
   (declare int->bytes (Integer -> (Vector U8)))
   (define (int->bytes n)
-    (lisp (Vector U8) (n)
+    (lisp (-> Vector U8) (n)
       (cl:let* ((s (cl:format cl:nil "~D" n))
                 (len (cl:length s))
                 (out (cl:make-array len :element-type '(cl:unsigned-byte 8))))
@@ -315,7 +314,7 @@ Example stream input, where the '_' type byte has already been read:
 
   (declare str->bytes (String -> (Vector U8)))
   (define (str->bytes s)
-    (lisp (Vector U8) (s)
+    (lisp (-> Vector U8) (s)
       (cl:let* ((len (cl:length s))
                 (out (cl:make-array len :element-type '(cl:unsigned-byte 8))))
         (cl:dotimes (i len out)
@@ -327,7 +326,7 @@ Example stream input, where the '_' type byte has already been read:
   (define (write-terminator conn)
     (write-bytes (v:make term-1 term-2) conn))
 
-  (declare write-resp-array (ByteStream :s => Vector Resp -> :s -> IO Unit))
+  (declare write-resp-array (ByteStream :s => Vector Resp * :s -> IO Unit))
   (define (write-resp-array data conn)
     (do
      (write-bytes (v:make array-type-char) conn)
@@ -337,28 +336,28 @@ Example stream input, where the '_' type byte has already been read:
      (do-foreach-io_ (x data)
        (write-resp x conn))))
 
-  (declare write-resp-int (ByteStream :s => Integer -> :s -> IO Unit))
+  (declare write-resp-int (ByteStream :s => Integer * :s -> IO Unit))
   (define (write-resp-int x conn)
     (do
      (write-bytes (v:make int-type-char) conn)
      (write-bytes (int->bytes x) conn)
      (write-terminator conn)))
 
-  (declare write-resp-simple-string (ByteStream :s => String -> :s -> IO Unit))
+  (declare write-resp-simple-string (ByteStream :s => String * :s -> IO Unit))
   (define (write-resp-simple-string str conn)
     (do
      (write-bytes (v:make simple-string-type-char) conn)
      (write-bytes (str->bytes str) conn)
      (write-terminator conn)))
 
-  (declare write-resp-simple-error (ByteStream :s => String -> :s -> IO Unit))
+  (declare write-resp-simple-error (ByteStream :s => String * :s -> IO Unit))
   (define (write-resp-simple-error str conn)
     (do
      (write-bytes (v:make simple-error-type-char) conn)
      (write-bytes (str->bytes str) conn)
      (write-terminator conn)))
 
-  (declare write-resp-bulk-string (ByteStream :s => String -> :s -> IO Unit))
+  (declare write-resp-bulk-string (ByteStream :s => String * :s -> IO Unit))
   (define (write-resp-bulk-string str conn)
     (do
      (write-bytes (v:make bulk-str-type-char) conn)
@@ -374,7 +373,7 @@ Example stream input, where the '_' type byte has already been read:
      (write-bytes (v:make null-type-char) conn)
      (write-terminator conn)))
 
-  (declare write-resp (ByteStream :s => Resp -> :s -> IO Unit))
+  (declare write-resp (ByteStream :s => Resp * :s -> IO Unit))
   (define (write-resp resp conn)
     (do
      (match resp

@@ -14,7 +14,7 @@
   (:local-nicknames
    (:tm #:io/term)
    (:opt #:coalton-library/optional)
-   (:lk #:coalton-threads/lock))
+   (:bt #:io/utilities/bt-compat))
   )
 (in-package :coalton-io/tests/thread)
 
@@ -39,21 +39,21 @@
   (let result =
     (run-io!
       (do
-        (lock <- (wrap-io (lk:new)))
+        (lock <- (wrap-io (bt:new-lk)))
         (flag <- (new-var Unset))
         (fork-thread_
           (do
-           (wrap-io (lk:acquire lock))
+           (wrap-io (bt:acquire lock))
            (write flag Set)
-           (wrap-io (lk:release lock))))
+           (wrap-io (bt:release lock))))
         (rec % ()
           (do
             (sleep 1)
-            (got <- (wrap-io (lk:acquire-no-wait lock)))
+            (got <- (wrap-io (bt:acquire-no-wait lock)))
             (if got
                 (do
                   (v <- (read flag))
-                  (wrap-io (lk:release lock))
+                  (wrap-io (bt:release lock))
                   ;; Even if we got the lock, we probably beat the forked
                   ;; thread to it, so repeat until the var has been set.
                   (if (== Set v)
@@ -66,20 +66,20 @@
   (let result =
     (run-io!
       (do
-        (lock <- (wrap-io (lk:new)))
+        (lock <- (wrap-io (bt:new-lk)))
         (flag <- (new-var Unset))
         (do-fork-thread_
-          (wrap-io (lk:acquire lock))
+          (wrap-io (bt:acquire lock))
           (write flag Set)
-          (wrap-io (lk:release lock)))
+          (wrap-io (bt:release lock)))
         (rec % ()
           (do
             (sleep 1)
-            (got <- (wrap-io (lk:acquire-no-wait lock)))
+            (got <- (wrap-io (bt:acquire-no-wait lock)))
             (if got
                 (do
                   (v <- (read flag))
-                  (wrap-io (lk:release lock))
+                  (wrap-io (bt:release lock))
                   ;; Even if we got the lock, we probably beat the forked
                   ;; thread to it, so repeat until the var has been set.
                   (if (== Set v)
@@ -356,7 +356,9 @@
       (mask-thread thread)
       (stop-thread thread)
       (unmask-thread-finally_ thread (fn (mode)
-                                       (write hit-finally (Some mode))))
+                                       (do
+                                        (write hit-finally (Some mode))
+                                        (pure Unit))))
       (s-signal stopped-gate)
       (sleep 2)
       (val <- (read value))
@@ -381,7 +383,9 @@
       (s-await started-gate)
       (mask-thread thread)
       (unmask-thread-finally_ thread (fn (mode)
-                                       (write hit-finally (Some mode))))
+                                       (do
+                                        (write hit-finally (Some mode))
+                                        (pure Unit))))
       (s-signal continue-gate)
       (sleep 2)
       (val <- (read value))

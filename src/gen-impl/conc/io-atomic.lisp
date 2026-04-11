@@ -60,13 +60,13 @@
     (wrap-io (at:read (unwrap-atvar atm))))
 
   (inline)
-  (declare write (MonadIo :m => AtVar :a -> :a -> :m Unit))
+  (declare write (MonadIo :m => AtVar :a * :a -> :m Unit))
   (define (write atm val)
     "Atomically write a new value to `atm`."
     (wrap-io (at:atomic-write (unwrap-atvar atm) val)))
 
   (inline)
-  (declare modify ((MonadIo :m) (Exceptions :m) => AtVar :a -> (:a -> :a) -> :m :a))
+  (declare modify ((MonadIo :m) (Exceptions :m) => AtVar :a * (:a -> :a) -> :m :a))
   (define (modify atm f)
     "Atomically modify `atm` by applying `f` and return the new value. `f` must be a pure
 function. If `f` throws an error, `atm` will be unchanged and the error will be handleable
@@ -78,7 +78,7 @@ Concurrent:
     (wrap-io (at:atomic-update (unwrap-atvar atm) f)))
 
   (inline)
-  (declare modify-swap (MonadIo :m => AtVar :a -> (:a -> :a) -> :m :a))
+  (declare modify-swap (MonadIo :m => AtVar :a * (:a -> :a) -> :m :a))
   (define (modify-swap atm f)
     "Atomically modify `atm` by applying `f` and return the old value. `f` must be a pure
 function. If `f` throws an error, `atm` will be unchanged and the error will be handleable
@@ -90,7 +90,7 @@ Concurrent:
     (wrap-io (at:atomic-update-swap (unwrap-atvar atm) f)))
 
   (inline)
-  (declare push (MonadIo :m => AtVar (List :a) -> :a -> :m (List :a)))
+  (declare push (MonadIo :m => AtVar (List :a) * :a -> :m (List :a)))
   (define (push atm elt)
     "Atomically push a value onto an atomic list. Returns the new list."
     (wrap-io (at:atomic-push (unwrap-atvar atm) elt)))

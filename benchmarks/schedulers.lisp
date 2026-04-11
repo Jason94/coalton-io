@@ -45,7 +45,7 @@
   ;; When the task count hits N-TASKS, the main thread immediately stops the benchmark timer.
   ;; Then it requests a shutdown and joins the pool.
   (declare benchmark-x-receives (Scheduler :s
-                                 => UFix -> UFix -> IO (:s (Optional (IO Unit))) -> Unit))
+                                 => UFix * UFix * IO (:s (Optional (IO Unit))) -> Unit))
   (define (benchmark-x-receives n-tasks n-threads make-scheduler)
     (run-io!
      (do
@@ -73,12 +73,12 @@
 (coalton-toplevel
   (declare force-ufix (Integer -> UFix))
   (define (force-ufix x)
-    (lisp UFix (x)
+    (lisp (-> UFix) (x)
       x))
   
   (declare benchmark-multi-producer-x-receives (Scheduler :s
-                                                => UFix -> UFix -> UFix
-                                                -> IO (:s (Optional (IO Unit)))
+                                                => UFix * UFix * UFix
+                                                * IO (:s (Optional (IO Unit)))
                                                 -> Unit))
   (define (benchmark-multi-producer-x-receives n-tasks n-producers n-workers make-scheduler)
     (let tasks-per-producer = (force-ufix

@@ -16,8 +16,7 @@
    (:opt #:coalton-library/optional)
    (:i #:coalton-library/iterator)
    (:c #:coalton-library/cell)
-   (:lk  #:coalton-threads/lock)
-   (:cv  #:coalton-threads/condition-variable)
+   (:bt  #:io/utilities/bt-compat)
    (:at #:io/threads-impl/atomics)
    )
   (:export
@@ -44,7 +43,7 @@
 (in-package :io/gen-impl/conc/stm)
 
 (defmacro mem-barrier ()
-  `(lisp Void ()
+  `(lisp (-> Void) ()
      (sb-thread:barrier (:read))))
 
 (named-readtables:in-readtable coalton:coalton)
@@ -74,7 +73,7 @@
     pset)
 
   (inline)
-  (declare set-tvar% (TVar :a -> :a -> Unit))
+  (declare set-tvar% (TVar :a * :a -> Unit))
   (define (set-tvar% tvar val)
     (c:write! (unwrap-tvar% tvar) val)
     Unit)
@@ -123,7 +122,7 @@
     f-tx)
 
   (inline)
-  (declare run-stm% (TxData% -> STM :io :a -> :io (TxResult% :a)))
+  (declare run-stm% (TxData% * STM :io :a -> :io (TxResult% :a)))
   (define (run-stm% tx-data tx)
     ((unwrap-stm% tx) tx-data))
 
@@ -154,7 +153,7 @@ conditions. DONT USE THIS!"
     (define (map f tx)
       (STM%
        (fn (tx-data)
-         (map (map f)
+         (map (fn (x) (map f x))
               (run-stm% tx-data tx))))))
 
   (inline)
@@ -164,8 +163,8 @@ conditions. DONT USE THIS!"
      (fn (_)
        (pure (TxSuccess val)))))
 
-  (declare lifta2-tx% (Monad :io => (:a -> :b -> :c) -> STM :io :a -> STM :io :b -> STM :io :c))
-  (define (lifta2-tx% fa->b->c tx-a tx-b)
+  (declare lifta2-tx% (Monad :io => (:a * :b -> :c) * STM :io :a * STM :io :b -> STM :io :c))
+  (define (lifta2-tx% fa*b->c tx-a tx-b)
     (STM%
      (fn (tx-data)
        (matchM (run-stm% tx-data tx-a)
@@ -180,7 +179,7 @@ conditions. DONT USE THIS!"
             ((TxRetryAfterWrite strategy)
              (pure (TxRetryAfterWrite strategy)))
             ((TxSuccess val-b)
-             (pure (TxSuccess (fa->b->c val-a val-b))))))))))
+             (pure (TxSuccess (fa*b->c val-a val-b))))))))))
 
   (define-instance (Monad :io => Applicative (STM :io))
     (inline)
@@ -188,7 +187,7 @@ conditions. DONT USE THIS!"
     (define lifta2 lifta2-tx%))
 
   (inline)
-  (declare flatmap-tx% (Monad :io => STM :io :a -> (:a -> STM :io :b) -> STM :io :b))
+  (declare flatmap-tx% (Monad :io => STM :io :a * (:a -> STM :io :b) -> STM :io :b))
   (define (flatmap-tx% tx fa->stmb)
     (STM%
      (fn (tx-data)
@@ -216,22 +215,25 @@ conditions. DONT USE THIS!"
       (tx-const-io!% (raise-dynamic dyn-e)))
     (inline)
     (define (reraise tx catch-tx)
-     (STM%
-      (fn (tx-data)
-        (reraise (run-stm% tx-data tx)
-                 (map (run-stm% tx-data) catch-tx)))))
+      (STM%
+       (fn (tx-data)
+         (reraise (run-stm% tx-data tx)
+                  (fn ()
+                    (run-stm% tx-data (catch-tx)))))))
     (inline)
     (define (handle tx catch-tx)
       (STM%
        (fn (tx-data)
          (handle (run-stm% tx-data tx)
-                 (map (run-stm% tx-data) catch-tx)))))
+                 (fn (e)
+                   (run-stm% tx-data (catch-tx e)))))))
     (inline)
     (define (handle-all tx catch-tx)
       (STM%
        (fn (tx-data)
          (handle-all (run-stm% tx-data tx)
-                     (map (run-stm% tx-data) catch-tx)))))
+                     (fn ()
+                       (run-stm% tx-data (catch-tx)))))))
     (inline)
     (define (try-dynamic tx)
       (STM%
@@ -260,39 +262,39 @@ conditions. DONT USE THIS!"
   (inline)
   (declare read-entry-addr% (ReadEntry% -> Anything))
   (define (read-entry-addr% entr)
-    (lisp Anything (entr)
+    (lisp (-> Anything) (entr)
       (cl:car entr)))
 
   (inline)
   (declare read-entry-current-val% (ReadEntry% -> Anything))
   (define (read-entry-current-val% entr)
     (tvar-value%
-     (lisp (TVar Anything) (entr)
+     (lisp (-> TVar Anything) (entr)
        (cl:car entr))))
 
   (inline)
   (declare read-entry-pset% (ReadEntry% -> ParkingSet))
   (define (read-entry-pset% entr)
     (unwrap-tvar-pset%
-     (lisp (TVar Anything) (entr)
+     (lisp (-> TVar Anything) (entr)
        (cl:car entr))))
 
   (inline)
   (declare read-entry-cached-val% (ReadEntry% -> Anything))
   (define (read-entry-cached-val% entr)
-    (lisp Anything (entr)
+    (lisp (-> Anything) (entr)
       (cl:cdr entr)))
 
   (inline)
-  (declare new-write-hash-table% (Unit -> WriteHashTable%))
+  (declare new-write-hash-table% (Void -> WriteHashTable%))
   (define (new-write-hash-table%)
-    (lisp WriteHashTable% ()
+    (lisp (-> WriteHashTable%) ()
       (cl:make-hash-table :test 'cl:eq)))
 
   (inline)
-  (declare logged-write-value% (WriteHashTable% -> :a -> Optional Anything))
+  (declare logged-write-value% (WriteHashTable% * :a -> Optional Anything))
   (define (logged-write-value% write-log key)
-     (lisp (Optional Anything) (write-log key)
+     (lisp (-> Optional Anything) (write-log key)
        (cl:multiple-value-bind (val found?) (cl:gethash key write-log)
          (cl:if found?
                 (Some val)
@@ -301,11 +303,11 @@ conditions. DONT USE THIS!"
   (inline)
   (declare logged-write-psets% (WriteHashTable% -> List ParkingSet))
   (define (logged-write-psets% write-log)
-    (lisp (List ParkingSet) (write-log)
+    (lisp (-> List ParkingSet) (write-log)
       (cl:loop :for addr :being :the :hash-keys :of write-log
                :collect (call-coalton-function unwrap-tvar-pset% addr))))
 
-  (declare tx-logged-write-value% (TxData% -> :a -> Optional Anything))
+  (declare tx-logged-write-value% (TxData% * :a -> Optional Anything))
   (define (tx-logged-write-value% tx-data key)
     (match (logged-write-value% (.write-log tx-data) key)
       ((Some val)
@@ -318,9 +320,9 @@ conditions. DONT USE THIS!"
           None)))))
 
   (inline)
-  (declare log-write-value% (WriteHashTable% -> TVar :a -> :a -> Unit))
+  (declare log-write-value% (WriteHashTable% * TVar :a * :a -> Unit))
   (define (log-write-value% write-log addr val)
-    (lisp :a (write-log addr val)
+    (lisp (-> :a) (write-log addr val)
       (cl:setf (cl:gethash addr write-log) val))
     Unit)
 
@@ -328,7 +330,7 @@ conditions. DONT USE THIS!"
   (declare commit-logged-writes (WriteHashTable% -> Unit))
   (define (commit-logged-writes write-log)
     "Actually set the TVar's value to its corresponding logged write value."
-    (lisp Unit (write-log)
+    (lisp (-> Unit) (write-log)
       (cl:loop :for addr :being :the :hash-keys :of write-log
          :using (hash-value value)
          :do (call-coalton-function set-tvar% addr value)
@@ -380,7 +382,7 @@ For safety, disconnects the transactions when done."
                      (c:read (.read-log parent-tx))))
        (let tx-write-log = (.write-log tx-data))
        (let pt-write-log = (.write-log parent-tx))
-       (lisp Void (tx-write-log pt-write-log)
+       (lisp (-> Void) (tx-write-log pt-write-log)
          (cl:loop :for addr :being :the :hash-keys :of tx-write-log
             :using (hash-value value)
             :do (cl:setf (cl:gethash addr pt-write-log) value)))
@@ -402,9 +404,9 @@ For safety, disconnects the transactions when done."
        (i:chain! base-iter (iterate-read-log parent-tx)))))
 
   (inline)
-  (declare log-read-value (TVar :a -> :a -> TxData% -> Unit))
+  (declare log-read-value (TVar :a * :a * TxData% -> Unit))
   (define (log-read-value addr val tx-data)
-    (c:push! (.read-log tx-data) (lisp ReadEntry% (addr val)
+    (c:push! (.read-log tx-data) (lisp (-> ReadEntry%) (addr val)
                                    (cl:cons addr val)))
     Unit)
 
@@ -412,7 +414,7 @@ For safety, disconnects the transactions when done."
   (declare read-only? (TxData% -> Boolean))
   (define (read-only? tx-data)
     (let write-log = (.write-log tx-data))
-    (lisp Boolean (write-log)
+    (lisp (-> Boolean) (write-log)
       (cl:zerop (cl:hash-table-count write-log))))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -443,25 +445,25 @@ For safety, disconnects the transactions when done."
   (define global-lock (at:new-at-int 0))
 
   (inline)
-  (declare get-global-time (Unit -> Word))
+  (declare get-global-time (Void -> Word))
   (define (get-global-time)
     "Read the global lock time and establish a memory barrier."
     (mem-barrier)
     (at:read-at-int global-lock))
 
   (inline)
-  (declare broadcast-write-tx!% (TxData% -> Unit))
+  (declare broadcast-write-tx!% (TxData% -> Void))
   (define (broadcast-write-tx!% tx-data)
     ;; CONCURRENT:
     ;;   - WARNING: Should be run in a masked region to ensure writes aren't committed
     ;;     without unparking the corresponding psets
     ;;   - Because assuming masked, no need to mask to ensure consistent unparks in
     ;;     the presence of an asynchronous stop
-    (for pset in (logged-write-psets% (.write-log tx-data))
+    (foreach (pset (logged-write-psets% (.write-log tx-data)))
       (unpark-set% pset)))
 
   (inline)
-  (declare tx-begin-io% (MonadIo :m => Unit -> :m TxData%))
+  (declare tx-begin-io% (MonadIo :m => Void -> :m TxData%))
   (define (tx-begin-io%)
     (wrap-io
       (rec % ()
@@ -501,7 +503,7 @@ For safety, disconnects the transactions when done."
             ((Some x) x))))))
 
   (inline)
-  (declare wait-for-write-tx!% (Runtime :rt :t => Proxy :rt -> TimeoutStrategy -> TxData% -> Unit))
+  (declare wait-for-write-tx!% (Runtime :rt :t => Proxy :rt * TimeoutStrategy * TxData% -> Unit))
   (define (wait-for-write-tx!% rt-prx strategy tx-data)
     ;; CONCURRENT:
     ;; - Inherits concurrent semantics of park-in-sets-if%
@@ -515,7 +517,7 @@ For safety, disconnects the transactions when done."
      (map read-entry-pset% (c:read (.read-log tx-data))))
     Unit)
 
-  (declare inner-read-tvar% (TVar :a -> TxData% -> TxResult% :a))
+  (declare inner-read-tvar% (TVar :a * TxData% -> TxResult% :a))
   (define (inner-read-tvar% tvar tx-data)
     (match (tx-logged-write-value% tx-data tvar)
       ((Some written-val)
@@ -537,7 +539,7 @@ For safety, disconnects the transactions when done."
                 (% (tvar-value% tvar)))))))))
 
   (inline)
-  (declare inner-write-tvar% (TVar :a -> :a -> TxData% -> TxResult% Unit))
+  (declare inner-write-tvar% (TVar :a * :a * TxData% -> TxResult% Unit))
   (define (inner-write-tvar% tvar val tx-data)
     (TxSuccess
      (log-write-value% (.write-log tx-data) tvar val)))
@@ -552,14 +554,14 @@ For safety, disconnects the transactions when done."
          (inner-read-tvar% tvar tx-data)))))
 
   (inline)
-  (declare write-tvar (MonadIo :m => TVar :a -> :a -> STM :m Unit))
+  (declare write-tvar (MonadIo :m => TVar :a * :a -> STM :m Unit))
   (define (write-tvar tvar val)
     "Write to a mutable variable inside an atomic transaction."
     (STM%
      (fn (tx-data)
        (wrap-io (inner-write-tvar% tvar val tx-data)))))
 
-  (declare swap-tvar (MonadIo :m => TVar :a -> :a -> STM :m :a))
+  (declare swap-tvar (MonadIo :m => TVar :a * :a -> STM :m :a))
   (define (swap-tvar tvar new-val)
     "Swap the value of a mutable variable inside an atomic transaction. Returns the old
 value."
@@ -576,7 +578,7 @@ value."
             (map (const val)
                  (inner-write-tvar% tvar new-val tx-data))))))))
 
-  (declare modify-tvar (MonadIo :m => TVar :a -> (:a -> :a) -> STM :m :a))
+  (declare modify-tvar (MonadIo :m => TVar :a * (:a -> :a) -> STM :m :a))
   (define (modify-tvar tvar f)
     "Modify a mutable variable inside an atomic transaction. Returns the new value."
     (STM%
@@ -593,7 +595,7 @@ value."
             (map (const result)
                  (inner-write-tvar% tvar result tx-data))))))))
 
-  (declare modify-swap-tvar (MonadIo :m => TVar :a -> (:a -> :a) -> STM :m :a))
+  (declare modify-swap-tvar (MonadIo :m => TVar :a * (:a -> :a) -> STM :m :a))
   (define (modify-swap-tvar tvar f)
     "Modify a mutable variable inside an atomic transaction. Returns the old value."
     (STM%
@@ -690,7 +692,7 @@ Concurrent:
 "
     (retry-with NoTimeout))
 
-  (declare or-else (MonadIo :m => STM :m :a -> STM :m :a -> STM :m :a))
+  (declare or-else (MonadIo :m => STM :m :a * STM :m :a -> STM :m :a))
   (define (or-else tx-a tx-b)
     "Run TX-A. If it signals a retry, run TX-b. If both transactions signal a
 retry, then the entire transaction retries."
@@ -737,7 +739,7 @@ a consistent snapshot of the data. Therefore, TX must be pure."
            (if commit-succeeded?
                (pure val)
                (%))))))
-     m-prx))     
+     m-prx))
   )
 
 (defmacro do-run-tx (cl:&body body)

@@ -120,7 +120,7 @@ to ever acquire it."
       (write-tvar (.writer-active? lock) False)
       (write-tvar (.n-writers-waiting lock) (1- n-writers-waiting))))
 
-  (declare with-reader-lock (TRWLock -> IO :a -> IO :a))
+  (declare with-reader-lock (TRWLock * IO :a -> IO :a))
   (define (with-reader-lock lock op)
     "Run IO operation OP with a reader lock on LOCK held."
     (bracket-io_
@@ -130,7 +130,7 @@ to ever acquire it."
      (fn (_)
        op)))
 
-  (declare with-writer-lock (TRWLock -> IO :a -> IO :a))
+  (declare with-writer-lock (TRWLock * IO :a -> IO :a))
   (define (with-writer-lock lock op)
     "Run IO operation OP with the writer lock on LOCK held."
     ;; TODO: Convert this to use as bracket operation that doesn't mask. Then rewrite this

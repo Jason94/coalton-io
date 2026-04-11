@@ -12,8 +12,7 @@
     #:write-line-sync%)
   (:local-nicknames
    (:c #:coalton-library/cell)
-   (:s #:coalton-threads/semaphore)
-   (:lk #:coalton-threads/lock))
+   (:bt #:io/utilities/bt-compat))
   )
 (in-package :coalton-io/tests/thread-async-boundary)
 
@@ -27,7 +26,7 @@
     ;; Because simple-io::>>= takes 5 extra MS now, we're going to do everything
     ;; outside of the monad.
 
-    (let gate = (s:new))
+    (let gate = (bt:new-sm))
     (let result = (c:new 0))
 
     (let thread =
@@ -35,18 +34,18 @@
        ;; This should wait 5 MS between the signal and write!
        (fork-thread_ ((noinline >>=)
                       (wrap-io
-                       (s:signal gate 1)
+                       (bt:signal gate 1)
                        Unit)
                       (fn (_)
                         (wrap-io
                          (c:write! result 100)))))))
 
     ;; Wait until the thread is running, wait 2 MS, kill it, wait 8 MS, then read.
-    (s:await gate)
-    (lisp Void ()
+    (bt:await-sm gate)
+    (lisp (-> Void) ()
       (cl:sleep (cl:/ 2.0 1000)))
     (run-io! (stop-thread thread))
-    (lisp Void ()
+    (lisp (-> Void) ()
       (cl:sleep (cl:/ 80.0 1000)))
 
     (c:read result))
@@ -54,7 +53,7 @@
 
 (define-test test-stop-outside-wrap-io ()
   ;; See simple-io.lisp
-  (lisp Void ()
+  (lisp (-> Void) ()
     (cl:setf (uiop:getenv "SIMPLE_IO_DEBUG_SLEEP") "y")
     (cl:compile-file "src/io-impl/simple-io.lisp"
                      :output-file "tests/simple-io---sleep.fasl"
@@ -70,7 +69,7 @@
 
   (let result = (run-test))
 
-  (lisp Void ()
+  (lisp (-> Void) ()
     (cl:setf (uiop:getenv "SIMPLE_IO_DEBUG_SLEEP") "")
     (cl:compile-file "src/io-impl/simple-io.lisp"
                      :output-file "tests/simple-io---sleep.fasl"

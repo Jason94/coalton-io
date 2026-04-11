@@ -1,7 +1,6 @@
 (defpackage :coalton-io/tests/conc/parking
   (:use #:coalton #:coalton-prelude #:coalton-testing
    #:coalton-library/types
-   #:coalton-library/experimental/do-control-loops
    #:io/utils
    #:io/monad-io
    #:io/simple-io
@@ -9,6 +8,9 @@
    #:io/thread
    #:io/conc/parking
    #:io/tests/utils
+   )
+  (:import-from #:coalton-library/experimental/do-control-loops
+   #:do-loop-while
    )
   (:import-from #:io/gen-impl/conc/parking
    #:num-waiters)
@@ -42,9 +44,7 @@
       (do-loop-while
         (sleep 2)
         (num-parked <- (num-waiters p-set))
-        ;; NOTE: do-loop-while on booleans is backwards
-        ;; https://github.com/coalton-lang/coalton/issues/1742
-        (pure (not (zero? num-parked))))
+        (pure (zero? num-parked)))
       ;; Unpark the set and wait for the finish
       (unpark-set p-set)
       (s-await finished-gate)

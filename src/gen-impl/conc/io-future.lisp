@@ -36,10 +36,10 @@ Concurrent:
   - Future's `(Concurrent Future :a)` instance defers to the underlying thread, so it takes
     on masking semantics of the underyling thread's `Concurrent` instance."
     (value-mvar (MVar (Result Dynamic :a)))
-    (stop-callback (Unit -> Unit))
-    (mask-callback (Unit -> Unit))
-    (unmask-callback (Unit -> Unit))
-    (unmask-finally-callback ((UnmaskFinallyMode -> Unit) -> Unit)))
+    (stop-callback (Void -> Void))
+    (mask-callback (Void -> Void))
+    (unmask-callback (Void -> Void))
+    (unmask-finally-callback ((UnmaskFinallyMode -> Void) -> Void)))
 
   (inline)
   (declare fork-future ((Exceptions :r) (LiftTo :r :m) (UnliftIo :r :i)
@@ -117,21 +117,30 @@ the produced :m is run."
   (define-instance (Concurrent (Future :a) :a)
     (inline)
     (define (stop fut)
-      (wrap-io ((.stop-callback fut))))
+      (wrap-io
+       ((.stop-callback fut))
+       Unit))
     (inline)
-    (define await await%)
+    (define (await fut)
+      (await% fut))
     (inline)
     (define (mask fut)
-      (wrap-io ((.mask-callback fut))))
+      (wrap-io
+       ((.mask-callback fut))
+       Unit))
     (inline)
     (define (unmask fut)
-      (wrap-io ((.unmask-callback fut))))
+      (wrap-io
+       ((.unmask-callback fut))
+       Unit))
     (inline)
     (define (unmask-finally fut callback)
       (lift-to
        (with-run-in-io
            (fn (run)
              (wrap-io
-               ((.unmask-finally-callback fut) (compose (const Unit) (fn (x)
-                                                                       (run! (run (callback x))))))))))))
+               ((.unmask-finally-callback fut) (fn (x)
+                                                 (run! (run (callback x)))
+                                                 (values)))
+               Unit))))))
   )

@@ -21,9 +21,9 @@ Most Common Lisp implementations _do_ support this feature, and it's thoroughly 
     (sleep!
      (Proxy :r -> UFix -> Unit))
     (fork!
-     (Proxy :r -> (Unit -> Result Dynamic :a) -> :t))
+     (Proxy :r -> (Void -> Result Dynamic :a) -> :t))
     (fork-throw!
-     (Proxy :r -> (Unit -> Result Dynamic :a) -> :t))
+     (Proxy :r -> (Void -> Result Dynamic :a) -> :t))
     (join!
      (Proxy :r -> :t -> Result Dynamic Unit))
     (stop!

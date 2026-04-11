@@ -149,7 +149,7 @@ Exceptions can be handled in several ways, including only handling exceptions of
   (do
    (file-data <-
      (handle-all (wrap-io
-                   (lisp (List String) ()
+                   (lisp (-> List String) ()
                      (cl-read-file-data "data.csv")))
                  (const (pure Nil))))
    (do-foreach (str file-data)

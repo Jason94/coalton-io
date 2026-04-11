@@ -65,7 +65,12 @@
      "Returns True if a pathname names a directory that exists."
      (Into :a file:Pathname => :a -> :m (Result file:FileError Boolean)))
 
-    (open (file:File :a => file:StreamOptions -> :m (Result file:FileError (file:FileStream :a))))
+    (open (file:File :a
+           => file:Pathname
+           &key
+           (:direction file:OpenDirection)
+           (:if-exists file:IfExists)
+           -> :m (Result file:FileError (file:FileStream :a))))
     (close
      "Closes a FileStream."
      ((file:FileStream :a) -> :m (Result file:FileError :b)))
@@ -80,7 +85,7 @@
 
     (copy
      "Copies a file to a new location."
-     ((Into :a file:Pathname) (Into :b file:Pathname) => :a -> :b -> :m (Result file:FileError Unit)))
+     ((Into :a file:Pathname) (Into :b file:Pathname) => :a * :b -> :m (Result file:FileError Unit)))
     (create-directory
      "This is equivalent to `mkdir -p`. Creates a directory and its parents. The pathname must be a valid directory pathname."
      (Into :p file:Pathname => :p -> :m (Result file:FileError file:Pathname)))
@@ -95,7 +100,7 @@
      (Into :p file:Pathname => :p -> :m (Result file:FileError Unit)))
     (system-relative-pathname
      "Generates a system-relative-pathname for a given filename or path. This is a wrapper for `asdf:system-relative-pathname`. `Name` will likely be an empty string unless a subdirectory or filename is specified."
-     (Into :sys String => :sys -> String -> :m (Result file:FileError file:Pathname)))
+     (Into :sys String => :sys * String -> :m (Result file:FileError file:Pathname)))
 
     (read-file-to-string
      "Reads a file into a string, given a pathname string."
@@ -109,32 +114,32 @@
     (read-line ((file:FileStream Char) -> :m (Result file:FileError String)))
     (write-char
      "Writes a `Char` to the stream."
-     ((file:FileStream Char) -> Char -> :m (Result file:FileError Unit)))
+     ((file:FileStream Char) * Char -> :m (Result file:FileError Unit)))
     (write-line
      "Writes a string with an appended newline to a filestream of type Char."
-     ((file:FileStream Char) -> String -> :m (Result file:FileError Unit)))
+     ((file:FileStream Char) * String -> :m (Result file:FileError Unit)))
     (write-string
      "Writes a `string` to a FileStream of type Char."
-     ((file:FileStream Char) -> String -> :m (Result file:FileError Unit)))
+     ((file:FileStream Char) * String -> :m (Result file:FileError Unit)))
 
     (read-file-to-vector
      "Reads a file into a vector of type `:a`."
      (file:File :a => (file:FileStream :a) -> :m (Result file:FileError (Vector :a))))
     (read-vector
      "Reads a chunk of a file into a vector of type `:a`."
-     (file:File :a => (file:FileStream :a) -> UFix -> :m (Result file:FileError (Vector :a))))
+     (file:File :a => (file:FileStream :a) * UFix -> :m (Result file:FileError (Vector :a))))
     (write-vector
      "Writes elements of an vector of type `:a` to a stream of type `:a`."
-     ((file:File :a) (RuntimeRepr :a) => (file:FileStream :a) -> (Vector :a) -> :m (Result file:FileError Unit)))
+     ((file:File :a) (RuntimeRepr :a) => (file:FileStream :a) * (Vector :a) -> :m (Result file:FileError Unit)))
     (write-to-file
      "Opens and writes to a file with data of type :a. Supersedes existing data on the file."
-     ((Into :p file:Pathname) (file:File :a) (RuntimeRepr :a) => :p -> (Vector :a) -> :m (Result file:FileError Unit)))
+     ((Into :p file:Pathname) (file:File :a) (RuntimeRepr :a) => :p * (Vector :a) -> :m (Result file:FileError Unit)))
     (append-to-file
      "Opens and appends a file with data of type :a."
-     ((Into :p file:Pathname) (file:File :a) (RuntimeRepr :a) => :p -> (Vector :a) -> :m (Result file:FileError Unit)))
+     ((Into :p file:Pathname) (file:File :a) (RuntimeRepr :a) => :p * (Vector :a) -> :m (Result file:FileError Unit)))
     (set-file-position
      "Sets the file position of a file stream."
-     ((file:FileStream :a) -> UFix -> :m (Result file:FileError Unit)))))
+     ((file:FileStream :a) * UFix -> :m (Result file:FileError Unit)))))
 
 ;;;
 ;;; These functions don't need to be lift-ed
@@ -148,7 +153,7 @@
 
   (declare create-temp-file% (MonadIo :m => String -> :m (Result file:FileError file:Pathname)))
   (define (create-temp-file% file-ext)
-    (wrap-io (file:create-temp-file! file-ext)))
+    (wrap-io (file:create-temp-file! :extension file-ext)))
 
   )
 
@@ -162,7 +167,8 @@ Example:
      (define file-exists? (compose lift file-exists?))
      (define directory-exists? (compose lift directory-exists?))
 
-     (define open (compose lift open))
+     (define (open path &key (direction file:Input) (if-exists file:EError))
+       (lift (open path :direction direction :if-exists if-exists)))
      (define close (compose lift close))
      (define abort (compose lift abort))
 

@@ -40,7 +40,7 @@ afterward."
        (result <- op)
        unmask-current-thread
        (pure result))
-      (fn (_)
+      (fn ()
         unmask-current-thread))))
   )
 
@@ -70,8 +70,8 @@ afterward."
 
   (declare bracket-io ((Exceptions :m) (Threads :rt :t :m) (RuntimeRepr :e) (Signalable :e)
                        => :m :r
-                       -> (:r -> ExitCase :e -> :m :a)
-                       -> (:r -> :m :b)
+                       * (:r * ExitCase :e -> :m :a)
+                       * (:r -> :m :b)
                        -> :m :b))
   (define (bracket-io acquire-op release-op computation-op)
     "WARNING: BRACKET-IO will *only* cleanup if the raised exception matches :e,
@@ -101,8 +101,8 @@ Concurrent:
 
   (declare bracket-io-masked ((Exceptions :m) (Threads :rt :t :m) (RuntimeRepr :e) (Signalable :e)
                               => :m :r
-                              -> (:r -> ExitCase :e -> :m :a)
-                              -> (:r -> :m :b)
+                              * (:r * ExitCase :e -> :m :a)
+                              * (:r -> :m :b)
                               -> :m :b))
   (define (bracket-io-masked acquire-op release-op computation-op)
     "WARNING: BRACKET-IO-MASKED will *only* cleanup if the raised exception matches :e, or if the
@@ -125,8 +125,8 @@ Masks the thread during the entire operation, including the computation."
 
   (declare bracket-io_ ((Exceptions :m) (Threads :rt :t :m)
                         => :m :r
-                        -> (:r -> :m :a)
-                        -> (:r -> :m :b)
+                        * (:r -> :m :a)
+                        * (:r -> :m :b)
                         -> :m :b))
   (define (bracket-io_ acquire-op release-op computation-op)
     "Acquire a resource, run a computation with it, and release it. Guarantees that
@@ -143,13 +143,13 @@ will release before the thread is stopped."
                (result <- (computation-op resource))
                (with-mask (release-op resource))
                (pure result))
-              (fn (_)
+              (fn ()
                 (with-mask (release-op resource))))))
 
   (declare bracket-io-masked_ ((Exceptions :m) (Threads :rt :t :m)
                                => :m :r
-                               -> (:r -> :m :a)
-                               -> (:r -> :m :b)
+                               * (:r -> :m :a)
+                               * (:r -> :m :b)
                                -> :m :b))
   (define (bracket-io-masked_ acquire-op release-op computation-op)
     "Acquire a resource, run a computation with it, and release it. Guarantees that RELEASE-OP will
@@ -162,7 +162,7 @@ Masks the thread during the entire operation, including the computation."
                (result <- (computation-op resource))
                (release-op resource)
                (pure result))
-              (fn (_)
+              (fn ()
                 (release-op resource)))))
 
   )

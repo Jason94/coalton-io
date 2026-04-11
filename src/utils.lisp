@@ -7,8 +7,11 @@
    #:coalton-library/types
    )
   (:local-nicknames
+   (:it #:coalton-library/iterator)
    (:b #:coalton-library/bits))
   (:export
+   #:foreach
+   #:while
    #:cl-maptree
    #:Word
    #:build-str
@@ -48,6 +51,28 @@
 
 (named-readtables:in-readtable coalton:coalton)
 
+(defmacro foreach ((variable iter) cl:&body body)
+  "Perform `body` with `variable` bound to each element in `iter`.
+
+`iter` must have a valid `IntoIter` instance."
+  (cl:let ((iter-sym (cl:gensym "iter"))
+           (item?-sym (cl:gensym "item?")))
+   `(let ((,iter-sym (it:into-iter ,iter)))
+      (for ((,item?-sym (it:next! ,iter-sym) (it:next! ,iter-sym)))
+        (match ,item?-sym
+          ((Some ,variable)
+           ,@body
+           Unit)
+          ((None)
+           (break)
+           Unit))))))
+
+(defmacro while (condition cl:&body body)
+  "Perform `body` while `condition` is true."
+  `(for ()
+        :while ,condition
+     ,@body))
+
 (cl:defun cl-maptree (fn tree)
   "Recursively applies FN to all non-cons elements (atoms) in a tree structure."
   (cl:if (cl:atom tree)
@@ -76,9 +101,9 @@
   (define-type Anything)
 
   (inline)
-  (declare anything-eq (Anything -> Anything -> Boolean))
+  (declare anything-eq (Anything * Anything -> Boolean))
   (define (anything-eq a b)
-    (lisp Boolean (a b)
+    (lisp (-> Boolean) (a b)
       (cl:eq a b)))
 
   (define-type Dynamic
@@ -87,19 +112,19 @@
   (inline)
   (declare to-anything (:a -> Anything))
   (define (to-anything a)
-    (lisp Anything (a)
+    (lisp (-> Anything) (a)
       a))
 
   (inline)
   (declare from-anything (Anything -> :a))
   (define (from-anything a)
-    (lisp :a (a)
+    (lisp (-> :a) (a)
       a))
 
   (inline)
   (declare from-anything-opt (Anything -> Optional :a))
   (define (from-anything-opt a)
-    (lisp (Optional :a) (a)
+    (lisp (-> Optional :a) (a)
       (cl:if a
              (Some a)
              None)))
@@ -110,7 +135,7 @@
     (Dynamic% (to-anything a) (runtime-repr-of a)))
 
   (inline)
-  (declare force-dynamic (RuntimeRepr :a => Proxy :a -> :b -> Dynamic))
+  (declare force-dynamic (RuntimeRepr :a => Proxy :a * :b -> Dynamic))
   (define (force-dynamic ty-prx val)
     "Force anything into a Dynamic with runtime representation for the type
 represented by TY-PRX. Mainly useful after a type-test in CL."
@@ -125,12 +150,12 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
     (as-proxy-of
      (if (== dyn-repr
              (runtime-repr prx-b))
-         (Some (lisp :b (dyn-val) dyn-val))
+         (Some (lisp (-> :b) (dyn-val) dyn-val))
          None)
      (proxy-outer prx-b)))
 
   (inline)
-  (declare can-cast-to? (RuntimeRepr :b => Dynamic -> Proxy :b -> Boolean))
+  (declare can-cast-to? (RuntimeRepr :b => Dynamic * Proxy :b -> Boolean))
   (define (can-cast-to? (Dynamic% _ dyn-repr) repr-prx)
     "Check whether dyn-val can cast to a type."
     (== dyn-repr (runtime-repr repr-prx)))
@@ -138,14 +163,13 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
 
 (coalton-toplevel
 
-  ;; https://github.com/garlic0x1/coalton-threads/blob/master/src/atomic.lisp
   (define-type-alias Word #+32-bit U32 #+64-bit U64
     "An integer that fits in a CPU word.")
 
   (define-exception IoError 
     "An unhandled error that was thrown inside a wrap-io call."
-    (UnhandledError Anything (Unit -> Unit)) ;; re-throw thunk
-    (HandledError Dynamic (Unit -> Unit))) ;; error val, error thunk
+    (UnhandledError Anything (Void -> Unit)) ;; re-throw thunk
+    (HandledError Dynamic (Void -> Unit))) ;; error val, error thunk
   )
 
 (defmacro throw-handled-error (exception-form)
@@ -173,13 +197,13 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
       ((Err e)
        (Err e))))
 
-  (declare catch-thunk ((Unit -> :a) -> Result IoError :a))
+  (declare catch-thunk ((Void -> :a) -> Result IoError :a))
   (define (catch-thunk thunk)
     "Wraps `thunk` in a Lisp `handler-case`, and captures the output
 as Err or Ok. Useful if you want to capture any thrown error, which is
 currently not possible natively in Coalton. Works even with custom
 Coalton exceptions via `define-exception`."
-    (lisp (Result IoError :a) (thunk)
+    (lisp (-> Result IoError :a) (thunk)
       (cl:handler-case (Ok (call-coalton-function thunk))
         (IoError/UnhandledError (e)
           (Err e))
@@ -188,7 +212,7 @@ Coalton exceptions via `define-exception`."
         (cl:error (e)
           (cl:let ((throw-thunk (coalton
                                  (fn ()
-                                   (lisp :a ()
+                                   (lisp (-> :a) ()
                                      (cl:error e))
                                    Unit))))
             (Err (UnhandledError e throw-thunk)))))))
@@ -196,16 +220,17 @@ Coalton exceptions via `define-exception`."
   (inline)
   (declare force-string (:a -> String))
   (define (force-string x)
-    (lisp String (x)
+    (lisp (-> String) (x)
       (cl:format cl:nil "~a" x)))
 
   (inline)
-  (declare compose2 ((:c -> :d) -> (:a -> :b -> :c) -> :a -> :b -> :d))
-  (define (compose2 fcd fabc a b)
-    (fcd (fabc a b)))
+  (declare compose2 ((:c -> :d) * (:a * :b -> :c) -> (:a * :b -> :d)))
+  (define (compose2 fcd fabc)
+    (fn (a b)
+      (fcd (fabc a b))))
 
   (inline)
-  (declare proxies-eql (Proxy :a -> Proxy :a -> Unit))
+  (declare proxies-eql (Proxy :a * Proxy :a -> Unit))
   (define (proxies-eql _ _)
     "Force two proxies to represent the same type."
     Unit)
@@ -247,7 +272,7 @@ Coalton exceptions via `define-exception`."
     Proxy)
 
   (inline)
-  (declare equate-proxies (Proxy :a -> Proxy :a -> Unit))
+  (declare equate-proxies (Proxy :a * Proxy :a -> Unit))
   (define (equate-proxies _ _)
     Unit)
   )

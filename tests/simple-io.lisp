@@ -111,7 +111,7 @@
     (run-io!
      (handle-all-io
       (wrap-io 10)
-      (const (wrap-io -10)))))
+      (fn () (wrap-io -10)))))
   (is (== 10 result)))
 
 (define-test test-raise-handle-any ()
@@ -119,7 +119,7 @@
     (run-io!
      (handle-all-io
       (raise-io (TE "Error"))
-      (const (pure "Caught an error!")))))
+      (fn () (pure "Caught an error!")))))
   (is (== "Caught an error!" result)))
 
 (coalton-toplevel
@@ -137,7 +137,7 @@
     (run-io!
      (handle-all-io
       long-op
-      (const (pure "Caught an error!")))))
+      (fn () (pure "Caught an error!")))))
   (is (== "Caught an error!" result)))
 
 (coalton-toplevel
