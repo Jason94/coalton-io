@@ -445,7 +445,7 @@ was stopping/stopped and the child should not start."
                                         (c:read (.handle thread))))
     (let join-result =
       (lisp (-> Result Dynamic Unit) (native-thread)
-        (bt:join-thread native-thread)))
+        (bt2:join-thread native-thread)))
     (match join-result
       ((Ok _)
        join-result)
