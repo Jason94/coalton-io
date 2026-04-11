@@ -447,7 +447,11 @@ https://rdb.fnordig.de/file_format.html"
     (do
       (nt:do-byte-socket-accept-fork-with (conn (server))
         (the (IO Unit) (tm:write-line "client connected"))
-        (handle-client conn db))
+        (do-handle (handle-client conn db) (err)
+          (match err
+            ((nt:EndOfFileException _)
+             (pure Unit))))
+        (tm:write-line "client disconnected"))
       (accept-loop server db)))
 
   (declare server-main (IO Unit))

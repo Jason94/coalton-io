@@ -163,7 +163,7 @@
                (cl:loop :while (cl:< pos n)
                   :do (cl:let ((new-pos (cl:read-sequence buf stream :start pos :end n)))
                         (cl:when (cl:= new-pos pos)
-                          (cl:error "Unexpected EOF while reading from socket"))
+                          (coalton (throw-handled-error (EndOfFileException Unit))))
                         (cl:setf pos new-pos)))
                buf))
          (cl:end-of-file ()
