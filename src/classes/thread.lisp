@@ -94,7 +94,7 @@
    #:atomic-set-generation%!
    )
   (:local-nicknames
-   (:at #:coalton-threads/atomic)
+   (:bt #:io/utilities/bt-compat)
    )
   )
 (in-package :io/classes/thread)
@@ -106,7 +106,7 @@
   (derive Eq)
   (repr :transparent)
   (define-type Generation
-    (Generation at::Word))
+    (Generation bt::Word))
 
   (derive Eq)
   (define-type TimeoutStrategy
@@ -149,11 +149,11 @@ ThreadingException.
 
   ;; TODO: Convert the generation stuff to use my own AtomicInteger, not coalton-thread's,
   ;; so I can use the same CAS loop algorithms.
-  (declare atomic-set-generation%! (Generation * at:AtomicInteger -> Void))
+  (declare atomic-set-generation%! (Generation * bt:AtomicInteger -> Void))
   (define (atomic-set-generation%! (Generation gen) atm)
     "Set the value of ATM to GEN."
     (rec % ()
-      (if (at:cas! atm (at:read atm) gen)
+      (if (bt:cas! atm (bt:read atm) gen)
           (values)
           (%))))
 

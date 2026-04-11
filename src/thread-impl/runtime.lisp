@@ -13,13 +13,13 @@
    #:io/classes/runtime-utils
    )
   (:local-nicknames
+   (:bt #:io/utilities/bt-compat)
    (:opt #:coalton-library/optional)
    (:c #:coalton-library/cell)
    (:b #:coalton-library/bits)
    (:v #:coalton-library/vector)
    (:t #:coalton-threads/thread)
    (:t/l #:coalton-threads/lock)
-   (:at #:coalton-threads/atomic)
    (:bt #:bordeaux-threads-2)
    (:lk #:coalton-threads/lock)
    (:cv #:coalton-threads/condition-variable)
@@ -79,11 +79,11 @@
     (trace (build-str (force-string msg) " <" thread-name ">"))
     (t/l:release write-term-lock%))
 
-  (declare atomic-fetch-or (at:AtomicInteger * Word -> Word))
+  (declare atomic-fetch-or (bt:AtomicInteger * Word -> Word))
   (define (atomic-fetch-or at-int mask)
-    (let old = (at:read at-int))
+    (let old = (bt:read at-int))
     (let new = (b:or old mask))
-    (if (at:cas! at-int old new)
+    (if (bt:cas! at-int old new)
         new
         (atomic-fetch-or at-int mask)))
 
@@ -157,11 +157,11 @@
   (define-struct IoThread
     (handle     (c:Cell (Optional (t:Thread (Result Dynamic Unit)))))
     ;; Masking/Unmasking
-    (flags      at:AtomicInteger)
+    (flags      bt:AtomicInteger)
     (stop-lk    lk:Lock)
     ;; Parking/Unparking
-    (generation at:AtomicInteger)
-    (fired-gen  at:AtomicInteger)
+    (generation bt:AtomicInteger)
+    (fired-gen  bt:AtomicInteger)
     (park-lock  lk:Lock)
     (park-cv    cv:ConditionVariable)
     ;; Structured Concurrency
@@ -185,10 +185,10 @@
   (define (new-io-thread)
     (IoThread
      (c:new None)
-     (at:new CLEAN)
+     (bt:new CLEAN)
      (lk:new)
-     (at:new 0)
-     (at:new 0)
+     (bt:new 0)
+     (bt:new 0)
      (lk:new)
      (cv:new)
      (c:new ThreadRunning)
@@ -200,12 +200,12 @@
   (define PENDING-KILL (b:shift 0 1))
 
   (inline)
-  (declare atomic-remove-pending-kill (at:AtomicInteger -> Word))
+  (declare atomic-remove-pending-kill (bt:AtomicInteger -> Word))
   (define (atomic-remove-pending-kill at-int)
     "Atomically remove the pending kill bit. Return the old bitmask."
-    (let old = (at:read at-int))
+    (let old = (bt:read at-int))
     (let new = (b:shift 1 (b:shift -1 old)))
-    (if (at:cas! at-int old new)
+    (if (bt:cas! at-int old new)
         old
         (atomic-remove-pending-kill at-int)))
 
@@ -236,10 +236,10 @@
   (define (construct-toplevel-current-thread)
     (IoThread
      (c:new (Some (current-native-thread%)))
-     (at:new CLEAN)
+     (bt:new CLEAN)
      (lk:new)
-     (at:new 0)
-     (at:new 0)
+     (bt:new 0)
+     (bt:new 0)
      (lk:new)
      (cv:new)
      (c:new ThreadRunning)
@@ -480,9 +480,9 @@ was stopping/stopped and the child should not start."
     ;;     masked between checking for unmasked and throwing the exception.
     (let flags = (.flags thread))
     (rec % ()
-      (let old = (at:read flags))
+      (let old = (bt:read flags))
       (let new = (mask-once% old))
-      (if (at:cas! flags old new)
+      (if (bt:cas! flags old new)
           ;; The PENDING-KILL bitmask is the kill bit set with no masking bits set
           (when  (== old PENDING-KILL)
             (interrupt-iothread% thread))
@@ -574,7 +574,7 @@ just be limited to implementing only solutions #2 or #3.
 "
     (let flags = (.flags thread))
     ;; Wait to unmask until *after* we guarantee thunk has been run.
-    (let flag-state = (at:read flags))
+    (let flag-state = (bt:read flags))
     ;; Only stop if there are no other masks applied besides the one
     ;; we're undoing now.
     (if (and (matches-flag flag-state PENDING-KILL)
@@ -583,9 +583,9 @@ just be limited to implementing only solutions #2 or #3.
         (thunk Running))
     (let new-flag-state =
       (rec % ()
-        (let old = (at:read flags))
+        (let old = (bt:read flags))
         (let new = (unmask-once% old))
-        (if (at:cas! flags old new)
+        (if (bt:cas! flags old new)
             new
             (%))))
     (when (and (masked-once? flag-state)
@@ -669,14 +669,14 @@ just be limited to implementing only solutions #2 or #3.
     (let thread = (current-thread!%))
     (lk:acquire (.park-lock thread))
     ;; Checkout a new generation for the thread
-    (let new-gen = (at:incf! (.generation thread) 1))
+    (let new-gen = (bt:incf! (.generation thread) 1))
     ;; Run any subscriptions with the new generation
     (with-gen (Generation new-gen))
     ;; (Re)check the "should I park?" pred now that the subscriptions have processed
     (if (should-park?)
         (progn
           ;; If another thread beat us to parking, re-attempt if SHOULD-PARK?
-          (if (>= (at:read (.fired-gen thread)) new-gen)
+          (if (>= (bt:read (.fired-gen thread)) new-gen)
               (progn
                 (lk:release (.park-lock thread))
                 (unmask-current-thread!%) ;; (A)
@@ -690,7 +690,7 @@ just be limited to implementing only solutions #2 or #3.
                  (.park-cv thread)
                  (.park-lock thread))
                 ;; If we've been woken up, unmask, release, and return
-                (if (>= (at:read (.fired-gen thread)) new-gen)
+                (if (>= (bt:read (.fired-gen thread)) new-gen)
                     (progn
                       (lk:release (.park-lock thread))
                       (unmask-current-thread!%)) ;; (C)
@@ -718,10 +718,10 @@ just be limited to implementing only solutions #2 or #3.
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
 
     ;; Only unpark if the targeted gen is more recent than the last fired gen
-    (when (> gen (Generation (at:read (.fired-gen thread))))
+    (when (> gen (Generation (bt:read (.fired-gen thread))))
       (mask-current-thread!%)
       (lk:acquire (.park-lock thread))
-      (if (> gen (Generation (at:read (.fired-gen thread))))
+      (if (> gen (Generation (bt:read (.fired-gen thread))))
           (progn
             (atomic-set-generation%! gen (.fired-gen thread))
             (lk:release (.park-lock thread))
