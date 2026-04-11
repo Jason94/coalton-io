@@ -351,7 +351,7 @@ effect in a BaseIo."
      (as-proxy-of
       (wrap-io
         (let results = (c:new (make-list)))
-        (for a in (it:into-iter itr)
+        (foreach (a itr)
           (c:push! results (run-io-unhandled! (as-proxy-of
                                                (a->mb a)
                                                io-prx))))
@@ -376,9 +376,10 @@ iterator is passed into the operation via a cell."
            (let c = (c:new initial-val))
            (let monad-op = (a->mb c))
            (run-io-unhandled! monad-op)
-           (for a in itr
+           (foreach (a itr)
              (c:write! c a)
-             (run-io-unhandled! monad-op))))))))
+             (run-io-unhandled! monad-op))
+           Unit))))))
 
   (declare times-io_ (LiftIo IO :m => UFix * IO :a -> :m Unit))
   (define (times-io_ n io-op)
@@ -387,7 +388,8 @@ iterator is passed into the operation via a cell."
      (wrap-io%_
       (fn ()
         (dotimes (_ n)
-          (run-io-unhandled! io-op))))))
+          (run-io-unhandled! io-op))
+        Unit))))
   )
 
 (defmacro do-map-into-io_ ((var lst) cl:&body body)

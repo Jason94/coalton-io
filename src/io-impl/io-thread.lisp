@@ -40,13 +40,13 @@
   (inline)
   (declare unmask-thread-finally_ ((LiftTo IO :m) (Exceptions :m)
                             (Threads IoRuntime IoThread :m)
-                            => IoThread * (UnmaskFinallyMode -> IO :b) -> :m Unit))
+                            => IoThread * (UnmaskFinallyMode -> IO Unit) -> :m Unit))
   (define unmask-thread-finally_ unmask-thread-finally)
 
   (inline)
   (declare unmask-finally_ ((LiftTo IO :m) (Exceptions :m) (Concurrent :c :a)
                             (Threads IoRuntime IoThread :m)
-                            => :c * (UnmaskFinallyMode -> IO :b) -> :m Unit))
+                            => :c * (UnmaskFinallyMode -> IO Unit) -> :m Unit))
   (define unmask-finally_ unmask-finally)
 
   (inline)

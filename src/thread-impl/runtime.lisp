@@ -681,7 +681,7 @@ just be limited to implementing only solutions #2 or #3.
                 (lk:release (.park-lock thread))
                 (unmask-current-thread!%) ;; (A)
                 (when (should-park?)
-                  (park-current-thread-if!% rt-prx with-gen should-park?)))
+                  (park-current-thread-if-with!% rt-prx with-gen should-park? strategy)))
               ;; If another thread did not beat us to parking, wait on the CV
               (rec wait-loop ()
                 (unmask-and-await-safely-with% ;; (B)

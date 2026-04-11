@@ -46,10 +46,10 @@
                                  -> :m :a))
   (define with-temp-directory_ with-temp-directory))
 
-(defmacro do-with-open-file_ (path (fs)
+(defmacro do-with-open-file_ ((path fs
                                cl:&key
                                (direction 'file:Input)
-                               (if-exists 'file:EError)
+                               (if-exists 'file:EError))
                                cl:&body body)
   "`do` sugar for `with-open-file_`. Expands to a continuation where BODY runs in `do`.
 
