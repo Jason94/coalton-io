@@ -26,7 +26,8 @@
 (coalton-toplevel
 
   (declare with-open-file_ ((file:File :a) (UnliftIo :m IO) (LiftTo IO :m)
-                            => file:Pathname
+                            (Into :p file:Pathname)
+                            => :p
                             * ((file:FileStream :a) -> IO :b)
                             &key
                             (:direction file:OpenDirection)

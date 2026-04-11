@@ -208,9 +208,9 @@
 ;;
 
 (coalton-toplevel
-  (declare with-open-file ((f_:File :a) (Files :i) (UnliftIo :r :i)
+  (declare with-open-file ((f_:File :a) (Files :i) (UnliftIo :r :i) (Into :p f_:Pathname)
                            (LiftTo :r :m) (Exceptions :i) (Threads :rt :t :i)
-                           => f_:Pathname
+                           => :p
                            * ((f_:FileStream :a) -> :r :b)
                            &key
                            (:direction f_:OpenDirection)
@@ -224,7 +224,7 @@ in some cases. Try WITH-OPEN-FILE_ if you have issues."
      (with-run-in-io
          (fn (run)
            (lift-io
-            (bracket-io_ (raise-result (open pth :direction direction :if-exists if-exists))
+            (bracket-io_ (raise-result (open (as f_:Pathname pth) :direction direction :if-exists if-exists))
                          (fn (file)
                            (raise-result (close file)))
                          (fn (file)
