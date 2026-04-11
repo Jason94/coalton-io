@@ -15,6 +15,7 @@
    #:decf!
    #:incf!
    #:read
+
    ;; Locks
    #:Lock
    #:with-lock-held
@@ -22,6 +23,19 @@
    #:acquire
    #:acquire-no-wait
    #:release
+
+   ;; Semaphores
+   #:Semaphore
+   #:new-sm
+   #:signal
+   #:await
+
+   ;; Condition Variables
+   #:ConditionVariable
+   #:new-cv
+   #:await
+   #:notify
+   #:broadcast
    ))
 (in-package :io/utilities/bt-compat)
 
@@ -124,3 +138,74 @@ Returns the lock."
     (let ((result (thunk)))
       (release lock)
       result)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                   Semaphore                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(coalton-toplevel
+  (repr :native bt2:semaphore)
+  (define-type Semaphore
+    "Wrapper for a native semaphore.")
+
+  (declare new-sm (Void -> Semaphore))
+  (define (new-sm)
+    "Creates a semaphore with initial count 0."
+    (lisp (-> Semaphore) ()
+      (bt2:make-semaphore)))
+
+  (declare signal (Semaphore * UFix -> Unit))
+  (define (signal sem count)
+    "Increment `sem' by `count'.
+If there are threads awaiting this semaphore, then `count' of them are woken up."
+    (lisp (-> Unit) (sem count)
+      (bt2:signal-semaphore sem :count count)
+      Unit))
+
+  (declare await (Semaphore -> Unit))
+  (define (await sem)
+    "Decrement the count of `sem' by 1 if the count is larger than zero.
+If the count is zero, blocks until `sem' can be decremented."
+    (lisp (-> Unit) (sem)
+      (bt2:wait-on-semaphore sem)
+      Unit)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;              Condition Variables               ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(coalton-toplevel
+  (repr :native bt2:condition-variable)
+  (define-type ConditionVariable
+    "Wrapper for a native condition variable.")
+
+  (declare new-cv (Void -> ConditionVariable))
+  (define (new-cv)
+    "Creates a condition variable."
+    (lisp (-> ConditionVariable) ()
+      (bt2:make-condition-variable)))
+
+  (declare await (ConditionVariable * lock:Lock -> Unit))
+  (define (await cv lock)
+    "Atomically release `lock' and enqueue the calling thread waiting for `cv'.
+The thread will resume when another thread has notified it using `notify-cv';
+it may also resume if interrupted by some external event or in other
+implementation-dependent circumstances: the caller must always test on waking
+that there is threading to be done, instead of assuming that it can go ahead."
+    (lisp (-> Unit) (cv lock)
+      (bt2:condition-wait cv lock)
+      Unit))
+
+  (declare notify (ConditionVariable -> Unit))
+  (define (notify cv)
+    "Notify one of the threads waiting for `cv'."
+    (lisp (-> Unit) (cv)
+      (bt2:condition-notify cv)
+      Unit))
+
+  (declare broadcast (ConditionVariable -> Unit))
+  (define (broadcast cv)
+    "Notify all of the threads waiting for `cv'."
+    (lisp (-> Unit) (cv)
+      (bt2:condition-broadcast cv)
+      Unit)))
