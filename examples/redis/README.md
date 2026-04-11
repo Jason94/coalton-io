@@ -20,3 +20,6 @@ IO/EXAMPLES/REDIS> (run-client)
 ```
 
 ## Example Session
+
+#### Server Session
+
