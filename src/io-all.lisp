@@ -4,7 +4,6 @@
   (:import-from #:io/monad-io
    #:derive-monad-io)
   (:import-from #:io/thread
-   #:implement-threads
    #:derive-threads)
   (:import-from #:io/mut
    #:implement-mutable-var
@@ -42,7 +41,6 @@
 
 (defmacro implement-io-all (monad)
   `(progn
-     (implement-threads ,monad)
      (implement-mutable-var ,monad)
      (implement-files ,monad)
      (implement-random ,monad)

@@ -13,7 +13,6 @@
    #:io/threads-impl/runtime
    )
   (:export
-   #:implement-threads
    #:write-line-sync
    ))
 (in-package :io/gen-impl/thread)
@@ -27,7 +26,3 @@
 for debugging."
     (wrap-io (write-line-sync% msg) Unit))
   )
-
-(defmacro implement-threads (monad runtime thread)
-  `(define-instance (Threads ,runtime ,thread ,monad)
-     ))

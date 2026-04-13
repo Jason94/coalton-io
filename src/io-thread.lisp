@@ -86,6 +86,6 @@
 
    ;; Re-exports from io/gen-impl/thread
    #:write-line-sync
-   #:implement-threads))
+   ))
 
 (in-package :io/thread)
