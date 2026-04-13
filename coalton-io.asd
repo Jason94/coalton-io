@@ -37,11 +37,14 @@
                  ;; TODO: Finish converting this to use Runtime, then move
                  ;; to gen-impl/conc
                  (:file "thread-impl/data-broadcast-pool")
+                 ;; TODO: Move back into gen-impl after io-resource gets moved
+                 (:file "gen-impl/io-thread")
                  ;;;
                  ;;; Library Public Packages
                  ;;;
                  ;; These files don't define new, full capability classes. They just
                  ;; do useful things with the capabilities provided by the classes in classes/
+                 ;; TODO: Move this into gen-impl or something, to fix load order issues.
                  (:file "io-resource")
 
                  ;;;
@@ -61,7 +64,6 @@
                                (:file "conc/worker-pool")
                                (:file "conc/ring-buffer")
                                (:file "conc/ring-buffer-scheduler")
-                               (:file "io-thread")
                                (:file "io-file")
                                (:file "io-random")
                                (:file "io-unique")

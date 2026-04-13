@@ -86,6 +86,8 @@
 
    ;; Re-exports from io/gen-impl/thread
    #:write-line-sync
+   #:with-mask
+   #:do-with-mask
    ))
 
 (in-package :io/thread)

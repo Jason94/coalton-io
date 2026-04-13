@@ -6,6 +6,7 @@
    #:coalton-library/experimental/do-control-core
    #:io/classes/thread
    #:io/classes/exceptions
+   #:io/gen-impl/thread
    #:coalton-library/types)
   (:export
    #:ExitCase
@@ -16,8 +17,6 @@
    #:bracket-io_
    #:bracket-io-masked
    #:bracket-io-masked_
-   #:with-mask
-   #:do-with-mask
    ))
 (in-package :io/resource)
 
@@ -25,31 +24,6 @@
 
 ;; NOTE: This package is largely based on the Cats bracket-io & resource types.
 ;; See https://typelevel.org/cats-effect/docs/std/resource.
-
-(coalton-toplevel
-
-  (declare with-mask ((Threads :rt :t :m) (Exceptions :m)
-                      => :m :a -> :m :a))
-  (define (with-mask op)
-    "Mask the current thread while running OP, automatically unmasking
-afterward."
-    (do
-     mask-current-thread
-     (reraise
-      (do
-       (result <- op)
-       unmask-current-thread
-       (pure result))
-      (fn ()
-        unmask-current-thread))))
-  )
-
-(defmacro do-with-mask (cl:&body body)
-  "Evaluate BODY with the current thread masked, automatically unmasking
-afterward."
-  `(with-mask
-     (do
-      ,@body)))
 
 (coalton-toplevel
 
