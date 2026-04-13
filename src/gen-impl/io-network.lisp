@@ -201,9 +201,10 @@
   (define (socket-listen-with hostname port op)
     "Run operation OP with a new server socket, listening on HOSTNAME and PORT. Guarantees
 that the socket will close on cleanup."
-    (bracket-io_
+    (bracket-boundary-masked
      (socket-listen hostname port)
-     close-server
+     (fn (conn _)
+       (close-server conn))
      op))
 
   ;; TODO: Switch these to use a non-masking bracket combinator once I write one.
@@ -213,9 +214,10 @@ that the socket will close on cleanup."
   (define (socket-connect-with hostname port op)
     "Run operation OP with a connection to an open server socket at HOSTNAME and PORT.
 Guarantees that the socket will close on cleanup."
-    (bracket-io_
+    (bracket-boundary-masked
      (socket-connect hostname port)
-     close-connection
+     (fn (conn _)
+       (close-connection conn))
      op))
 
   (declare socket-accept-with ((Sockets :m) (Threads :rt :t :m) (Exceptions :m)
@@ -227,9 +229,10 @@ socket will close on cleanup.
 Note: If you fork a thread inside this, the operation on this thread will probably finish
 and close the socket before you intend. For multithreaded uses, use
 socket-accept-fork-with."
-    (bracket-io_
+    (bracket-boundary-masked
      (socket-accept server-socket)
-     close-connection
+     (fn (conn _)
+       (close-connection conn))
      op))
 
   ;; TODO: Bracket the top-level forking once I write a bracket combinator that uses a
@@ -243,9 +246,10 @@ Guarantees that the socket will close on cleanup. Returns a handle to the forked
     (do
      (conn <- (socket-accept server-socket))
      (fork-thread
-       (bracket-io_
+       (bracket-boundary-masked
         (pure conn)
-        close-connection
+        (fn (conn _)
+          (close-connection conn))
         op))))
 
   (declare byte-socket-listen-with ((Sockets :m) (Threads :rt :t :m) (Exceptions :m)
@@ -253,9 +257,10 @@ Guarantees that the socket will close on cleanup. Returns a handle to the forked
   (define (byte-socket-listen-with hostname port op)
     "Run operation OP with a new byte-stream server socket, listening on HOSTNAME and PORT.
 Guarantees that the socket will close on cleanup."
-    (bracket-io_
+    (bracket-boundary-masked
      (byte-socket-listen hostname port)
-     close-byte-server
+     (fn (conn _)
+       (close-byte-server conn))
      op))
 
   (declare byte-socket-connect-with ((Sockets :m) (Threads :rt :t :m) (Exceptions :m)
@@ -263,9 +268,10 @@ Guarantees that the socket will close on cleanup."
   (define (byte-socket-connect-with hostname port op)
     "Run operation OP with a byte-stream connection to an open server socket at HOSTNAME and PORT.
 Guarantees that the socket will close on cleanup."
-    (bracket-io_
+    (bracket-boundary-masked
      (byte-socket-connect hostname port)
-     close-byte-connection
+     (fn (conn _)
+       (close-byte-connection conn))
      op))
 
   (declare byte-socket-accept-with ((Sockets :m) (Threads :rt :t :m) (Exceptions :m)
@@ -277,9 +283,10 @@ socket will close on cleanup.
 Note: If you fork a thread inside this, the operation on this thread will probably finish
 and close the socket before you intend. For multithreaded uses, use
 byte-socket-accept-fork-with."
-    (bracket-io_
+    (bracket-boundary-masked
      (byte-socket-accept server-socket)
-     close-byte-connection
+     (fn (conn _)
+       (close-byte-connection conn))
      op))
 
   (declare byte-socket-accept-fork-with ((Sockets :m) (Threads :rt :t :m) (Exceptions :m)
@@ -291,9 +298,10 @@ Guarantees that the socket will close on cleanup. Returns a handle to the forked
     (do
      (conn <- (byte-socket-accept server-socket))
      (fork-thread
-       (bracket-io_
+       (bracket-boundary-masked
         (pure conn)
-        close-byte-connection
+        (fn (conn _)
+          (close-byte-connection conn))
         op))))
   )
 

@@ -23,6 +23,7 @@
 
    #:try
    #:try-all
+   #:try-result
    #:raise-result
    #:raise-result-dynamic
    #:wrap-error_
@@ -91,6 +92,14 @@ raised any exceptions."
     (handle-all
      (map Some op)
      (fn () (pure None))))
+
+  (inline)
+  (declare try-result ((Exceptions :m) (RuntimeRepr :e) (Signalable :e)
+                       => :m :a -> :m (Result :e :a)))
+  (define (try-result op)
+    (handle
+     (map Ok op)
+     (fn (e) (pure (Err e)))))
 
   (inline)
   (declare raise-result ((Exceptions :m) (RuntimeRepr :e) (Signalable :e)

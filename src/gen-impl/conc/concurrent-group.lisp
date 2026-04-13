@@ -102,9 +102,9 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     ;; CONCURRENT: Masks entire operation to guarantee enclosed threads are left in a
     ;; consistent state.
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
-    (bracket-io-masked_
+    (bracket-masked
      (wrap-io (bt:acquire (.lock group)))
-     (fn (_)
+     (fn (_ _)
        (wrap-io (bt:release (.lock group))))
      (fn (_)
        (foreach (.pool group) (as-proxy-of stop
@@ -116,9 +116,9 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     ;; CONCURRENT: Masks entire operation to guarantee enclosed threads are left in a
     ;; consistent state.
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
-    (bracket-io-masked_
+    (bracket-masked
      (wrap-io (bt:acquire (.lock group)))
-     (fn (_)
+     (fn (_ _)
        (wrap-io (bt:release (.lock group))))
      (fn (_)
        (foreach (.pool group) (as-proxy-of mask
@@ -130,9 +130,9 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     ;; CONCURRENT: Masks entire operation to guarantee enclosed threads are left in a
     ;; consistent state.
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
-    (bracket-io-masked_
+    (bracket-masked
      (wrap-io (bt:acquire (.lock group)))
-     (fn (_)
+     (fn (_ _)
        (wrap-io (bt:release (.lock group))))
      (fn (_)
        (foreach (.pool group) (as-proxy-of unmask
@@ -145,9 +145,9 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     ;; CONCURRENT: Masks entire operation to guarantee enclosed threads are left in a
     ;; consistent state.
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
-    (bracket-io-masked_
+    (bracket-masked
      (wrap-io (bt:acquire (.lock group)))
-     (fn (_)
+     (fn (_ _)
        (wrap-io (bt:release (.lock group))))
      (fn (_)
        (foreach (.pool group)
