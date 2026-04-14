@@ -13,7 +13,7 @@
    #:Completed
    #:Errored
 
-   #:bracket-boundary-masked
+   #:bracket-lifecycle-masked
    #:bracket-masked
    #:bracket-unmasked
    ))
@@ -33,12 +33,12 @@
     Completed
     Errored)
 
-  (declare bracket-boundary-masked ((Exceptions :m) (Threads :rt :t :m)
+  (declare bracket-lifecycle-masked ((Exceptions :m) (Threads :rt :t :m)
                                     => :m :r
                                     * (:r * ExitCase -> :m :a)
                                     * (:r -> :m :b)
                                     -> :m :b))
-  (define (bracket-boundary-masked acquire-op release-op computation-op)
+  (define (bracket-lifecycle-masked acquire-op release-op computation-op)
     "Acquire a resource, run a computation with it, and release it. Guarantees that
 RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,
 it will be re-raised after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise

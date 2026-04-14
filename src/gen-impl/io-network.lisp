@@ -201,7 +201,7 @@
   (define (socket-listen-with hostname port op)
     "Run operation OP with a new server socket, listening on HOSTNAME and PORT. Guarantees
 that the socket will close on cleanup."
-    (bracket-boundary-masked
+    (bracket-lifecycle-masked
      (socket-listen hostname port)
      (fn (conn _)
        (close-server conn))
@@ -214,7 +214,7 @@ that the socket will close on cleanup."
   (define (socket-connect-with hostname port op)
     "Run operation OP with a connection to an open server socket at HOSTNAME and PORT.
 Guarantees that the socket will close on cleanup."
-    (bracket-boundary-masked
+    (bracket-lifecycle-masked
      (socket-connect hostname port)
      (fn (conn _)
        (close-connection conn))
@@ -229,7 +229,7 @@ socket will close on cleanup.
 Note: If you fork a thread inside this, the operation on this thread will probably finish
 and close the socket before you intend. For multithreaded uses, use
 socket-accept-fork-with."
-    (bracket-boundary-masked
+    (bracket-lifecycle-masked
      (socket-accept server-socket)
      (fn (conn _)
        (close-connection conn))
@@ -246,7 +246,7 @@ Guarantees that the socket will close on cleanup. Returns a handle to the forked
     (do
      (conn <- (socket-accept server-socket))
      (fork-thread
-       (bracket-boundary-masked
+       (bracket-lifecycle-masked
         (pure conn)
         (fn (conn _)
           (close-connection conn))
@@ -257,7 +257,7 @@ Guarantees that the socket will close on cleanup. Returns a handle to the forked
   (define (byte-socket-listen-with hostname port op)
     "Run operation OP with a new byte-stream server socket, listening on HOSTNAME and PORT.
 Guarantees that the socket will close on cleanup."
-    (bracket-boundary-masked
+    (bracket-lifecycle-masked
      (byte-socket-listen hostname port)
      (fn (conn _)
        (close-byte-server conn))
@@ -268,7 +268,7 @@ Guarantees that the socket will close on cleanup."
   (define (byte-socket-connect-with hostname port op)
     "Run operation OP with a byte-stream connection to an open server socket at HOSTNAME and PORT.
 Guarantees that the socket will close on cleanup."
-    (bracket-boundary-masked
+    (bracket-lifecycle-masked
      (byte-socket-connect hostname port)
      (fn (conn _)
        (close-byte-connection conn))
@@ -283,7 +283,7 @@ socket will close on cleanup.
 Note: If you fork a thread inside this, the operation on this thread will probably finish
 and close the socket before you intend. For multithreaded uses, use
 byte-socket-accept-fork-with."
-    (bracket-boundary-masked
+    (bracket-lifecycle-masked
      (byte-socket-accept server-socket)
      (fn (conn _)
        (close-byte-connection conn))
@@ -298,7 +298,7 @@ Guarantees that the socket will close on cleanup. Returns a handle to the forked
     (do
      (conn <- (byte-socket-accept server-socket))
      (fork-thread
-       (bracket-boundary-masked
+       (bracket-lifecycle-masked
         (pure conn)
         (fn (conn _)
           (close-byte-connection conn))
