@@ -203,7 +203,7 @@
 that the socket will close on cleanup."
     (bracket-lifecycle-masked
      (socket-listen hostname port)
-     (fn (conn _)
+     (fn (conn)
        (close-server conn))
      op))
 
@@ -216,7 +216,7 @@ that the socket will close on cleanup."
 Guarantees that the socket will close on cleanup."
     (bracket-lifecycle-masked
      (socket-connect hostname port)
-     (fn (conn _)
+     (fn (conn)
        (close-connection conn))
      op))
 
@@ -231,7 +231,7 @@ and close the socket before you intend. For multithreaded uses, use
 socket-accept-fork-with."
     (bracket-lifecycle-masked
      (socket-accept server-socket)
-     (fn (conn _)
+     (fn (conn)
        (close-connection conn))
      op))
 
@@ -248,7 +248,7 @@ Guarantees that the socket will close on cleanup. Returns a handle to the forked
      (fork-thread
        (bracket-lifecycle-masked
         (pure conn)
-        (fn (conn _)
+        (fn (conn)
           (close-connection conn))
         op))))
 
@@ -259,7 +259,7 @@ Guarantees that the socket will close on cleanup. Returns a handle to the forked
 Guarantees that the socket will close on cleanup."
     (bracket-lifecycle-masked
      (byte-socket-listen hostname port)
-     (fn (conn _)
+     (fn (conn)
        (close-byte-server conn))
      op))
 
@@ -270,7 +270,7 @@ Guarantees that the socket will close on cleanup."
 Guarantees that the socket will close on cleanup."
     (bracket-lifecycle-masked
      (byte-socket-connect hostname port)
-     (fn (conn _)
+     (fn (conn)
        (close-byte-connection conn))
      op))
 
@@ -285,7 +285,7 @@ and close the socket before you intend. For multithreaded uses, use
 byte-socket-accept-fork-with."
     (bracket-lifecycle-masked
      (byte-socket-accept server-socket)
-     (fn (conn _)
+     (fn (conn)
        (close-byte-connection conn))
      op))
 
@@ -300,7 +300,7 @@ Guarantees that the socket will close on cleanup. Returns a handle to the forked
      (fork-thread
        (bracket-lifecycle-masked
         (pure conn)
-        (fn (conn _)
+        (fn (conn)
           (close-byte-connection conn))
         op))))
   )

@@ -125,7 +125,7 @@ to ever acquire it."
     "Run IO operation OP with a reader lock on LOCK held."
     (bracket-lifecycle-masked
      (run-tx (reader-acquire-tx lock))
-     (fn (_ _)
+     (fn (_)
        (run-tx (reader-release-tx lock)))
      (fn (_)
        op)))
@@ -140,7 +140,7 @@ to ever acquire it."
      (do
       (pend-writer-acquire lock)
       (writer-acquire lock))
-     (fn (_ _)
+     (fn (_)
        (writer-release lock))
      (fn (_)
        op)))

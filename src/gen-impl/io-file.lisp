@@ -226,7 +226,7 @@ in some cases. Try WITH-OPEN-FILE_ if you have issues."
            (lift-io
             (bracket-lifecycle-masked
              (raise-result (open (as f_:Pathname pth) :direction direction :if-exists if-exists))
-             (fn (file _)
+             (fn (file)
                (raise-result (close file)))
              (fn (file)
                (run (k file)))))))))
@@ -248,7 +248,7 @@ in some cases. Try WITH-TEMP-FILE_ if you have issues."
             (let ((filepath (f_::%make-temp-file-pathname extension)))
               (bracket-lifecycle-masked
                (raise-result (open filepath :direction f_:Bidirectional :if-exists f_:Overwrite))
-               (fn (_ _)
+               (fn (_)
                  (raise-result (delete-file filepath)))
                (fn (file)
                  (run (k file))))))))))
@@ -267,7 +267,7 @@ in some cases. Try WITH-TEMP-DIRECTORY_ if you have issues."
            (lift-io
             (bracket-lifecycle-masked
              (raise-result create-temp-directory)
-             (fn (pathname _)
+             (fn (pathname)
                (remove-directory-recursive pathname))
              (fn (pathname)
                (run (k pathname)))))))))

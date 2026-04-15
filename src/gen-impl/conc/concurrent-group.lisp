@@ -104,7 +104,7 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
     (bracket-masked
      (wrap-io (bt:acquire (.lock group)))
-     (fn (_ _)
+     (fn (_)
        (wrap-io (bt:release (.lock group))))
      (fn (_)
        (foreach (.pool group) (as-proxy-of stop
@@ -118,7 +118,7 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
     (bracket-masked
      (wrap-io (bt:acquire (.lock group)))
-     (fn (_ _)
+     (fn (_)
        (wrap-io (bt:release (.lock group))))
      (fn (_)
        (foreach (.pool group) (as-proxy-of mask
@@ -132,7 +132,7 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
     (bracket-masked
      (wrap-io (bt:acquire (.lock group)))
-     (fn (_ _)
+     (fn (_)
        (wrap-io (bt:release (.lock group))))
      (fn (_)
        (foreach (.pool group) (as-proxy-of unmask
@@ -147,7 +147,7 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
     (bracket-masked
      (wrap-io (bt:acquire (.lock group)))
-     (fn (_ _)
+     (fn (_)
        (wrap-io (bt:release (.lock group))))
      (fn (_)
        (foreach (.pool group)
