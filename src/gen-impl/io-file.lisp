@@ -224,11 +224,12 @@ in some cases. Try WITH-OPEN-FILE_ if you have issues."
      (with-run-in-io
          (fn (run)
            (lift-io
-            (bracket-io_ (raise-result (open (as f_:Pathname pth) :direction direction :if-exists if-exists))
-                         (fn (file)
-                           (raise-result (close file)))
-                         (fn (file)
-                           (run (k file)))))))))
+            (bracket-lifecycle-masked
+             (raise-result (open (as f_:Pathname pth) :direction direction :if-exists if-exists))
+             (fn (file)
+               (raise-result (close file)))
+             (fn (file)
+               (run (k file)))))))))
 
   (declare with-temp-file ((f_:File :a) (Files :i) (Threads :rt :t :i)
                            (UnliftIo :r :i) (LiftTo :r :m) (Exceptions :i)
@@ -245,11 +246,12 @@ in some cases. Try WITH-TEMP-FILE_ if you have issues."
          (fn (run)
            (lift-io
             (let ((filepath (f_::%make-temp-file-pathname extension)))
-              (bracket-io_ (raise-result (open filepath :direction f_:Bidirectional :if-exists f_:Overwrite))
-                           (fn (_)
-                             (raise-result (delete-file filepath)))
-                           (fn (file)
-                             (run (k file))))))))))
+              (bracket-lifecycle-masked
+               (raise-result (open filepath :direction f_:Bidirectional :if-exists f_:Overwrite))
+               (fn (_)
+                 (raise-result (delete-file filepath)))
+               (fn (file)
+                 (run (k file))))))))))
 
   (declare with-temp-directory ((UnliftIo :r :i) (LiftTo :r :m) (Exceptions :i)
                                 (Files :i) (Threads :rt :t :i)
@@ -263,10 +265,12 @@ in some cases. Try WITH-TEMP-DIRECTORY_ if you have issues."
      (with-run-in-io
          (fn (run)
            (lift-io
-            (bracket-io_ (raise-result create-temp-directory)
-                         remove-directory-recursive
-                         (fn (pathname)
-                           (run (k pathname)))))))))
+            (bracket-lifecycle-masked
+             (raise-result create-temp-directory)
+             (fn (pathname)
+               (remove-directory-recursive pathname))
+             (fn (pathname)
+               (run (k pathname)))))))))
 
   )
 

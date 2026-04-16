@@ -8,6 +8,7 @@
    #:coalton-library/experimental/do-control-core
    #:io/utils
    #:io/threads-exceptions
+   #:io/classes/thread
    #:io/classes/exceptions
    #:io/classes/monad-io
    #:io/io-impl/runtime
@@ -420,10 +421,11 @@ to the value of the element in the iterator."
 ;;;
 
 (coalton-toplevel
-  (io/gen-impl/thread:implement-threads IO IoRuntime IoThread)
+  (define-instance (Threads IoRuntime IoThread IO))
   (io/gen-impl/mut:implement-mutable-var IO)
   (io/gen-impl/file:implement-files IO)
   (io/gen-impl/random:implement-random IO)
   (io/gen-impl/term:implement-terminal IO)
   (io/gen-impl/network:implement-sockets IO)
+
   )

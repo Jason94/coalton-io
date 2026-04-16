@@ -34,12 +34,12 @@
       (error s)))
   )
 
-(define-test test-bracket-io_-cleanup-on-error ()
+(define-test test-bracket-lifecycle-masked-cleanup-on-error ()
   (let result =
     (run-io!
      (do
       (cleanup <- (new-var False))
-      (err <- (try (bracket-io_ (pure Unit)
+      (err <- (try (bracket-lifecycle-masked (pure Unit)
                                 (const (write cleanup True))
                                 (fn (_) (raise-io_ (BE "Raised Error"))))))
       (cleaned? <- (read cleanup))
@@ -47,7 +47,7 @@
   (is (== (Tuple (Err (BE "Raised Error")) True)
           result)))
 
-(define-test test-bracket-io_-cleans-up-when-stopped ()
+(define-test test-bracket-lifecycle-masked-cleans-up-when-stopped ()
   (let cleanup-completed? =
     (run-io!
      (do
@@ -57,7 +57,7 @@
       (wait-forever <- s-new)
       (thread <-
         (do-fork-thread_
-          (bracket-io_
+          (bracket-lifecycle-masked
             (pure Unit)
             (fn (_) (do
                      (write cleanup True)
@@ -69,29 +69,30 @@
       (stop-thread thread)
       (s-await cleanup-done-gate)
       (read cleanup))))
-  (is cleanup-completed?))
+  (is (== True
+          cleanup-completed?)))
 
-(define-test test-bracket-io-cleanup-receives-completed-status ()
+(define-test test-bracket-lifecycle-masked-case-cleanup-receives-completed-status ()
   (let result =
     (run-io!
      (do
       (exit-case-result <- (new-var None))
-      (bracket-io (pure Unit)
+      (bracket-lifecycle-masked-case (pure Unit)
        (fn (_resource exit-case)
-         (write exit-case-result (Some (the (ExitCase BracketError) exit-case))))
+         (write exit-case-result (Some exit-case)))
        (fn (_) (pure Unit)))
       (read exit-case-result))))
   (is (== (Some Completed) result)))
 
-(define-test test-bracket-io-cleanup-on-error-with-exitcase ()
+(define-test test-bracket-lifecycle-masked-case-cleanup-on-error-with-exitcase ()
   (let result =
     (run-io!
      (do
       (cleanup <- (new-var False))
-      (err <- (try (bracket-io (pure Unit)
+      (err <- (try (bracket-lifecycle-masked-case (pure Unit)
                                (fn (_resource exit-case)
                                  (do-match exit-case
-                                   ((Errored (BE msg))
+                                   ((Errored)
                                     (write cleanup True)
                                     (pure exit-case))
                                    (_ (pure exit-case))))
@@ -101,7 +102,7 @@
   (is (== (Tuple (Err (BE "Raised Error")) True)
           result)))
 
-(define-test test-bracket-io-cleans-up-when-stopped ()
+(define-test test-bracket-lifecycle-masked-case-cleans-up-when-stopped ()
   (let cleanup-completed? =
     (run-io!
      (do
@@ -111,11 +112,11 @@
       (wait-forever <- s-new)
       (thread <-
         (do-fork-thread_
-          (bracket-io
+          (bracket-lifecycle-masked-case
             (pure Unit)
             (fn (_resource exit-case)
               (do-match exit-case
-                ((Errored (InterruptCurrentThread _))
+                ((Errored)
                  (write cleanup True)
                  (s-signal cleanup-done-gate))
                 (_
@@ -125,6 +126,7 @@
       ;; Ensure the computation has started before stopping it
       (s-await start-gate)
       (stop-thread thread)
-      (sleep 5)
+      (s-await cleanup-done-gate)
       (read cleanup))))
-  (is (not cleanup-completed?)))
+  (is (== True
+          cleanup-completed?)))

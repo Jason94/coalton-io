@@ -6,18 +6,20 @@
    #:coalton-library/experimental/do-control-core
    #:io/classes/thread
    #:io/classes/exceptions
+   #:io/gen-impl/thread
    #:coalton-library/types)
   (:export
    #:ExitCase
    #:Completed
    #:Errored
 
-   #:bracket-io
-   #:bracket-io_
-   #:bracket-io-masked
-   #:bracket-io-masked_
-   #:with-mask
-   #:do-with-mask
+   #:bracket-lifecycle-masked
+   #:bracket-masked
+   #:bracket-unmasked
+
+   #:bracket-lifecycle-masked-case
+   #:bracket-masked-case
+   #:bracket-unmasked-case
    ))
 (in-package :io/resource)
 
@@ -28,141 +30,172 @@
 
 (coalton-toplevel
 
-  (declare with-mask ((Threads :rt :t :m) (Exceptions :m)
-                      => :m :a -> :m :a))
-  (define (with-mask op)
-    "Mask the current thread while running OP, automatically unmasking
-afterward."
-    (do
-     mask-current-thread
-     (reraise
-      (do
-       (result <- op)
-       unmask-current-thread
-       (pure result))
-      (fn ()
-        unmask-current-thread))))
-  )
-
-(defmacro do-with-mask (cl:&body body)
-  "Evaluate BODY with the current thread masked, automatically unmasking
-afterward."
-  `(with-mask
-     (do
-      ,@body)))
-
-(coalton-toplevel
-
   (derive Eq)
-  (repr :lisp)
-  (define-type (ExitCase :e)
+  (repr :enum)
+  (define-type ExitCase
     "Signals the exit condition for an effectful computation using some resource."
     Completed
-    (Errored :e))
+    Errored)
 
-  (inline)
-  (declare try-result ((Exceptions :m) (RuntimeRepr :e)
-                       => :m :a -> :m (Result :e :a)))
-  (define (try-result op)
-    (handle
-     (map Ok op)
-     (compose pure Err)))
-
-  (declare bracket-io ((Exceptions :m) (Threads :rt :t :m) (RuntimeRepr :e) (Signalable :e)
-                       => :m :r
-                       * (:r * ExitCase :e -> :m :a)
-                       * (:r -> :m :b)
-                       -> :m :b))
-  (define (bracket-io acquire-op release-op computation-op)
-    "WARNING: BRACKET-IO will *only* cleanup if the raised exception matches :e,
-or if the computation succeedes. To guarantee cleanup after any exception,
-use BRACKET-IO_
-
-Acquire a resource, run a computation with it, and release it. Guarantees that
-RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,
-it will be re-raised after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise
-an exception, then release is not guaranteed.
-
-Concurrent:
-- Masks the thread during resource acquisition and release.
-- The computation is not masked, and if another thread stops this one during the
-  computation then the resource the resource will not be released."
-    (do
-     (resource <- (with-mask acquire-op))
-     (result? <- (try-result (computation-op resource)))
-     (with-mask
-         (do-match result?
-           ((Ok result)
-            (release-op resource Completed)
-            (pure result))
-           ((Err e)
-            (release-op resource (Errored e))
-            (raise e))))))
-
-  (declare bracket-io-masked ((Exceptions :m) (Threads :rt :t :m) (RuntimeRepr :e) (Signalable :e)
-                              => :m :r
-                              * (:r * ExitCase :e -> :m :a)
-                              * (:r -> :m :b)
-                              -> :m :b))
-  (define (bracket-io-masked acquire-op release-op computation-op)
-    "WARNING: BRACKET-IO-MASKED will *only* cleanup if the raised exception matches :e, or if the
-computation succeedes. To guarantee cleanup after any exception, use BRACKET-IO-MASKED_
-
-Acquire a resource, run a computation with it, and release it. Guarantees that RELEASE-OP will run
-if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception, it will be re-raised after the
-resource cleans up. If ACQUIRE-OP or RELEASE-OP raise an exception, then release is not guaranteed.
-Masks the thread during the entire operation, including the computation."
-    (do-with-mask
-     (resource <- acquire-op)
-     (result? <- (try-result (computation-op resource)))
-     (do-match result?
-       ((Ok result)
-        (release-op resource Completed)
-        (pure result))
-       ((Err e)
-        (release-op resource (Errored e))
-        (raise e)))))
-
-  (declare bracket-io_ ((Exceptions :m) (Threads :rt :t :m)
-                        => :m :r
-                        * (:r -> :m :a)
-                        * (:r -> :m :b)
-                        -> :m :b))
-  (define (bracket-io_ acquire-op release-op computation-op)
+  (declare bracket-lifecycle-masked-case ((Exceptions :m) (Threads :rt :t :m)
+                                         => :m :r
+                                         * (:r * ExitCase -> :m :a)
+                                         * (:r -> :m :b)
+                                         -> :m :b))
+  (define (bracket-lifecycle-masked-case acquire-op release-op computation-op)
     "Acquire a resource, run a computation with it, and release it. Guarantees that
 RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,
 it will be re-raised after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise
 an exception, then release is not guaranteed.
 
-Masks the thread during resource acquisition and release. The computation is not
-masked, but if another thread stops this one during the computation then the resource
-will release before the thread is stopped."
-    (do
-     (resource <- (with-mask acquire-op))
-     (reraise (do
-               (result <- (computation-op resource))
-               (with-mask (release-op resource))
-               (pure result))
-              (fn ()
-                (with-mask (release-op resource))))))
+RELEASE-OP receives both the acquired resource and an ExitCase indicating whether
+the computation completed successfully (Completed) or errored (Errored).
 
-  (declare bracket-io-masked_ ((Exceptions :m) (Threads :rt :t :m)
-                               => :m :r
-                               * (:r -> :m :a)
-                               * (:r -> :m :b)
-                               -> :m :b))
-  (define (bracket-io-masked_ acquire-op release-op computation-op)
-    "Acquire a resource, run a computation with it, and release it. Guarantees that RELEASE-OP will
-run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception, it will be re-raised after the
+Concurrent:
+- Masks the thread during resource acquisition and release.
+- The computation is not masked, but if another thread stops this one during the
+  computation then the resource the resource will still be released."
+    (do
+     mask-current-thread
+     (resource <- acquire-op)
+     (reraise
+      (do
+       unmask-current-thread
+       (result <- (computation-op resource))
+       (with-mask (release-op resource Completed))
+       (pure result))
+      (fn ()
+        (with-mask (release-op resource Errored))))))
+
+  (declare bracket-lifecycle-masked ((Exceptions :m) (Threads :rt :t :m)
+                                    => :m :r
+                                    * (:r -> :m :a)
+                                    * (:r -> :m :b)
+                                    -> :m :b))
+  (define (bracket-lifecycle-masked acquire-op release-op computation-op)
+    "Acquire a resource, run a computation with it, and release it. Guarantees that
+RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,
+it will be re-raised after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise
+an exception, then release is not guaranteed.
+
+RELEASE-OP receives only the acquired resource.
+
+Concurrent:
+- Masks the thread during resource acquisition and release.
+- The computation is not maskedbut and if another thread stops this one during the
+  computation then the resource the resource will still be released."
+    (do
+     mask-current-thread
+     (resource <- acquire-op)
+     ;; TODO: Standard exception handling functions like reraise should NOT
+     ;; catch/handle thread stops. Change reraise to ignore thread stops,
+     ;; and add a specific function to the Threads class to implement this
+     ;; behavior - on-stop, or something.
+     (reraise
+      (do
+       unmask-current-thread
+       (result <- (computation-op resource))
+       (with-mask (release-op resource))
+       (pure result))
+      (fn ()
+        (with-mask (release-op resource))))))
+
+  (declare bracket-masked-case ((Exceptions :m) (Threads :rt :t :m)
+                                => :m :r
+                                * (:r * ExitCase -> :m :a)
+                                * (:r -> :m :b)
+                                -> :m :b))
+  (define (bracket-masked-case acquire-op release-op computation-op)
+    "Acquire a resource, run a computation with it, and release it. Guarantees that RELEASE-OP will run
+if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception, it will be re-raised after the
 resource cleans up. If ACQUIRE-OP or RELEASE-OP raise an exception, then release is not guaranteed.
-Masks the thread during the entire operation, including the computation."
+RELEASE-OP receives both the acquired resource and an ExitCase indicating whether
+the computation completed successfully (Completed) or errored (Errored).
+
+Concurrent:
+- Masks the thread before ACQUIRE-OP starts.
+- Unmasks the thread after RELEASE-OP finishes."
     (do-with-mask
      (resource <- acquire-op)
-     (reraise (do
-               (result <- (computation-op resource))
-               (release-op resource)
-               (pure result))
-              (fn ()
-                (release-op resource)))))
+     (result? <- (try-dynamic (computation-op resource)))
+     (do-match result?
+       ((Ok result)
+        (release-op resource Completed)
+        (pure result))
+       ((Err e)
+        (release-op resource Errored)
+        (raise-dynamic e)))))
 
+  (declare bracket-masked ((Exceptions :m) (Threads :rt :t :m)
+                           => :m :r
+                           * (:r -> :m :a)
+                           * (:r -> :m :b)
+                           -> :m :b))
+  (define (bracket-masked acquire-op release-op computation-op)
+    "Acquire a resource, run a computation with it, and release it. Guarantees that RELEASE-OP will run
+if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception, it will be re-raised after the
+resource cleans up. If ACQUIRE-OP or RELEASE-OP raise an exception, then release is not guaranteed.
+
+RELEASE-OP receives only the acquired resource.
+
+Concurrent:
+- Masks the thread before ACQUIRE-OP starts.
+- Unmasks the thread after RELEASE-OP finishes."
+    (do-with-mask
+     (resource <- acquire-op)
+     (result? <- (try-dynamic (computation-op resource)))
+     (do-match result?
+       ((Ok result)
+        (release-op resource)
+        (pure result))
+       ((Err e)
+        (release-op resource)
+        (raise-dynamic e)))))
+
+  (declare bracket-unmasked-case ((Exceptions :m) (Threads :rt :t :m)
+                                  => :m :r
+                                  * (:r * ExitCase -> :m :a)
+                                  * (:r -> :m :b)
+                                  -> :m :b))
+  (define (bracket-unmasked-case acquire-op release-op computation-op)
+    "Acquire a resource, run a computation with it, and release it. Guarantees that
+RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,
+it will be re-raised after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise
+an exception, then release is not guaranteed.
+
+RELEASE-OP receives both the acquired resource and an ExitCase indicating whether
+the computation completed successfully (Completed) or errored (Errored)."
+    (do
+     (resource <- acquire-op)
+     (result? <- (try-dynamic (computation-op resource)))
+     (do-match result?
+       ((Ok result)
+        (release-op resource Completed)
+        (pure result))
+       ((Err e)
+        (release-op resource Errored)
+        (raise-dynamic e)))))
+
+  (declare bracket-unmasked ((Exceptions :m) (Threads :rt :t :m)
+                             => :m :r
+                             * (:r -> :m :a)
+                             * (:r -> :m :b)
+                             -> :m :b))
+  (define (bracket-unmasked acquire-op release-op computation-op)
+    "Acquire a resource, run a computation with it, and release it. Guarantees that
+RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,
+it will be re-raised after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise
+an exception, then release is not guaranteed.
+
+RELEASE-OP receives only the acquired resource."
+    (do
+     (resource <- acquire-op)
+     (result? <- (try-dynamic (computation-op resource)))
+     (do-match result?
+       ((Ok result)
+        (release-op resource)
+        (pure result))
+       ((Err e)
+        (release-op resource)
+        (raise-dynamic e)))))
   )

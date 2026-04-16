@@ -123,7 +123,7 @@ to ever acquire it."
   (declare with-reader-lock (TRWLock * IO :a -> IO :a))
   (define (with-reader-lock lock op)
     "Run IO operation OP with a reader lock on LOCK held."
-    (bracket-io_
+    (bracket-lifecycle-masked
      (run-tx (reader-acquire-tx lock))
      (fn (_)
        (run-tx (reader-release-tx lock)))
@@ -133,10 +133,10 @@ to ever acquire it."
   (declare with-writer-lock (TRWLock * IO :a -> IO :a))
   (define (with-writer-lock lock op)
     "Run IO operation OP with the writer lock on LOCK held."
-    ;; TODO: Convert this to use as bracket operation that doesn't mask. Then rewrite this
+    ;; TODO: Rewrite this
     ;; so it's valid in the presence of async stops. Currently, it blocks to acquire the
     ;; lock while masked.
-    (bracket-io_
+    (bracket-lifecycle-masked
      (do
       (pend-writer-acquire lock)
       (writer-acquire lock))
