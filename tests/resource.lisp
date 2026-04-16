@@ -69,7 +69,8 @@
       (stop-thread thread)
       (s-await cleanup-done-gate)
       (read cleanup))))
-  (is cleanup-completed?))
+  (is (== True
+          cleanup-completed?)))
 
 (define-test test-bracket-lifecycle-masked-case-cleanup-receives-completed-status ()
   (let result =
@@ -127,4 +128,5 @@
       (stop-thread thread)
       (sleep 5)
       (read cleanup))))
-  (is (not cleanup-completed?)))
+  (is (== True
+          (not cleanup-completed?))))

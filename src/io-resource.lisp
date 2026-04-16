@@ -53,19 +53,19 @@ the computation completed successfully (Completed) or errored (Errored).
 
 Concurrent:
 - Masks the thread during resource acquisition and release.
-- The computation is not masked, and if another thread stops this one during the
-  computation then the resource the resource will not be released."
+- The computation is not masked, but if another thread stops this one during the
+  computation then the resource the resource will still be released."
     (do
-     (resource <- (with-mask acquire-op))
-     (result? <- (try-dynamic (computation-op resource)))
-     (with-mask
-         (do-match result?
-           ((Ok result)
-            (release-op resource Completed)
-            (pure result))
-           ((Err e)
-            (release-op resource Errored)
-            (raise-dynamic e))))))
+     mask-current-thread
+     (resource <- acquire-op)
+     (reraise
+      (do
+       unmask-current-thread
+       (result <- (computation-op resource))
+       (with-mask (release-op resource Completed))
+       (pure result))
+      (fn ()
+        (with-mask (release-op resource Errored))))))
 
   (declare bracket-lifecycle-masked ((Exceptions :m) (Threads :rt :t :m)
                                     => :m :r
@@ -82,19 +82,19 @@ RELEASE-OP receives only the acquired resource.
 
 Concurrent:
 - Masks the thread during resource acquisition and release.
-- The computation is not masked, and if another thread stops this one during the
-  computation then the resource the resource will not be released."
+- The computation is not maskedbut and if another thread stops this one during the
+  computation then the resource the resource will still be released."
     (do
-     (resource <- (with-mask acquire-op))
-     (result? <- (try-dynamic (computation-op resource)))
-     (with-mask
-         (do-match result?
-           ((Ok result)
-            (release-op resource)
-            (pure result))
-           ((Err e)
-            (release-op resource)
-            (raise-dynamic e))))))
+     mask-current-thread
+     (resource <- acquire-op)
+     (reraise
+      (do
+       unmask-current-thread
+       (result <- (computation-op resource))
+       (with-mask (release-op resource))
+       (pure result))
+      (fn ()
+        (with-mask (release-op resource))))))
 
   (declare bracket-masked-case ((Exceptions :m) (Threads :rt :t :m)
                                 => :m :r
