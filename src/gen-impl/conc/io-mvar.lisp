@@ -28,7 +28,6 @@
    #:new-mvar
    #:new-empty-mvar
    #:take-mvar-masked
-   #:take-mvar-masked-with
    #:take-mvar
    #:put-mvar
    #:put-mvar-with
@@ -129,9 +128,11 @@ deadlocks and other race conditions."
       (lp)))
 
   (inline)
-  (declare take-mvar-masked-with (Threads :rt :t :m => TimeoutStrategy * MVar :a -> :m :a))
-  (define (take-mvar-masked-with strategy mvar)
-    "Take a value from an MVar, blocking until one is available.
+  (declare take-mvar-masked (Threads :rt :t :m
+                             => MVar :a &key (:timeout TimeoutStrategy)
+                             -> :m :a))
+  (define (take-mvar-masked mvar &key (timeout NoTimeout))
+    "Take a value from an MVar, blocking until one is available. Can specify a timeout.
 
 Concurrent:
   - WARNING: Leaves the thread masked when returns to protect caller's critical regions
@@ -142,21 +143,7 @@ Concurrent:
   - On succesful take, one blocking writer is woken in order of acquisition"
     ;; CONCURRENT: Inherits CONCURRENT semantics from take-mvar-masked-inner%
     (wrap-io-with-runtime (rt-prx)
-      (take-mvar-masked-inner% strategy mvar rt-prx)))
-
-  (inline)
-  (declare take-mvar-masked (Threads :rt :t :m => MVar :a -> :m :a))
-  (define (take-mvar-masked mvar)
-    "Take a value from an MVar, blocking until one is available.
-
-Concurrent:
-  - WARNING: Leaves the thread masked when returns to protect caller's critical regions
-    based on consuming and restoring MVar to a valid state. See MChan for an example.
-  - Blocks while the MVar is empty
-  - Read-consumers (including `take-mvar-masked`) are woken individual on succesfull puts,
-    in order of acquisition
-  - On succesful take, one blocking writer is woken in order of acquisition"
-    (take-mvar-masked-with NoTimeout mvar))
+      (take-mvar-masked-inner% timeout mvar rt-prx)))
 
   (inline)
   (declare take-mvar (Threads :rt :t :m

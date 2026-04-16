@@ -10,7 +10,6 @@
    #:new-mvar
    #:new-empty-mvar
    #:take-mvar-masked
-   #:take-mvar-masked-with
    #:take-mvar
    #:put-mvar
    #:put-mvar-with
