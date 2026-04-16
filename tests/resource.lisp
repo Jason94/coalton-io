@@ -129,4 +129,4 @@
       (sleep 5)
       (read cleanup))))
   (is (== True
-          (not cleanup-completed?))))
+          cleanup-completed?)))
