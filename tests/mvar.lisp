@@ -49,6 +49,15 @@
         (take-mvar mv))))
   (is (== 10 result)))
 
+(define-test test-take-with-timeout ()
+  (let result =
+    (the (Optional Boolean)
+         (run-io!
+          (do
+           (mv <- new-empty-mvar)
+           (try-all (take-mvar mv :timeout (Timeout 1)))))))
+  (is (== None result)))
+
 (define-test test-mvar-try-take-initial-value ()
   (let result =
     (run-io!
@@ -579,23 +588,6 @@
 ;;;
 ;;; Test the "-with" timeout functions
 ;;;
-
-(define-test test-take-with-happy-path ()
-  (let result =
-    (run-io!
-     (do
-      (mv <- (new-mvar True))
-      (take-mvar-with (Timeout 1) mv))))
-  (is (== True result)))
-
-(define-test test-take-with-timeout ()
-  (let result =
-    (the (Optional Boolean)
-         (run-io!
-          (do
-           (mv <- new-empty-mvar)
-           (try-all (take-mvar-with (Timeout 1) mv))))))
-  (is (== None result)))
 
 (define-test test-put-with-happy-path ()
   (let result =

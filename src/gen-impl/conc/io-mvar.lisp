@@ -30,7 +30,6 @@
    #:take-mvar-masked
    #:take-mvar-masked-with
    #:take-mvar
-   #:take-mvar-with
    #:put-mvar
    #:put-mvar-with
    #:try-take-mvar
@@ -160,9 +159,11 @@ Concurrent:
     (take-mvar-masked-with NoTimeout mvar))
 
   (inline)
-  (declare take-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a -> :m :a))
-  (define (take-mvar-with strategy mvar)
-    "Take a value from an MVar, blocking until one is available.
+  (declare take-mvar (Threads :rt :t :m
+                      => MVar :a &key (:timeout TimeoutStrategy)
+                      -> :m :a))
+  (define (take-mvar mvar &key (timeout NoTimeout))
+    "Take a value from an MVar, blocking until one is available. Can specify a timeout.
 
 Concurrent:
   - Blocks while the MVar is empty
@@ -173,21 +174,9 @@ Concurrent:
     ;; Inherits CONCURRENT semantics from take-mvar-masked-inner%.
     ;; unmasks from take-mvar-masked-inner% before returning to caller.
     (wrap-io-with-runtime (rt-prx)
-      (let result = (take-mvar-masked-inner% strategy mvar rt-prx))
+      (let result = (take-mvar-masked-inner% timeout mvar rt-prx))
       (unmask-current! rt-prx)
       result))
-
-  (inline)
-  (declare take-mvar (Threads :rt :t :m => MVar :a -> :m :a))
-  (define (take-mvar mvar)
-    "Take a value from an MVar, blocking until one is available.
-
-Concurrent:
-  - Blocks while the MVar is empty
-  - Read-consumers (including `take-mvar`) are woken individual on succesful puts,
-    in order of acquisition
-  - On succesful take, one blocking writer is woken in order of acquisition"
-    (take-mvar-with NoTimeout mvar))
 
   (declare put-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a * :a -> :m Unit))
   (define (put-mvar-with strategy mvar val)
@@ -541,7 +530,7 @@ Concurrent:
     "Pop the front value in CHAN. Blocks while CHAN is empty."
     (do
      (old-head-var <- (take-mvar-masked (.head-var chan))) ;; Masks the thread after this returns
-     ((ChanNode% val new-head-var) <- (take-mvar-with strategy old-head-var))
+     ((ChanNode% val new-head-var) <- (take-mvar old-head-var :timeout strategy))
      (put-mvar (.head-var chan) new-head-var)
      unmask-current-thread ;; Cleanup after take-mvar-masked
      (pure val)))
