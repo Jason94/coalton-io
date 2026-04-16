@@ -16,7 +16,6 @@
    #:try-take-mvar-masked
    #:try-put-mvar
    #:read-mvar
-   #:read-mvar-with
    #:try-read-mvar
    #:swap-mvar
    #:swap-mvar-with

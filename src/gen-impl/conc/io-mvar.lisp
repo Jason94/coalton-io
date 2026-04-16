@@ -34,7 +34,6 @@
    #:try-take-mvar-masked
    #:try-put-mvar
    #:read-mvar
-   #:read-mvar-with
    #:try-read-mvar
    #:swap-mvar
    #:swap-mvar-with
@@ -316,9 +315,12 @@ Concurrent:
             (unmask-current! rt-prx)
             True))))))
 
-  (declare read-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a -> :m :a))
-  (define (read-mvar-with strategy mvar)
+  (declare read-mvar (Threads :rt :t :m
+                      => MVar :a &key (:timeout TimeoutStrategy)
+                      -> :m :a))
+  (define (read-mvar mvar &key (timeout NoTimeout))
     "Read a value from an MVar, blocking until one is available. Does not consume value.
+Can specify a timeout.
 
 Concurrent:
   - Blocks while the MVar is empty
@@ -332,17 +334,7 @@ Concurrent:
         ((Some x)
          x)
         ((None)
-         (subscribe-with rt-prx strategy (.read-broadcast-pool mvar))))))
-
-  (declare read-mvar (Threads :rt :t :m => MVar :a -> :m :a))
-  (define (read-mvar mvar)
-    "Read a value from an MVar, blocking until one is available. Does not consume value.
-
-Concurrent:
-  - Blocks while the MVar is empty
-  - Blocking read-non-consumers (including `read-mvar`) are woken simultaneously on
-    succesful put. Data is handed directly to woken readers, which don't contend on mvar."
-    (read-mvar-with NoTimeout mvar))
+         (subscribe-with rt-prx timeout (.read-broadcast-pool mvar))))))
 
   (declare try-read-mvar (Threads :rt :t :m => MVar :a -> :m (Optional :a)))
   (define (try-read-mvar mvar)

@@ -31,6 +31,15 @@
         (read-mvar mv))))
   (is (== 10 result)))
 
+(define-test test-read-with-timeout ()
+  (let result =
+    (the (Optional Boolean)
+         (run-io!
+          (do
+           (mv <- new-empty-mvar)
+           (try-all (read-mvar mv :timeout (Timeout 1)))))))
+  (is (== None result)))
+
 (define-test test-mvar-subsequent-read ()
   (let result =
     (run-io!
@@ -596,23 +605,6 @@
 ;;;
 ;;; Test the "-with" timeout functions
 ;;;
-
-(define-test test-read-with-happy-path ()
-  (let result =
-    (run-io!
-     (do
-      (mv <- (new-mvar True))
-      (read-mvar-with (Timeout 1) mv))))
-  (is (== True result)))
-
-(define-test test-read-with-timeout ()
-  (let result =
-    (the (Optional Boolean)
-         (run-io!
-          (do
-           (mv <- new-empty-mvar)
-           (try-all (read-mvar-with (Timeout 1) mv))))))
-  (is (== None result)))
 
 (define-test test-swap-with-happy-path ()
   (let result =
