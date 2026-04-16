@@ -126,7 +126,7 @@
       ;; Ensure the computation has started before stopping it
       (s-await start-gate)
       (stop-thread thread)
-      (sleep 5)
+      (s-await cleanup-done-gate)
       (read cleanup))))
   (is (== True
           cleanup-completed?)))

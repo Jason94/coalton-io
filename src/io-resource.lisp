@@ -87,6 +87,10 @@ Concurrent:
     (do
      mask-current-thread
      (resource <- acquire-op)
+     ;; TODO: Standard exception handling functions like reraise should NOT
+     ;; catch/handle thread stops. Change reraise to ignore thread stops,
+     ;; and add a specific function to the Threads class to implement this
+     ;; behavior - on-stop, or something.
      (reraise
       (do
        unmask-current-thread
