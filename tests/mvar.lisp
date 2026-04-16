@@ -86,6 +86,14 @@
   (is (== (Tuple True 10)
           result)))
 
+(define-test test-put-with-timeout ()
+  (let result =
+    (run-io!
+     (do
+      (mv <- (new-mvar False))
+      (try-all (put-mvar mv True :timeout (Timeout 1))))))
+  (is (== None result)))
+
 (define-test test-mvar-try-put-full ()
   (let result =
     (run-io!
@@ -588,23 +596,6 @@
 ;;;
 ;;; Test the "-with" timeout functions
 ;;;
-
-(define-test test-put-with-happy-path ()
-  (let result =
-    (run-io!
-     (do
-      (mv <- new-empty-mvar)
-      (put-mvar-with (Timeout 1) mv True)
-      (read-mvar mv))))
-  (is (== True result)))
-
-(define-test test-put-with-timeout ()
-  (let result =
-    (run-io!
-     (do
-      (mv <- (new-mvar False))
-      (try-all (put-mvar-with (Timeout 1) mv True)))))
-  (is (== None result)))
 
 (define-test test-read-with-happy-path ()
   (let result =

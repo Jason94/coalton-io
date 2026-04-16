@@ -12,7 +12,6 @@
    #:take-mvar-masked
    #:take-mvar
    #:put-mvar
-   #:put-mvar-with
    #:try-take-mvar
    #:try-take-mvar-masked
    #:try-put-mvar

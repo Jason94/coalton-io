@@ -30,7 +30,6 @@
    #:take-mvar-masked
    #:take-mvar
    #:put-mvar
-   #:put-mvar-with
    #:try-take-mvar
    #:try-take-mvar-masked
    #:try-put-mvar
@@ -165,9 +164,11 @@ Concurrent:
       (unmask-current! rt-prx)
       result))
 
-  (declare put-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a * :a -> :m Unit))
-  (define (put-mvar-with strategy mvar val)
-    "Fill an empty MVar, blocking until it becomes empty.
+  (declare put-mvar (Threads :rt :t :m
+                     => MVar :a * :a &key (:timeout TimeoutStrategy)
+                     -> :m Unit))
+  (define (put-mvar mvar val &key (timeout NoTimeout))
+    "Fill an empty MVar, blocking until it becomes empty. Can specify a timeout.
 
 Concurrent:
   - Blocks while the MVar is full
@@ -192,7 +193,7 @@ Concurrent:
       (let lock = (.lock mvar))
       (let data = (.data mvar))
       (mask-current! rt-prx)
-      (lk-acquire-with lock strategy)
+      (lk-acquire-with lock timeout)
       (let ((lp (fn ()
                   (match (at:read data)
                     ((None)
@@ -205,7 +206,7 @@ Concurrent:
                     ((Some _)
                      (unmask-and-await-safely-finally-with%
                       rt-prx
-                      strategy
+                      timeout
                       (.notify-empty mvar)
                       lock
                       (fn ()
@@ -213,20 +214,6 @@ Concurrent:
                         (values)))
                      (lp))))))
         (lp))))
-
-  (inline)
-  (declare put-mvar (Threads :rt :t :m => MVar :a * :a -> :m Unit))
-  (define (put-mvar mvar val)
-    "Fill an empty MVar, blocking until it becomes empty.
-
-Concurrent:
-  - Blocks while the MVar is full
-  - Writers (including `put-mvar`) are woken individual on succesful takes in order
-    of acquisition
-  - On succesful put, blocking read-consumers are woken individually in order of acquisition
-  - On succesful put, all blocking read-non-consumers are woken simultaneously. New data
-    is handed directly to woken read-non-consumers so they don't contend on the MVar."
-    (put-mvar-with NoTimeout mvar val))
 
   (declare try-take-mvar-masked-inner%-with
            (Runtime :rt :t => TimeoutStrategy * MVar :a * Proxy :rt -> Optional :a))
