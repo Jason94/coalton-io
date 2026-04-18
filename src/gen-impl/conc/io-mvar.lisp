@@ -20,7 +20,6 @@
    (:opt #:coalton-library/optional)
    (:at #:io/threads-impl/atomics)
    (:bt #:io/utilities/bt-compat)
-
    )
   (:export
    #:MVar
@@ -28,19 +27,14 @@
    #:new-mvar
    #:new-empty-mvar
    #:take-mvar-masked
-   #:take-mvar-masked-with
    #:take-mvar
-   #:take-mvar-with
    #:put-mvar
-   #:put-mvar-with
    #:try-take-mvar
    #:try-take-mvar-masked
    #:try-put-mvar
    #:read-mvar
-   #:read-mvar-with
    #:try-read-mvar
    #:swap-mvar
-   #:swap-mvar-with
    #:is-empty-mvar
    #:with-mvar
 
@@ -48,7 +42,6 @@
    #:new-empty-chan
    #:push-chan
    #:pop-chan
-   #:pop-chan-with
    #:try-pop-chan
    ))
 (in-package :io/gen-impl/conc/mvar)
@@ -130,9 +123,11 @@ deadlocks and other race conditions."
       (lp)))
 
   (inline)
-  (declare take-mvar-masked-with (Threads :rt :t :m => TimeoutStrategy * MVar :a -> :m :a))
-  (define (take-mvar-masked-with strategy mvar)
-    "Take a value from an MVar, blocking until one is available.
+  (declare take-mvar-masked (Threads :rt :t :m
+                             => MVar :a &key (:timeout TimeoutStrategy)
+                             -> :m :a))
+  (define (take-mvar-masked mvar &key (timeout NoTimeout))
+    "Take a value from an MVar, blocking until one is available. Can specify a timeout.
 
 Concurrent:
   - WARNING: Leaves the thread masked when returns to protect caller's critical regions
@@ -143,26 +138,14 @@ Concurrent:
   - On succesful take, one blocking writer is woken in order of acquisition"
     ;; CONCURRENT: Inherits CONCURRENT semantics from take-mvar-masked-inner%
     (wrap-io-with-runtime (rt-prx)
-      (take-mvar-masked-inner% strategy mvar rt-prx)))
+      (take-mvar-masked-inner% timeout mvar rt-prx)))
 
   (inline)
-  (declare take-mvar-masked (Threads :rt :t :m => MVar :a -> :m :a))
-  (define (take-mvar-masked mvar)
-    "Take a value from an MVar, blocking until one is available.
-
-Concurrent:
-  - WARNING: Leaves the thread masked when returns to protect caller's critical regions
-    based on consuming and restoring MVar to a valid state. See MChan for an example.
-  - Blocks while the MVar is empty
-  - Read-consumers (including `take-mvar-masked`) are woken individual on succesfull puts,
-    in order of acquisition
-  - On succesful take, one blocking writer is woken in order of acquisition"
-    (take-mvar-masked-with NoTimeout mvar))
-
-  (inline)
-  (declare take-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a -> :m :a))
-  (define (take-mvar-with strategy mvar)
-    "Take a value from an MVar, blocking until one is available.
+  (declare take-mvar (Threads :rt :t :m
+                      => MVar :a &key (:timeout TimeoutStrategy)
+                      -> :m :a))
+  (define (take-mvar mvar &key (timeout NoTimeout))
+    "Take a value from an MVar, blocking until one is available. Can specify a timeout.
 
 Concurrent:
   - Blocks while the MVar is empty
@@ -173,25 +156,15 @@ Concurrent:
     ;; Inherits CONCURRENT semantics from take-mvar-masked-inner%.
     ;; unmasks from take-mvar-masked-inner% before returning to caller.
     (wrap-io-with-runtime (rt-prx)
-      (let result = (take-mvar-masked-inner% strategy mvar rt-prx))
+      (let result = (take-mvar-masked-inner% timeout mvar rt-prx))
       (unmask-current! rt-prx)
       result))
 
-  (inline)
-  (declare take-mvar (Threads :rt :t :m => MVar :a -> :m :a))
-  (define (take-mvar mvar)
-    "Take a value from an MVar, blocking until one is available.
-
-Concurrent:
-  - Blocks while the MVar is empty
-  - Read-consumers (including `take-mvar`) are woken individual on succesful puts,
-    in order of acquisition
-  - On succesful take, one blocking writer is woken in order of acquisition"
-    (take-mvar-with NoTimeout mvar))
-
-  (declare put-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a * :a -> :m Unit))
-  (define (put-mvar-with strategy mvar val)
-    "Fill an empty MVar, blocking until it becomes empty.
+  (declare put-mvar (Threads :rt :t :m
+                     => MVar :a * :a &key (:timeout TimeoutStrategy)
+                     -> :m Unit))
+  (define (put-mvar mvar val &key (timeout NoTimeout))
+    "Fill an empty MVar, blocking until it becomes empty. Can specify a timeout.
 
 Concurrent:
   - Blocks while the MVar is full
@@ -216,7 +189,7 @@ Concurrent:
       (let lock = (.lock mvar))
       (let data = (.data mvar))
       (mask-current! rt-prx)
-      (lk-acquire-with lock strategy)
+      (lk-acquire-with lock timeout)
       (let ((lp (fn ()
                   (match (at:read data)
                     ((None)
@@ -229,7 +202,7 @@ Concurrent:
                     ((Some _)
                      (unmask-and-await-safely-finally-with%
                       rt-prx
-                      strategy
+                      timeout
                       (.notify-empty mvar)
                       lock
                       (fn ()
@@ -237,20 +210,6 @@ Concurrent:
                         (values)))
                      (lp))))))
         (lp))))
-
-  (inline)
-  (declare put-mvar (Threads :rt :t :m => MVar :a * :a -> :m Unit))
-  (define (put-mvar mvar val)
-    "Fill an empty MVar, blocking until it becomes empty.
-
-Concurrent:
-  - Blocks while the MVar is full
-  - Writers (including `put-mvar`) are woken individual on succesful takes in order
-    of acquisition
-  - On succesful put, blocking read-consumers are woken individually in order of acquisition
-  - On succesful put, all blocking read-non-consumers are woken simultaneously. New data
-    is handed directly to woken read-non-consumers so they don't contend on the MVar."
-    (put-mvar-with NoTimeout mvar val))
 
   (declare try-take-mvar-masked-inner%-with
            (Runtime :rt :t => TimeoutStrategy * MVar :a * Proxy :rt -> Optional :a))
@@ -353,9 +312,12 @@ Concurrent:
             (unmask-current! rt-prx)
             True))))))
 
-  (declare read-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a -> :m :a))
-  (define (read-mvar-with strategy mvar)
+  (declare read-mvar (Threads :rt :t :m
+                      => MVar :a &key (:timeout TimeoutStrategy)
+                      -> :m :a))
+  (define (read-mvar mvar &key (timeout NoTimeout))
     "Read a value from an MVar, blocking until one is available. Does not consume value.
+Can specify a timeout.
 
 Concurrent:
   - Blocks while the MVar is empty
@@ -369,17 +331,7 @@ Concurrent:
         ((Some x)
          x)
         ((None)
-         (subscribe-with rt-prx strategy (.read-broadcast-pool mvar))))))
-
-  (declare read-mvar (Threads :rt :t :m => MVar :a -> :m :a))
-  (define (read-mvar mvar)
-    "Read a value from an MVar, blocking until one is available. Does not consume value.
-
-Concurrent:
-  - Blocks while the MVar is empty
-  - Blocking read-non-consumers (including `read-mvar`) are woken simultaneously on
-    succesful put. Data is handed directly to woken readers, which don't contend on mvar."
-    (read-mvar-with NoTimeout mvar))
+         (subscribe-with rt-prx timeout (.read-broadcast-pool mvar))))))
 
   (declare try-read-mvar (Threads :rt :t :m => MVar :a -> :m (Optional :a)))
   (define (try-read-mvar mvar)
@@ -387,9 +339,12 @@ Concurrent:
     (wrap-io
       (at:read (.data mvar))))
 
-  (declare swap-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a * :a -> :m :a))
-  (define (swap-mvar-with strategy mvar new-val)
-    "Atomically replace the value in an MVar and return the old value.
+  (declare swap-mvar (Threads :rt :t :m
+                      => MVar :a * :a &key (:timeout TimeoutStrategy)
+                      -> :m :a))
+  (define (swap-mvar mvar new-val &key (timeout NoTimeout))
+    "Atomically replace the value in an MVar and return the old value. Can specify an
+optional timeout.
 
 Concurrent:
   - Blocks while the MVar is empty
@@ -406,7 +361,7 @@ Concurrent:
     ;;   to prevent lost handoff.
     (wrap-io-with-runtime (rt-prx)
       (mask-current! rt-prx)
-      (lk-acquire-with (.lock mvar) strategy)
+      (lk-acquire-with (.lock mvar) timeout)
       (let ((lp (fn ()
                   (match (at:read (.data mvar))
                     ((Some old-val)
@@ -418,7 +373,7 @@ Concurrent:
                     ((None)
                      (unmask-and-await-safely-finally-with%
                       rt-prx
-                      strategy
+                      timeout
                       (.notify-full mvar)
                       (.lock mvar)
                       (fn ()
@@ -426,16 +381,6 @@ Concurrent:
                         (values)))
                      (lp))))))
         (lp))))
-
-  (inline)
-  (declare swap-mvar (Threads :rt :t :m => MVar :a * :a -> :m :a))
-  (define (swap-mvar mvar new-val)
-    "Atomically replace the value in an MVar and return the old value.
-
-Concurrent:
-  - Blocks while the MVar is empty
-  - Wakes the next blocking read-consumer when `swap-mvar` completes"
-    (swap-mvar-with NoTimeout mvar new-val))
 
   (inline)
   (declare is-empty-mvar (Threads :rt :t :m => MVar :a -> :m Boolean))
@@ -530,18 +475,14 @@ Concurrent:
      (put-mvar (.tail-var chan) new-tail-var)
      unmask-current-thread)) ;; Cleanup after take-mvar-masked
 
-  (inline)
-  (declare pop-chan (Threads :rt :t :m => MChan :a -> :m :a))
-  (define (pop-chan chan)
-    "Pop the front value in CHAN. Blocks while CHAN is empty."
-    (pop-chan-with NoTimeout chan))
-
-  (declare pop-chan-with (Threads :rt :t :m => TimeoutStrategy * MChan :a -> :m :a))
-  (define (pop-chan-with strategy chan)
-    "Pop the front value in CHAN. Blocks while CHAN is empty."
+  (declare pop-chan (Threads :rt :t :m
+                          => MChan :a &key (:timeout TimeoutStrategy)
+                          -> :m :a))
+  (define (pop-chan chan &key (timeout NoTimeout))
+    "Pop the front value in CHAN. Blocks while CHAN is empty. Can specify a timeout."
     (do
      (old-head-var <- (take-mvar-masked (.head-var chan))) ;; Masks the thread after this returns
-     ((ChanNode% val new-head-var) <- (take-mvar-with strategy old-head-var))
+     ((ChanNode% val new-head-var) <- (take-mvar old-head-var :timeout timeout))
      (put-mvar (.head-var chan) new-head-var)
      unmask-current-thread ;; Cleanup after take-mvar-masked
      (pure val)))
