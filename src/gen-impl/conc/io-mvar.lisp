@@ -20,7 +20,6 @@
    (:opt #:coalton-library/optional)
    (:at #:io/threads-impl/atomics)
    (:bt #:io/utilities/bt-compat)
-
    )
   (:export
    #:MVar
@@ -36,7 +35,6 @@
    #:read-mvar
    #:try-read-mvar
    #:swap-mvar
-   #:swap-mvar-with
    #:is-empty-mvar
    #:with-mvar
 
@@ -342,9 +340,12 @@ Concurrent:
     (wrap-io
       (at:read (.data mvar))))
 
-  (declare swap-mvar-with (Threads :rt :t :m => TimeoutStrategy * MVar :a * :a -> :m :a))
-  (define (swap-mvar-with strategy mvar new-val)
-    "Atomically replace the value in an MVar and return the old value.
+  (declare swap-mvar (Threads :rt :t :m
+                      => MVar :a * :a &key (:timeout TimeoutStrategy)
+                      -> :m :a))
+  (define (swap-mvar mvar new-val &key (timeout NoTimeout))
+    "Atomically replace the value in an MVar and return the old value. Can specify an
+optional timeout.
 
 Concurrent:
   - Blocks while the MVar is empty
@@ -361,7 +362,7 @@ Concurrent:
     ;;   to prevent lost handoff.
     (wrap-io-with-runtime (rt-prx)
       (mask-current! rt-prx)
-      (lk-acquire-with (.lock mvar) strategy)
+      (lk-acquire-with (.lock mvar) timeout)
       (let ((lp (fn ()
                   (match (at:read (.data mvar))
                     ((Some old-val)
@@ -373,7 +374,7 @@ Concurrent:
                     ((None)
                      (unmask-and-await-safely-finally-with%
                       rt-prx
-                      strategy
+                      timeout
                       (.notify-full mvar)
                       (.lock mvar)
                       (fn ()
@@ -381,16 +382,6 @@ Concurrent:
                         (values)))
                      (lp))))))
         (lp))))
-
-  (inline)
-  (declare swap-mvar (Threads :rt :t :m => MVar :a * :a -> :m :a))
-  (define (swap-mvar mvar new-val)
-    "Atomically replace the value in an MVar and return the old value.
-
-Concurrent:
-  - Blocks while the MVar is empty
-  - Wakes the next blocking read-consumer when `swap-mvar` completes"
-    (swap-mvar-with NoTimeout mvar new-val))
 
   (inline)
   (declare is-empty-mvar (Threads :rt :t :m => MVar :a -> :m Boolean))

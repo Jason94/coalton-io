@@ -150,6 +150,15 @@
       (pure (Tuple old new)))))
   (is (== (Tuple 10 -10) result)))
 
+(define-test test-swap-with-timeout ()
+  (let result =
+    (the (Optional Boolean)
+         (run-io!
+          (do
+           (mv <- new-empty-mvar)
+           (try-all (swap-mvar mv False :timeout (Timeout 1)))))))
+  (is (== None result)))
+
 (define-test test-with-mvar ()
   (let result =
     (run-io!
@@ -601,24 +610,3 @@
       (s-signal s-stopped)
       (take-mvar result))))
   (is (== (Some True) result)))
-
-;;;
-;;; Test the "-with" timeout functions
-;;;
-
-(define-test test-swap-with-happy-path ()
-  (let result =
-    (run-io!
-     (do
-      (mv <- (new-mvar True))
-      (swap-mvar-with (Timeout 1) mv False))))
-  (is (== True result)))
-
-(define-test test-swap-with-timeout ()
-  (let result =
-    (the (Optional Boolean)
-         (run-io!
-          (do
-           (mv <- new-empty-mvar)
-           (try-all (swap-mvar-with (Timeout 1) mv False))))))
-  (is (== None result)))

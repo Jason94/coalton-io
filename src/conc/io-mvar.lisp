@@ -18,7 +18,6 @@
    #:read-mvar
    #:try-read-mvar
    #:swap-mvar
-   #:swap-mvar-with
    #:is-empty-mvar
    #:do-with-mvar
 
