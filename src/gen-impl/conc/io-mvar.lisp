@@ -42,7 +42,6 @@
    #:new-empty-chan
    #:push-chan
    #:pop-chan
-   #:pop-chan-with
    #:try-pop-chan
    ))
 (in-package :io/gen-impl/conc/mvar)
@@ -476,18 +475,14 @@ Concurrent:
      (put-mvar (.tail-var chan) new-tail-var)
      unmask-current-thread)) ;; Cleanup after take-mvar-masked
 
-  (inline)
-  (declare pop-chan (Threads :rt :t :m => MChan :a -> :m :a))
-  (define (pop-chan chan)
-    "Pop the front value in CHAN. Blocks while CHAN is empty."
-    (pop-chan-with NoTimeout chan))
-
-  (declare pop-chan-with (Threads :rt :t :m => TimeoutStrategy * MChan :a -> :m :a))
-  (define (pop-chan-with strategy chan)
-    "Pop the front value in CHAN. Blocks while CHAN is empty."
+  (declare pop-chan (Threads :rt :t :m
+                          => MChan :a &key (:timeout TimeoutStrategy)
+                          -> :m :a))
+  (define (pop-chan chan &key (timeout NoTimeout))
+    "Pop the front value in CHAN. Blocks while CHAN is empty. Can specify a timeout."
     (do
      (old-head-var <- (take-mvar-masked (.head-var chan))) ;; Masks the thread after this returns
-     ((ChanNode% val new-head-var) <- (take-mvar old-head-var :timeout strategy))
+     ((ChanNode% val new-head-var) <- (take-mvar old-head-var :timeout timeout))
      (put-mvar (.head-var chan) new-head-var)
      unmask-current-thread ;; Cleanup after take-mvar-masked
      (pure val)))
