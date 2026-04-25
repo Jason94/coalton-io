@@ -214,7 +214,7 @@ Coalton exceptions via `define-exception`."
                                  (fn ()
                                    (lisp (-> :a) ()
                                      (cl:error e))
-                                   Unit))))
+                                   (values)))))
             (Err (UnhandledError e throw-thunk)))))))
 
   (inline)
