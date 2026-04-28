@@ -40,7 +40,7 @@
   (is (== 1 a))
   (is (== 4 b)))
 
-(define-test test-enqueue-with-timeout ()
+(define-test test-enqueue-timeout ()
   (let result =
     (run-io!
      (do
@@ -48,5 +48,16 @@
       (enqueue 1 buffer)
       (enqueue 2 buffer)
       (try-all
-       (enqueue-with 100 (Timeout 1) buffer)))))
+       (enqueue 100 buffer :timeout (Timeout 1))))))
+  (is (== None result)))
+
+
+(define-test test-dequeue-timeout ()
+  (let result =
+    (run-io!
+     (do
+      (buffer <- (the (IO (RingBuffer Integer))
+                      (new-ring-buffer 2)))
+      (try-all
+       (dequeue buffer :timeout (Timeout 1))))))
   (is (== None result)))

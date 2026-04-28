@@ -29,7 +29,7 @@
      (do
       (gate <- s-new)
       (thread <-
-        (do-fork-thread-with_ (ForkStrategy LogAndSwallow Detached)
+        (do-fork-thread_ :scope Detached
           (s-await gate)
           (wrap-io (c:write! thread-finished? True))))
       (pure (Tuple thread gate)))))
@@ -45,7 +45,7 @@
       (result <- (new-var False))
       (do-fork-thread_
         (parent <- current-thread)
-        (do-fork-thread-with_ (ForkStrategy LogAndSwallow Detached)
+        (do-fork-thread_ :scope Detached
           ;; Wait for the parent to end
           (await parent)
           ;; Signal the child completed successfully
@@ -66,7 +66,7 @@
         (do
          (do-fork-thread_
            (parent <- current-thread)
-           (do-fork-thread-with_ (ForkStrategy LogAndSwallow Detached)
+           (do-fork-thread_ :scope Detached
              ;; Wait for the parent to end
              (await parent)
              ;; Signal the child completed successfully
@@ -87,7 +87,7 @@
         (do-fork-thread_
           (parent <- current-thread)
           (child-thread <-
-            (do-fork-thread-with_ (ForkStrategy LogAndSwallow Structured)
+            (do-fork-thread_ :scope Structured
               ;; Wait for the parent to end - this should never complete!
               (await parent)
               ;; Signal the child completed successfully

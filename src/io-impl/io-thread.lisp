@@ -14,9 +14,7 @@
    )
   (:export
    #:fork-thread_
-   #:fork-thread-with_
    #:do-fork-thread_
-   #:do-fork-thread-with_
    #:unmask-thread-finally_
    #:unmask-finally_
    #:park-current-thread-if_
@@ -29,13 +27,14 @@
 
   (inline)
   (declare fork-thread_ ((Threads IoRuntime IoThread :m) (LiftTo IO :m)
-                  => IO :a -> :m IoThread))
-  (define fork-thread_ fork-thread)
-
-  (inline)
-  (declare fork-thread-with_ ((Threads IoRuntime IoThread :m) (LiftTo IO :m)
-                  => ForkStrategy IoThread * IO :a -> :m IoThread))
-  (define fork-thread-with_ fork-thread-with)
+                         => IO :a
+                         &key
+                         (:unhandled UnhandledExceptionStrategy)
+                         (:scope (ForkScope IoThread))
+                         -> :m IoThread))
+  (define (fork-thread_ op &key (unhandled LogAndSwallow) (scope Structured))
+    "Spawn a new IoThread. Can specify an unhandled exception strategy and fork scope."
+    (fork-thread op :unhandled unhandled :scope scope))
 
   (inline)
   (declare unmask-thread-finally_ ((LiftTo IO :m) (Exceptions :m)
@@ -51,12 +50,14 @@
 
   (inline)
   (declare park-current-thread-if_ (MonadIo :m
-                                    => (Generation -> IO Unit) * IO Boolean -> :m Unit))
+                                    => (Generation -> IO Unit) * IO Boolean
+                                    &key (:timeout TimeoutStrategy)
+                                    -> :m Unit))
   (define park-current-thread-if_
     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
 SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
-park, *not* if it should resume.
+park, *not* if it should resume. Can specify a timeout.
 
 Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
@@ -65,12 +66,23 @@ Concurrent:
     park-current-thread-if)
   )
 
-(defmacro do-fork-thread_ (cl:&body body)
-  `(fork-thread_
-    (do
-     ,@body)))
+(cl:defun parse-fork-keywords_% (forms)
+  (cl:let ((unhandled 'LogAndSwallow)
+           (scope 'Structured))
+    (cl:loop :while (cl:and forms (cl:keywordp (cl:first forms)))
+             :do (cl:let ((key (cl:pop forms)))
+                   (cl:unless forms
+                     (cl:error "Missing value for ~S in DO-FORK-THREAD_" key))
+                   (cl:ecase key
+                     (:unhandled (cl:setf unhandled (cl:pop forms)))
+                     (:scope (cl:setf scope (cl:pop forms))))))
+    (cl:values unhandled scope forms)))
 
-(defmacro do-fork-thread-with_ (strategy cl:&body body)
-  `(fork-thread-with_ ,strategy
-    (do
-     ,@body)))
+(defmacro do-fork-thread_ (cl:&body forms)
+  (cl:multiple-value-bind (unhandled scope body)
+      (parse-fork-keywords_% forms)
+    `(fork-thread_
+      (do
+       ,@body)
+      :unhandled ,unhandled
+      :scope ,scope)))

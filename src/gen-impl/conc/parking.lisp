@@ -16,9 +16,7 @@
    #:ParkingSet
    #:new-parking-set
    #:park-in-sets-if
-   #:park-in-sets-if-with
    #:park-in-set-if
-   #:park-in-set-if-with
    #:unpark-set
 
    ;; Library Private
@@ -73,7 +71,7 @@ Concurrent:
                                   * List ParkingSet
                                   -> Void))
   (define (park-in-sets-if-with% rt-prx should-park? strategy psets)
-    (park-current-thread-if-with!
+    (park-current-thread-if!
      rt-prx
      (fn (gen)
        (let parked-thread = (current-thread! rt-prx))
@@ -83,7 +81,7 @@ Concurrent:
          (at:atomic-push (get-set% pset) unpark-action))
        (values))
      should-park?
-     strategy))
+     :timeout strategy))
 
   (inline)
   (declare park-in-sets-if% (Runtime :rt :t
@@ -99,7 +97,7 @@ Concurrent:
                                  * ParkingSet
                                  -> Void))
   (define (park-in-set-if-with% rt-prx should-park? strategy pset)
-    (park-current-thread-if-with!
+    (park-current-thread-if!
      rt-prx
      (fn (gen)
        (let parked-thread = (current-thread! rt-prx))
@@ -108,6 +106,7 @@ Concurrent:
        (at:atomic-push (get-set% pset) unpark-action)
        (values))
      should-park?
+     :timeout
      strategy))
 
   (inline)
@@ -117,19 +116,21 @@ Concurrent:
     (park-in-set-if-with% rt-prx should-park? NoTimeout pset))
 
   (inline)
-  (declare park-in-sets-if-with ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                                 => :io Boolean * TimeoutStrategy * List ParkingSet -> :m Unit))
-  (define (park-in-sets-if-with should-park? strategy psets)
+  (declare park-in-sets-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
+                             => :io Boolean * List ParkingSet
+                             &key (:timeout TimeoutStrategy)
+                             -> :m Unit))
+  (define (park-in-sets-if should-park? psets &key (timeout NoTimeout))
     "Parks the current thread in PSETS if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
 if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
-park, *not* if it should resume.
+park, *not* if it should resume. Can specify a timeout.
 
 Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
   - Can briefly block while trying to park the thread, if contended."
-    (park-current-thread-if-with
+    (park-current-thread-if
      (fn (gen)
        (wrap-io-with-runtime (rt-prx)
          ;; Need to set current-thread on parking thread, not on the unparking-thread!
@@ -140,37 +141,24 @@ Concurrent:
            (at:atomic-push (get-set% pset) unpark-action))
          Unit))
      should-park?
-     strategy))
+     :timeout timeout))
 
   (inline)
-  (declare park-in-sets-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                             => :io Boolean * List ParkingSet -> :m Unit))
-  (define (park-in-sets-if should-park? psets)
-    "Parks the current thread in PSETS if SHOULD-PARK? returns True. Will park the thread
-until woken by an unpark from another thread. Upon an unpark, the thread will resume even
-if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
-park, *not* if it should resume.
-
-Concurrent:
-  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
-    state.
-  - Can briefly block while trying to park the thread, if contended."
-    (park-in-sets-if-with should-park? NoTimeout psets))
-
-  (inline)
-  (declare park-in-set-if-with ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                                => :io Boolean * TimeoutStrategy * ParkingSet -> :m Unit))
-  (define (park-in-set-if-with should-park? strategy pset)
+  (declare park-in-set-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
+                           => :io Boolean * ParkingSet
+                           &key (:timeout TimeoutStrategy)
+                           -> :m Unit))
+  (define (park-in-set-if should-park? pset &key (timeout NoTimeout))
     "Parks the current thread in PSET if SHOULD-PARK? returns True. Will park the thread
 until woken by an unpark from another thread. Upon an unpark, the thread will resume even
 if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
-park, *not* if it should resume.
+park, *not* if it should resume. Can specify a timeout.
 
 Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
   - Can briefly block while trying to park the thread, if contended."
-    (park-current-thread-if-with
+    (park-current-thread-if
      (fn (gen)
        (wrap-io-with-runtime (rt-prx)
          ;; Need to set current-thread on parking thread, not on the unparking-thread!
@@ -180,22 +168,7 @@ Concurrent:
          (at:atomic-push (get-set% pset) unpark-action)
          Unit))
      should-park?
-     strategy))
-
-  (inline)
-  (declare park-in-set-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                             => :io Boolean * ParkingSet -> :m Unit))
-  (define (park-in-set-if should-park? pset)
-    "Parks the current thread in PSET if SHOULD-PARK? returns True. Will park the thread
-until woken by an unpark from another thread. Upon an unpark, the thread will resume even
-if SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
-park, *not* if it should resume.
-
-Concurrent:
-  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
-    state.
-  - Can briefly block while trying to park the thread, if contended."
-    (park-in-set-if-with should-park? NoTimeout pset))
+     :timeout timeout))
 
   (inline)
   (declare unpark-set% (ParkingSet -> Void))

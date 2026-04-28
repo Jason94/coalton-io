@@ -50,7 +50,6 @@
    #:mask-current!
    #:unmask-current!
    #:park-current-thread-if!
-   #:park-current-thread-if-with!
    #:unpark-thread!
 
    #:Concurrent
@@ -63,7 +62,6 @@
    #:Threads
    #:derive-threads
    #:current-thread
-   #:fork-thread-with
    #:fork-thread
    #:join-thread
    #:sleep
@@ -74,10 +72,8 @@
    #:unmask-current-thread
    #:unmask-current-thread-finally
    #:stop-thread
-   #:do-fork-thread-with
    #:do-fork-thread
    #:park-current-thread-if
-   #:park-current-thread-if-with
    #:unpark-thread
 
    #:runtime-for
@@ -220,24 +216,15 @@ continuing."
      "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
 SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
-park, *not* if it should resume.
+park, *not* if it should resume. Can specify a timeout.
 
 Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
   - Can briefly block while trying to park the thread, if contended."
-     (Proxy :r * (Generation -> Void) * (Void -> Boolean) -> Void))
-    (park-current-thread-if-with!
-     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
-woken by an unpark from another thread. Upon an unpark, the thread will resume even if
-SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
-park, *not* if it should resume.
-
-Concurrent:
-  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
-    state.
-  - Can briefly block while trying to park the thread, if contended."
-     (Proxy :r * (Generation -> Void) * (Void -> Boolean) * TimeoutStrategy -> Void))
+     (Proxy :r * (Generation -> Void) * (Void -> Boolean)
+      &key (:timeout TimeoutStrategy)
+      -> Void))
     (unpark-thread!
      "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread
@@ -385,33 +372,27 @@ Assumes the output has type :m :a for some Threads :m. Returns Unit."
 ;;; put the implementations into gen-impl/io-thread
 (coalton-toplevel
   (inline)
-  (declare fork-thread-with ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :r)
-                             => ForkStrategy :t * :r :a -> :m :t))
-  (define (fork-thread-with strat op)
-    "Spawn a new thread using STRAT.
+  (declare fork-thread ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :r)
+                        => :r :a
+                        &key
+                        (:unhandled UnhandledExceptionStrategy)
+                        (:scope (ForkScope :t))
+                        -> :m :t))
+  (define (fork-thread op &key (unhandled LogAndSwallow) (scope Structured))
+    "Spawn a new thread, which starts running immediately. Returns
+the handle to the thread. Can specify an unhandled exception strategy and fork scope.
 
-This version can accept any underlying BaseIo, which can be useful, but
-causes inference issues in some cases."
+If the thread raises an unhandled exception, the default behavior is to log it to
+*ERROR-OUTPUT* and swallow it until/if the thread is joined. The default fork scope is
+structured."
     (lift-to
      (with-run-in-io
        (fn (run)
          (wrap-io
            (fork! (get-runtime-for op)
-                  strat
+                  (ForkStrategy unhandled scope)
                   (fn ()
                     (run-handled! (run op)))))))))
-
-  (inline)
-  (declare fork-thread ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :r)
-                        => :r :a -> :m :t))
-  (define (fork-thread op)
-    "Spawn a new thread, which starts running immediately. Returns
-the handle to the thread. If the thread raises an unhandled exception,
-it will be logged to *ERROR-OUTPUT* and swallowed, until/if the thread
-is joined.
-
-This is the default fork behavior: structured + log-and-swallow."
-    (fork-thread-with (ForkStrategy LogAndSwallow Structured) op))
 
   (inline)
   (declare join-thread ((Threads :rt :t :m) (Exceptions :m) => :t -> :m Unit))
@@ -544,12 +525,14 @@ the log file with a final message if the thread is continuing."
   ;; replace BaseIo here.
   (inline)
   (declare park-current-thread-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                                   => (Generation -> :io Unit) * :io Boolean -> :m Unit))
-  (define (park-current-thread-if with-gen should-park?)
+                                   => (Generation -> :io Unit) * :io Boolean
+                                   &key (:timeout TimeoutStrategy)
+                                   -> :m Unit))
+  (define (park-current-thread-if with-gen should-park? &key (timeout NoTimeout))
     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
 woken by an unpark from another thread. Upon an unpark, the thread will resume even if
 SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
-park, *not* if it should resume.
+park, *not* if it should resume. Can specify a timeout.
 
 Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
@@ -562,33 +545,8 @@ Concurrent:
                                  (run! (with-gen gen))
                                  (values))
                                (fn ()
-                                 (run! should-park?)))
-      Unit))
-
-  (inline)
-  (declare park-current-thread-if-with ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
-                                        => (Generation -> :io Unit)
-                                        * :io Boolean
-                                        * TimeoutStrategy
-                                        -> :m Unit))
-  (define (park-current-thread-if-with with-gen should-park? strategy)
-    "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
-woken by an unpark from another thread. Upon an unpark, the thread will resume even if
-SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
-park, *not* if it should resume.
-
-Concurrent:
-  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
-    state.
-  - Can briefly block while trying to park the thread, if contended."
-     (wrap-io
-      (let runtime-prx = (get-runtime-for should-park?))
-      (park-current-thread-if-with! runtime-prx
-                                    (fn (gen)
-                                      (run! (with-gen gen))
-                                      (values))
-                                    (fn () (run! should-park?))
-                                    strategy)
+                                 (run! should-park?))
+                               :timeout timeout)
       Unit))
 
   (inline)
@@ -603,15 +561,26 @@ Concurrent:
     (inject-runtime-unit unpark-thread! gen thread))
   )
 
-(defmacro do-fork-thread (cl:&body body)
-  `(fork-thread
-    (do
-     ,@body)))
+(cl:defun parse-fork-keywords% (forms)
+  (cl:let ((unhandled 'LogAndSwallow)
+           (scope 'Structured))
+    (cl:loop :while (cl:and forms (cl:keywordp (cl:first forms)))
+             :do (cl:let ((key (cl:pop forms)))
+                   (cl:unless forms
+                     (cl:error "Missing value for ~S in DO-FORK-THREAD" key))
+                   (cl:ecase key
+                     (:unhandled (cl:setf unhandled (cl:pop forms)))
+                     (:scope (cl:setf scope (cl:pop forms))))))
+    (cl:values unhandled scope forms)))
 
-(defmacro do-fork-thread-with (strategy cl:&body body)
-  `(fork-thread-with ,strategy
-    (do
-     ,@body)))
+(defmacro do-fork-thread (cl:&body forms)
+  (cl:multiple-value-bind (unhandled scope body)
+      (parse-fork-keywords% forms)
+    `(fork-thread
+      (do
+       ,@body)
+      :unhandled ,unhandled
+      :scope ,scope)))
 
 (coalton-toplevel
   (inline)
