@@ -4,6 +4,7 @@
    #:io/utils
    #:io/monad-io
    #:io/simple-io
+   #:io/exceptions
    #:io/mut
    #:io/thread
    #:io/conc/parking
@@ -128,3 +129,21 @@
       (sleep 2)
       (read finished?))))
   (is (== False result)))
+
+(define-test test-park-in-set-if-timeout ()
+  (let result =
+    (run-io!
+     (do
+      (p-set <- new-parking-set)
+      (try-all
+       (park-in-set-if_ (pure True) p-set :timeout (Timeout 1))))))
+  (is (== None result)))
+
+(define-test test-park-in-sets-if-timeout ()
+  (let result =
+    (run-io!
+     (do
+      (p-set <- new-parking-set)
+      (try-all
+       (park-in-sets-if_ (pure True) (make-list p-set) :timeout (Timeout 1))))))
+  (is (== None result)))

@@ -45,7 +45,6 @@
    #:mask-current!
    #:unmask-current!
    #:park-current-thread-if!
-   #:park-current-thread-if-with!
    #:unpark-thread!
 
    #:Concurrent
@@ -58,7 +57,6 @@
    #:Threads
    #:derive-threads
    #:current-thread
-   #:fork-thread-with
    #:fork-thread
    #:join-thread
    #:sleep
@@ -70,16 +68,12 @@
    #:unmask-current-thread-finally
    #:stop-thread
    #:do-fork-thread
-   #:do-fork-thread-with
    #:park-current-thread-if
-   #:park-current-thread-if-with
    #:unpark-thread
 
    ;; Re-exports from io/io-impl/thread
    #:fork-thread_
-   #:fork-thread-with_
    #:do-fork-thread_
-   #:do-fork-thread-with_
    #:unmask-thread-finally_
    #:unmask-finally_
    #:park-current-thread-if_

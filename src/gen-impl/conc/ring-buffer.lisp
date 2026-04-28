@@ -21,10 +21,8 @@
 
    #:new-ring-buffer
    #:enqueue
-   #:enqueue-with
    #:try-enqueue
    #:dequeue
-   #:dequeue-with
 
    ;; Library Private
    #:new-ring-buffer%
@@ -261,24 +259,17 @@ Concurrent:
     (wrap-io (new-ring-buffer% capacity)))
 
   (inline)
-  (declare enqueue-with (Threads :rt :t :m => :a * TimeoutStrategy * RingBuffer :a -> :m Unit))
-  (define (enqueue-with elt strategy buffer)
-    "Add ELT to BUFFER.
+  (declare enqueue (Threads :rt :t :m
+                    => :a * RingBuffer :a
+                    &key (:timeout TimeoutStrategy)
+                    -> :m Unit))
+  (define (enqueue elt buffer &key (timeout NoTimeout))
+    "Add ELT to BUFFER. Can specify a timeout.
 
 Concurrent:
   - Can block acquiring lock on buffer.
-  - If full, blocks until BUFFER is not full, possibly timing out based on STRATEGY."
-    (inject-runtime-unit enqueue-with!% elt strategy buffer))
-
-  (inline)
-  (declare enqueue (Threads :rt :t :m => :a * RingBuffer :a -> :m Unit))
-  (define (enqueue elt buffer)
-    "Add ELT to BUFFER.
-
-Concurrent:
-  - Can block acquiring lock on buffer.
-  - If full, blocks until BUFFER is not full."
-    (inject-runtime-unit enqueue!% elt buffer))
+  - If full, blocks until BUFFER is not full, possibly timing out based on TIMEOUT."
+    (inject-runtime-unit enqueue-with!% elt timeout buffer))
 
   (inline)
   (declare try-enqueue (Threads :rt :t :m => :a * RingBuffer :a -> :m Boolean))
@@ -289,23 +280,16 @@ Concurrent: Can block acquiring lock on buffer."
     (inject-runtime try-enqueue!% elt buffer))
 
   (inline)
-  (declare dequeue-with (Threads :rt :t :m => TimeoutStrategy * RingBuffer :a -> :m :a))
-  (define (dequeue-with strategy buffer)
-    "Pop an element from BUFFER.
+  (declare dequeue (Threads :rt :t :m
+                    => RingBuffer :a
+                    &key (:timeout TimeoutStrategy)
+                    -> :m :a))
+  (define (dequeue buffer &key (timeout NoTimeout))
+    "Pop an element from BUFFER. Can specify a timeout.
 
 Concurrent:
   - Can block briefly while acquiring lock on buffer.
-  - If empty, blocks until BUFFER is not empty."
-    (inject-runtime dequeue-with!% strategy buffer))
-
-  (inline)
-  (declare dequeue (Threads :rt :t :m => RingBuffer :a -> :m :a))
-  (define (dequeue buffer)
-    "Pop an element from BUFFER.
-
-Concurrent:
-  - Can block briefly while acquiring lock on buffer.
-  - If empty, blocks until BUFFER is not empty."
-    (inject-runtime dequeue!% buffer))
+  - If empty, blocks until BUFFER is not empty, possibly timing out based on TIMEOUT."
+    (inject-runtime dequeue-with!% timeout buffer))
 
   )
