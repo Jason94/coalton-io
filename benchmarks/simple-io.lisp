@@ -84,12 +84,16 @@
 
   (define x-cell (c:new 0))
 
+  (define (reset)
+    (c:write! x-cell 0))
+
   (declare calculate-hash (Void -> Hash))
   (define (calculate-hash)
     (hash (c:increment! x-cell)))
   
   (declare hash-n-times-non-monadic (Void -> Void))
   (define (hash-n-times-non-monadic)
+    (reset)
     (let cell = (c:new (hash 0)))
     (dotimes (_ *n*)
       (c:write! cell
@@ -97,6 +101,7 @@
 
   (declare hash-n-times-non-monadic-lambda (Void -> Void))
   (define (hash-n-times-non-monadic-lambda)
+    (reset)
     (let cell = (c:new (hash 0)))
     (let f = (fn () (calculate-hash)))
     (dotimes (_ *n*)
@@ -105,6 +110,7 @@
 
   (declare hash-n-times-monadic (Void -> Void))
   (define (hash-n-times-monadic)
+    (reset)
     (let cell = (c:new (hash 0)))
     (run-io!
      (do-times-io_ *n*

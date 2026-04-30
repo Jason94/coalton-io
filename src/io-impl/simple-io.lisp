@@ -144,6 +144,7 @@ completion. Used for internal testing only."
                        (*global-thread* current-thread))
                (call-coalton-function f)))))
 
+  (inline)
   (declare run-io! (IO :a -> :a))
   (define (run-io! io-op)
     "Top-level run-io! that raises any unhandled exceptions. Also sets the current thread

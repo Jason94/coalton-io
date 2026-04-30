@@ -81,13 +81,15 @@ Concurrent:
          (at:atomic-push (get-set% pset) unpark-action))
        (values))
      should-park?
-     :timeout strategy))
+     :timeout strategy)
+    (values))
 
   (inline)
   (declare park-in-sets-if% (Runtime :rt :t
                               => Proxy :rt * (Void -> Boolean) * List ParkingSet -> Void))
   (define (park-in-sets-if% rt-prx should-park? psets)
-    (park-in-sets-if-with% rt-prx should-park? NoTimeout psets))
+    (park-in-sets-if-with% rt-prx should-park? NoTimeout psets)
+    (values))
 
   (inline)
   (declare park-in-set-if-with% (Runtime :rt :t
@@ -107,7 +109,8 @@ Concurrent:
        (values))
      should-park?
      :timeout
-     strategy))
+     strategy)
+    (values))
 
   (inline)
   (declare park-in-set-if% (Runtime :rt :t
