@@ -1,6 +1,6 @@
 ```lisp
 (asdf:load-system "coalton-io/benchmarks")
-(in-package :io/benchmarks)
-(run-benchmarks-ci)
-(run-benchmark-ci 'benchmark-schedulers)
+(io/benchmarks::run-benchmarks-ci)
+(io/benchmarks::run-benchmark-ci 'benchmark-schedulers)
+(io/benchmarks::run-benchmark-ci 'benchmark-simple-io)
 ```

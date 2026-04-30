@@ -10,6 +10,7 @@
   (:use
    #:coalton
    #:coalton-prelude
+   #:io/utils
    #:io/monad-io
    #:io/simple-io)
   (:import-from #:coalton-library/experimental/loops
@@ -36,23 +37,24 @@
   (declare lst (List Integer))
   (define lst (l:range 0 3000000))
 
-  (declare increment-list-loop-non-monadic (Void -> Unit))
+  (declare increment-list-loop-non-monadic (Void -> Void))
   (define (increment-list-loop-non-monadic)
-    (for x in lst
+    (foreach (x lst)
       (hash (1+ x))))
 
   ;; TODO: For some reason SBCL is able to specialize some arithmetic in the non-monadic
   ;; version, but not this one. That's going to give it some degree of artificial edge
   ;; in the benchmark.
-  (declare increment-list-loop-io-fused (Void -> Unit))
+  (declare increment-list-loop-io-fused (Void -> Void))
   (define (increment-list-loop-io-fused)
     (run-io!
      (do-foreach-io_ (x lst)
-       (wrap-io (hash (1+ x))))))
+       (wrap-io (hash (1+ x)))))
+    (values))
   )
 
 (coalton-toplevel
-  (declare increment-list-recursive-non-monadic (Void -> Unit))
+  (declare increment-list-recursive-non-monadic (Void -> Void))
   (define (increment-list-recursive-non-monadic)
     (rec % ((rem lst))
       (match rem
@@ -60,9 +62,9 @@
          (hash (1+ x))
          (% rest))
         ((Nil)
-         Unit))))
+         (values)))))
 
-  (declare increment-list-recursive-monadic-non-fused (Void -> Unit))
+  (declare increment-list-recursive-monadic-non-fused (Void -> Void))
   (define (increment-list-recursive-monadic-non-fused)
     (run-io!
      (rec % ((rem lst))
@@ -72,7 +74,8 @@
            (pure (hash (1+ x)))
            (% rest)))
          ((Nil)
-          (pure Unit))))))
+          (pure Unit)))))
+    (values))
   )
 
 (coalton-toplevel
@@ -85,14 +88,14 @@
   (define (calculate-hash)
     (hash (c:increment! x-cell)))
   
-  (declare hash-n-times-non-monadic (Void -> Unit))
+  (declare hash-n-times-non-monadic (Void -> Void))
   (define (hash-n-times-non-monadic)
     (let cell = (c:new (hash 0)))
     (dotimes (_ *n*)
       (c:write! cell
                 (calculate-hash))))
 
-  (declare hash-n-times-non-monadic-lambda (Void -> Unit))
+  (declare hash-n-times-non-monadic-lambda (Void -> Void))
   (define (hash-n-times-non-monadic-lambda)
     (let cell = (c:new (hash 0)))
     (let f = (fn () (calculate-hash)))
@@ -100,14 +103,15 @@
       (c:write! cell
                 (noinline (f)))))                
 
-  (declare hash-n-times-monadic (Void -> Unit))
+  (declare hash-n-times-monadic (Void -> Void))
   (define (hash-n-times-monadic)
     (let cell = (c:new (hash 0)))
     (run-io!
      (do-times-io_ *n*
        (wrap-io
          (c:write! cell (calculate-hash))
-         Unit))))
+         Unit)))
+    (values))
                           
   )
 

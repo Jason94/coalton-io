@@ -16,7 +16,7 @@
    #:io/conc/group
    #:io/conc/worker-pool
    )
-  (:import-from #:io/terminal
+  (:import-from #:io/term
    #:write-line)
   (:import-from #:coalton-library/math/real
    #:round/)
