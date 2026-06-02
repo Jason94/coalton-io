@@ -64,6 +64,7 @@
                                (:file "conc/worker-pool")
                                (:file "conc/ring-buffer")
                                (:file "conc/ring-buffer-scheduler")
+                               (:file "conc/tarray")
                                (:file "io-file")
                                (:file "io-random")
                                (:file "io-unique")
@@ -105,6 +106,7 @@
                                (:file "io-mvar")
                                (:file "concurrent-group")
                                (:file "stm")
+                               (:file "tarray")
                                (:file "worker-pool")
                                ))
 
