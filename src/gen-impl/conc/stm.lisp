@@ -37,7 +37,10 @@
    #:do-run-tx
 
    ;; Library Private
+   #:STM%
    #:tx-io!%
+   #:new-tvar%
+   #:inner-read-tvar%
    )
   )
 (in-package :io/gen-impl/conc/stm)

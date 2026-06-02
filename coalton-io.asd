@@ -64,6 +64,7 @@
                                (:file "conc/worker-pool")
                                (:file "conc/ring-buffer")
                                (:file "conc/ring-buffer-scheduler")
+                               (:file "conc/tarray")
                                (:file "io-file")
                                (:file "io-random")
                                (:file "io-unique")
@@ -105,6 +106,7 @@
                                (:file "io-mvar")
                                (:file "concurrent-group")
                                (:file "stm")
+                               (:file "tarray")
                                (:file "worker-pool")
                                ))
 
@@ -149,6 +151,7 @@ mutable variables, multithreading, and several data structures to safely share s
                                (:file "stm")
                                (:file "worker-pool")
                                (:file "ring-buffer")
+                               (:file "tarray")
                                ))
                  (:file "package"))))
   :description "Test system for coalton-io"

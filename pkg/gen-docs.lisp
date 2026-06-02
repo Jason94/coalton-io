@@ -35,6 +35,7 @@
                                  'io/conc/mchan-scheduler
                                  'io/conc/worker-pool
                                  'io/conc/ring-buffer
+                                 'io/conc/stm/tarray
                                  'io/io-all
                                  'io/stubs/term
                                  )))
