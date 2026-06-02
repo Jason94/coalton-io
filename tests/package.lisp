@@ -30,5 +30,6 @@
                #:coalton-io/tests/conc/stm-fiasco
                #:coalton-io/tests/conc/worker-pool-fiasco
                #:coalton-io/tests/conc/ring-buffer-fiasco
+               #:coalton-io/tests/conc/stm/tarray-fiasco
                )
    :interactive cl:t))

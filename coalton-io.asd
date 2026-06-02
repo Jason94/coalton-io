@@ -151,6 +151,7 @@ mutable variables, multithreading, and several data structures to safely share s
                                (:file "stm")
                                (:file "worker-pool")
                                (:file "ring-buffer")
+                               (:file "tarray")
                                ))
                  (:file "package"))))
   :description "Test system for coalton-io"
