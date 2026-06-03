@@ -33,6 +33,7 @@
     (run-io!
      (do
       (tvar <- (new-tvar 0))
+      (n-finished <- (new-tvar 0))
       (let work-per-thread = (coalton/math:div workload n-threads))
       (scheduler <- (new-ring-buffer-scheduler n-threads))
       (pool <- (new-worker-pool n-threads scheduler))
@@ -41,11 +42,11 @@
         (do-submit-job_ pool
           (do-times-io_ work-per-thread
             (do-run-tx
-              (modify-tvar tvar 1+)
-              (pure Unit)))))
+              (modify-tvar tvar 1+)))
+          (run-tx (modify-tvar n-finished 1+))))
       (do-run-tx
-        (val <- (read-tvar tvar))
-        (retry-unless (== workload val)))
+        (n-finished <- (read-tvar n-finished))
+        (retry-unless (== n-threads n-finished)))
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
@@ -65,6 +66,7 @@
       (tvar6 <- (new-tvar 0))
       (tvar7 <- (new-tvar 0))
       (tvar8 <- (new-tvar 0))
+      (n-finished <- (new-tvar 0))
       (let work-per-thread = (coalton/math:div workload n-threads))
       (scheduler <- (new-ring-buffer-scheduler n-threads))
       (pool <- (new-worker-pool n-threads scheduler))
@@ -82,26 +84,11 @@
               (modify-tvar tvar5 1+)
               (modify-tvar tvar6 1+)
               (modify-tvar tvar7 1+)
-              (modify-tvar tvar8 1+)
-              (pure Unit)))))
+              (modify-tvar tvar8 1+)))
+          (run-tx (modify-tvar n-finished 1+))))
       (do-run-tx
-        (val1 <- (read-tvar tvar1))
-        (val2 <- (read-tvar tvar2))
-        (val3 <- (read-tvar tvar3))
-        (val4 <- (read-tvar tvar4))
-        (retry-unless (and (== workload val1)
-                           (== workload val2)
-                           (== workload val3)
-                           (== workload val4))))
-      (do-run-tx
-        (val5 <- (read-tvar tvar5))
-        (val6 <- (read-tvar tvar6))
-        (val7 <- (read-tvar tvar7))
-        (val8 <- (read-tvar tvar8))
-        (retry-unless (and (== workload val5)
-                           (== workload val6)
-                           (== workload val7)
-                           (== workload val8))))
+        (n-finished <- (read-tvar n-finished))
+        (retry-unless (== n-threads n-finished)))
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
