@@ -3,4 +3,5 @@
 (io/benchmarks::run-benchmarks-ci)
 (io/benchmarks::run-benchmark-ci 'benchmark-schedulers)
 (io/benchmarks::run-benchmark-ci 'benchmark-simple-io)
+(io/benchmarks::run-benchmark-ci 'benchmark-stm)
 ```

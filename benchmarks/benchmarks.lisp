@@ -55,6 +55,7 @@
   (format nil "~A.csv" (%filename-safe (%package-designator->string package))))
 
 (defun %write-benchmark-csv (result pathname)
+  (format t "Writing results to ~a~%" pathname)
   (with-open-file (out pathname
                        :direction :output
                        :if-exists :supersede
