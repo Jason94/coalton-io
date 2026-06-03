@@ -31,6 +31,8 @@
    #:modify-tvar
    #:modify-swap-tvar
    #:retry
+   #:retry-unless
+   #:retry-unless-tvar
    #:retry-with
    #:or-else
    #:run-tx
@@ -657,7 +659,8 @@ value."
   (declare retry-with (MonadIo :m => TimeoutStrategy -> STM :m :a))
   (define (retry-with strategy)
     "Retry the current operation because the observed state is invalid. Waits for a write
-transaction to commit somewhere else, and then tries this transaction again.
+transaction to commit to a TVar that has already been read during this transaction, and
+then tries this transaction again.
 
 This is useful if the transaction needs to wait for other threads to update the data
 before it can continue. For example, if the transaction reads from a (TVar Queue) and the
@@ -669,8 +672,7 @@ Concurrent:
     thread. The thread will sleep until any relevant write transaction commits to the STM,
     when the retrying thread will wake and retry its transaction. A write transaction
     only triggers a retry if it writes to a TVar that was read before `retry` was called.
-  - Will timeout depending on strategy.
-"
+  - Will timeout depending on strategy."
     (STM%
      (fn (_)
       (wrap-io
@@ -680,7 +682,8 @@ Concurrent:
   (declare retry (MonadIo :m => STM :m :a))
   (define retry
     "Retry the current operation because the observed state is invalid. Waits for a write
-transaction to commit somewhere else, and then tries this transaction again.
+transaction to commit to a TVar that has already been read during this transaction, and
+then tries this transaction again.
 
 This is useful if the transaction needs to wait for other threads to update the data
 before it can continue. For example, if the transaction reads from a (TVar Queue) and the
@@ -691,9 +694,42 @@ Concurrent:
   - When the transaction runs, executing retry will abort the transaction and sleep the
     thread. The thread will sleep until any relevant write transaction commits to the STM,
     when the retrying thread will wake and retry its transaction. A write transaction
-    only triggers a retry if it writes to a TVar that was read before `retry` was called.
-"
+    only triggers a retry if it writes to a TVar that was read before `retry` was called."
     (retry-with NoTimeout))
+
+  (inline)
+  (declare retry-unless (MonadIo :m => Boolean -> STM :m Unit))
+  (define (retry-unless ok?)
+    "Retry unless `ok?` is true. If `ok?` is false, then waits for a write transaction
+to commit to a TVar that has already been read during this transaction, and then tries
+this transaction again.
+
+Concurrent:
+  - When the transaction runs, executing retry will abort the transaction and sleep the
+    thread. The thread will sleep until any relevant write transaction commits to the STM,
+    when the retrying thread will wake and retry its transaction. A write transaction
+    only triggers a retry if it writes to a TVar that was read before `retry` was called."
+    (if ok?
+        (pure Unit)
+        retry))
+
+  (inline)
+  (declare retry-unless-tvar (MonadIo :m => TVar Boolean -> STM :m Unit))
+  (define (retry-unless-tvar ok?)
+    "Retry unless `ok?` is true. If `ok?` is false, then waits for a write transaction
+to commit to a TVar that has already been read during this transaction, and then tries
+this transaction again.
+
+Concurrent:
+  - When the transaction runs, executing retry will abort the transaction and sleep the
+    thread. The thread will sleep until any relevant write transaction commits to the STM,
+    when the retrying thread will wake and retry its transaction. A write transaction
+    only triggers a retry if it writes to a TVar that was read before `retry` was called."
+    (do
+     (val <- (read-tvar ok?))
+     (if val
+         (pure Unit)
+         retry)))
 
   (declare or-else (MonadIo :m => STM :m :a * STM :m :a -> STM :m :a))
   (define (or-else tx-a tx-b)
