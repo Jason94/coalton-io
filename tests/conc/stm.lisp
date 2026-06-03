@@ -48,6 +48,20 @@
         (pure (Tuple a-val b-val))))))
   (is (== (Tuple 0 "b") result)))
 
+(define-test test-new-tvar-tx ()
+  (let result =
+    (run-io!
+     (do
+      (tvar <-
+        (do-run-tx
+          (a <- (new-tvar-tx 5))
+          (modify-tvar a ƒx.(+ x 10))
+          (pure a)))
+      (do-run-tx
+        (modify-tvar tvar ƒx.(* x 2))
+        (read-tvar tvar)))))
+  (is (== 30 result)))
+
 (define-test test-write-read-tx ()
   (let result =
     (run-io!

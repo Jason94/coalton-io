@@ -25,6 +25,7 @@
    #:STM
 
    #:new-tvar
+   #:new-tvar-tx
    #:read-tvar
    #:write-tvar
    #:swap-tvar
@@ -434,8 +435,16 @@ For safety, disconnects the transactions when done."
   (inline)
   (declare new-tvar (MonadIo :m => :a -> :m (TVar :a)))
   (define (new-tvar val)
-    "Create a mutable variable that can be used inside an atomic transaction."
+    "Create a sychronized mutable variable that can be used inside an atomic transaction."
     (wrap-io (new-tvar% val)))
+
+  (inline)
+  (declare new-tvar-tx (MonadIo :m => :a -> STM :m (TVar :a)))
+  (define (new-tvar-tx val)
+    "Create a synchronized mutable variable in the middle of an atomic transaction."
+    (STM%
+     (fn (_)
+       (wrap-io (TxSuccess (new-tvar% val))))))
 
   ;; NOTE: For now, using the coalton-threads Atomic Integer instead of
   ;; our atomics, because it's probably faster, since our atomic type doesn't

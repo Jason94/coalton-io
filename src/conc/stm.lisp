@@ -7,6 +7,7 @@
    #:TVar
    #:STM
    #:new-tvar
+   #:new-tvar-tx
    #:read-tvar
    #:write-tvar
    #:swap-tvar
