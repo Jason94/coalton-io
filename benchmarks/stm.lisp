@@ -19,6 +19,8 @@
    #:io/conc/stm)
   (:import-from #:coalton/experimental/do-control-core
    #:do-when)
+  (:import-from #:coalton/experimental/do-control-loops
+   #:do-loop-times)
   (:local-nicknames
    (:f #:coalton/format)
    (:l #:coalton/list)
@@ -33,7 +35,7 @@
 
 (coalton-toplevel
   ;; Divisible by 8 to be able to evenly split workloads at all thread counts
-  (define workload (the UFix 80000))
+  (define workload (the UFix 320000))
   
   (declare small-tx-n-times (UFix -> Void))
   (define (small-tx-n-times n-threads)
@@ -61,7 +63,11 @@ data structure, such as lock or atomic based ones)."
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
       (request-shutdown pool)
-      (await pool)))
+      (await pool)
+      (do-run-tx
+        (val <- (read-tvar tvar))
+        (do-when (/= val workload)
+          (raise (f:format f:Str "small-tx-~a-times expected total ~a but received ~a" n-threads workload val))))))
     (values))
 
   (declare large-tx-n-times (UFix -> Void))
@@ -81,19 +87,18 @@ synchronized data structure, such as lock or atomic based ones)."
       (tvar8 <- (new-tvar 0))
       (n-finished <- (new-tvar 0))
       (let work-per-thread = (coalton/math:div workload n-threads))
+      (let iterations-per-thread = (coalton/math:div work-per-thread 8))
       (scheduler <- (new-ring-buffer-scheduler n-threads))
       (pool <- (new-worker-pool n-threads scheduler))
       (wrap-io (b:start (b:current-timer)))
       (do-times-io_ n-threads
         (do-submit-job_ pool
-          (do-times-io_ work-per-thread
+          (do-times-io_ iterations-per-thread
             (do-run-tx
               (modify-tvar tvar1 1+)
               (modify-tvar tvar2 1+)
               (modify-tvar tvar3 1+)
-              (modify-tvar tvar4 1+)))
-          (do-times-io_ work-per-thread
-            (do-run-tx
+              (modify-tvar tvar4 1+)
               (modify-tvar tvar5 1+)
               (modify-tvar tvar6 1+)
               (modify-tvar tvar7 1+)
@@ -106,7 +111,19 @@ synchronized data structure, such as lock or atomic based ones)."
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
       (request-shutdown pool)
-      (await pool)))
+      (await pool)
+      (do-run-tx
+        (val1 <- (read-tvar tvar1))
+        (val2 <- (read-tvar tvar2))
+        (val3 <- (read-tvar tvar3))
+        (val4 <- (read-tvar tvar4))
+        (val5 <- (read-tvar tvar5))
+        (val6 <- (read-tvar tvar6))
+        (val7 <- (read-tvar tvar7))
+        (val8 <- (read-tvar tvar8))
+        (let total = (sum (make-list val1 val2 val3 val4 val5 val6 val7 val8)))
+        (do-when (/= total workload)
+          (raise (f:format f:Str "large-tx-~a-times expected total ~a but received ~a" n-threads workload total))))))
     (values))
 
   (declare loop-tarr-n-times (UFix * UFix -> Void))
@@ -149,6 +166,41 @@ contention."
       (await pool)
       (sum <- (new-tvar 0))
       (do-foreach-io_ (i ixs)
+        (do-run-tx
+          (x <- (tr:aref# tarr i))
+          (modify-tvar sum (fn (y) (+ x y)))))
+      (sum <- (run-tx (read-tvar sum)))
+      (do-when (/= sum workload)
+        (raise (f:format f:Str "loop-tarr-~a-times expected total ~a but received ~a" n-threads workload sum)))))
+    (values))
+
+  (declare write-separate (UFix -> Void))
+  (define (write-separate n-threads)
+    "This benchmark tests committing to a unique tvar for each thread. This is the best
+case scenario for the STM."
+    (run-io!
+     (do
+      ;; Setup benchmark parameters and shared data
+      (tarr <- (tr:new-tarray n-threads 0))
+      (let work-per-thread = (coalton/math:div workload n-threads))
+      (scheduler <- (new-ring-buffer-scheduler n-threads))
+      (pool <- (new-worker-pool n-threads scheduler))
+      ;; Run the benchmark
+      (wrap-io (b:start (b:current-timer)))
+      (do-loop-times (i n-threads)
+        (do-submit-job_ pool
+          (do-times-io_ work-per-thread
+            (do-run-tx
+              (x <- (tr:aref# tarr i))
+              (tr:set tarr i (1+ x))))))
+      ;; Cleanup and verify correctness
+      (request-shutdown pool)
+      (await pool)
+      (wrap-io
+       (b:stop (b:current-timer))
+       (b:commit (b:current-timer)))
+      (sum <- (new-tvar 0))
+      (do-loop-times (i n-threads)
         (do-run-tx
           (x <- (tr:aref# tarr i))
           (modify-tvar sum (fn (y) (+ x y)))))
@@ -275,4 +327,32 @@ contention."
         :do
            (coalton:coalton
             (benchmark-stm/native::loop-tarr-n-times 8 80)))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark write-separate-1-workers ()
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-stm/native::write-separate 1)))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark write-separate-2-workers ()
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-stm/native::write-separate 2)))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark write-separate-4-workers ()
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-stm/native::write-separate 4)))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark write-separate-8-workers ()
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-stm/native::write-separate 8)))
   (report trivial-benchmark::*current-timer*))
