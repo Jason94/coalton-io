@@ -451,7 +451,7 @@ Example:
          <li class=instances-item><code><a href="#io-classes-term-terminal-class">Terminal</a> :M &rArr; <a href="#io-classes-term-terminal-class">Terminal</a> (<a href="#coalton-monad-environment-envt-type">EnvT</a> :E :M)</code>
          <li class=instances-item><code><a href="#io-classes-term-terminal-class">Terminal</a> :M &rArr; <a href="#io-classes-term-terminal-class">Terminal</a> (<a href="#coalton-monad-statet-statet-type">StateT</a> :S :M)</code></ul></details></div>
       <hr><div class=macros-content>
-       <h3 class=macros-header>Macros</h3><h4 id=io-classes-term-derive-terminal-macro><a href="#io-classes-term-derive-terminal-macro"><code>DERIVE-TERMINAL (MONAD-PARAM MONADT-FORM)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Automatically derive an instance of Terminal for a monad transformer.
+       <h3 class=macros-header>Macros</h3><h4 id=io-gen-impl-term-write-format-macro><a href="#io-gen-impl-term-write-format-macro"><code>WRITE-FORMAT (CONTROL-STRING &amp;REST REST)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Write formatted string to the terminal.</p><h4 id=io-classes-term-derive-terminal-macro><a href="#io-classes-term-derive-terminal-macro"><code>DERIVE-TERMINAL (MONAD-PARAM MONADT-FORM)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Automatically derive an instance of Terminal for a monad transformer.
 
 Example:
   (derive-terminal :m (st:StateT :s :m))</p><h4
