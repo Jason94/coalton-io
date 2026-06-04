@@ -198,5 +198,6 @@ mutable variables, multithreading, and several data structures to safely share s
                  (:file "benchmarks")
                  (:file "simple-io")
                  (:file "schedulers")
+                 (:file "stm")
                  )))
   :description "Benchmarks for coalton-io.")

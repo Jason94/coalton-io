@@ -5,8 +5,11 @@
    #:coalton-prelude
    #:io/classes/monad-io
    #:io/classes/term)
+  (:local-nicknames
+   (:f #:coalton/format))
   (:export
    #:implement-terminal
+   #:write-format
    ))
 (in-package :io/gen-impl/term)
 
@@ -33,6 +36,12 @@
   (define read-line%
     (wrap-io (lisp (-> :a) ()
                (cl:read-line)))))
+
+(defmacro write-format (control-string cl:&rest rest)
+  "Write formatted string to the terminal."
+  `(wrap-io
+    (f:format f:Out ,control-string ,@rest)
+    Unit))
 
 (defmacro implement-terminal (monad)
   `(define-instance (Terminal ,monad)
