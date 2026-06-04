@@ -48,9 +48,9 @@
     (if (< i (la:length (tarr% tarr)))
         (STM%
          (fn (tx-data)
-           (map Some
-                (inner-read-tvar% (la:aref (tarr% tarr) i)
-                                  tx-data))))
+           (Some
+            (inner-read-tvar% (la:aref (tarr% tarr) i)
+                              tx-data))))
         (pure None)))
 
   (inline)
