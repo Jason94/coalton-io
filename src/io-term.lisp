@@ -13,5 +13,6 @@
 
    ;; Re-exports from io/gen-impl/term
    #:implement-terminal
+   #:write-format
    ))
 (in-package :io/term)
