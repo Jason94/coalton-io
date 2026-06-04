@@ -132,7 +132,7 @@ synchronized data structure, such as lock or atomic based ones)."
 transactions. This is a much better use case for the STM, because threads can commit to
 separate locations and avoid conflicting.
 
-Two benchmarks use this function. One uses a tarr-size equal to 8 and one uses tarr-size
+Two benchmarks use this function. One uses a tarr-size equal to 6 and one uses tarr-size
 equal to 80. The latter should be even better for the STM because there should be less
 contention."
     (run-io!

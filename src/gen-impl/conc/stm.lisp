@@ -120,29 +120,29 @@
     (parent-tx (c:cell (Optional TxData%))))
 
   (repr :transparent)
-  (define-type (STM :io :a)
+  (define-type (STM :a)
     "A transaction that can be run using `run-tx`."
-    (STM% (TxData% -> :io (TxResult% :a))))
+    (STM% (TxData% -> TxResult% :a)))
 
   (inline)
-  (declare unwrap-stm% (STM :io :a -> (TxData% -> :io (TxResult% :a))))
+  (declare unwrap-stm% (STM :a -> (TxData% -> TxResult% :a)))
   (define (unwrap-stm% (STM% f-tx))
     f-tx)
 
   (inline)
-  (declare run-stm% (TxData% * STM :io :a -> :io (TxResult% :a)))
+  (declare run-stm% (TxData% * STM :a -> TxResult% :a))
   (define (run-stm% tx-data tx)
     ((unwrap-stm% tx) tx-data))
 
   (inline)
-  (declare tx-const-io!% (MonadIo :m => :m (TxResult% :a) -> STM :m :a))
-  (define (tx-const-io!% io-op)
+  (declare tx-const!% (TxResult% :a -> STM :a))
+  (define (tx-const!% data)
     (STM%
      (fn (_)
-       io-op)))
+       data)))
 
   (inline)
-  (declare tx-io!% (MonadIo :m => :m :a -> STM :m :a))
+  (declare tx-io!% (BaseIo :m => :m :a -> STM :a))
   (define (tx-io!% io-op)
     "Not safe to use generally. Useful for writing unit-tests,
 for purposes like writing to Var's and using MVar's to coordinate
@@ -150,115 +150,109 @@ threads inside of transactions to simulate different concurrent
 conditions. DONT USE THIS!"
     (STM%
      (fn (_)
-       (map TxSuccess io-op))))
+       (TxSuccess
+        (run! io-op)))))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;;           STM Instances           ;;;
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-  (define-instance (Functor :io => Functor (STM :io))
+  (define-instance (Functor STM)
     (inline)
     (define (map f tx)
       (STM%
        (fn (tx-data)
-         (map (fn (x) (map f x))
-              (run-stm% tx-data tx))))))
+         (run-stm% tx-data (map f tx))))))
 
-  (inline)
-  (declare pure-tx% (Applicative :io => :a -> STM :io :a))
-  (define (pure-tx% val)
-    (STM%
-     (fn (_)
-       (pure (TxSuccess val)))))
-
-  (declare lifta2-tx% (Monad :io => (:a * :b -> :c) * STM :io :a * STM :io :b -> STM :io :c))
+  (declare lifta2-tx% ((:a * :b -> :c) * STM :a * STM :b -> STM :c))
   (define (lifta2-tx% fa*b->c tx-a tx-b)
     (STM%
      (fn (tx-data)
-       (matchM (run-stm% tx-data tx-a)
+       (match (run-stm% tx-data tx-a)
          ((TxFailed)
-          (pure TxFailed))
+          TxFailed)
          ((TxRetryAfterWrite strategy)
-          (pure (TxRetryAfterWrite strategy)))
+          (TxRetryAfterWrite strategy))
          ((TxSuccess val-a)
-          (do-matchM (run-stm% tx-data tx-b)
+          (match (run-stm% tx-data tx-b)
             ((TxFailed)
-             (pure TxFailed))
+             TxFailed)
             ((TxRetryAfterWrite strategy)
-             (pure (TxRetryAfterWrite strategy)))
+             (TxRetryAfterWrite strategy))
             ((TxSuccess val-b)
-             (pure (TxSuccess (fa*b->c val-a val-b))))))))))
+             (TxSuccess (fa*b->c val-a val-b)))))))))
 
-  (define-instance (Monad :io => Applicative (STM :io))
+  (define-instance (Applicative STM)
     (inline)
-    (define pure pure-tx%)
+    (define (pure x)
+      (STM% ƒ_.(TxSuccess x)))
     (define lifta2 lifta2-tx%))
 
   (inline)
-  (declare flatmap-tx% (Monad :io => STM :io :a * (:a -> STM :io :b) -> STM :io :b))
+  (declare flatmap-tx% (STM :a * (:a -> STM :b) -> STM :b))
   (define (flatmap-tx% tx fa->stmb)
     (STM%
      (fn (tx-data)
-       (matchM (run-stm% tx-data tx)
+       (match (run-stm% tx-data tx)
          ((TxFailed)
-          (pure TxFailed))
+          TxFailed)
          ((TxRetryAfterWrite strategy)
-          (pure (TxRetryAfterWrite strategy)))
+          (TxRetryAfterWrite strategy))
          ((TxSuccess val-a)
           (run-stm% tx-data
                     (fa->stmb val-a)))))))
 
-  (define-instance (Monad :io => Monad (STM :io))
+  (define-instance (Monad STM)
     ;; See https://github.com/coalton-lang/coalton/issues/1730
     (inline)
     (define (>>= m f)
       (flatmap-tx% m f)))
 
-  (define-instance ((Exceptions :io) (MonadIo :io) => Exceptions (STM :io))
-    (inline)
-    (define (raise e)
-      (tx-const-io!% (raise e)))
-    (inline)
-    (define (raise-dynamic dyn-e)
-      (tx-const-io!% (raise-dynamic dyn-e)))
-    (inline)
-    (define (reraise tx catch-tx)
-      (STM%
-       (fn (tx-data)
-         (reraise (run-stm% tx-data tx)
-                  (fn ()
-                    (run-stm% tx-data (catch-tx)))))))
-    (inline)
-    (define (handle tx catch-tx)
-      (STM%
-       (fn (tx-data)
-         (handle (run-stm% tx-data tx)
-                 (fn (e)
-                   (run-stm% tx-data (catch-tx e)))))))
-    (inline)
-    (define (handle-all tx catch-tx)
-      (STM%
-       (fn (tx-data)
-         (handle-all (run-stm% tx-data tx)
-                     (fn ()
-                       (run-stm% tx-data (catch-tx)))))))
-    (inline)
-    (define (try-dynamic tx)
-      (STM%
-       (fn (tx-data)
-         (map (fn (dyn-result--tx-result)
-                (match dyn-result--tx-result
-                  ((Err dyn-e)
-                   (TxSuccess (Err dyn-e)))
-                  ((Ok tx-result)
-                   (match tx-result
-                     ((TxFailed)
-                      TxFailed)
-                     ((TxRetryAfterWrite strategy)
-                      (TxRetryAfterWrite strategy))
-                     ((TxSuccess val)
-                      (TxSuccess (Ok val)))))))
-              (try-dynamic (run-stm% tx-data tx)))))))
+  ;; (define-instance (Exceptions :io => Exceptions STM)
+  ;;   (inline)
+  ;;   (define (raise e)
+  ;;     (tx-const-io!% (raise e)))
+  ;;   (inline)
+  ;;   (define (raise-dynamic dyn-e)
+  ;;     (tx-const-io!% (raise-dynamic dyn-e)))
+  ;;   (inline)
+  ;;   (define (reraise tx catch-tx)
+  ;;     (STM%
+  ;;      (fn (tx-data)
+  ;;        (reraise (run-stm% tx-data tx)
+  ;;                 (fn ()
+  ;;                   (run-stm% tx-data (catch-tx)))))))
+  ;;   (inline)
+  ;;   (define (handle tx catch-tx)
+  ;;     (STM%
+  ;;      (fn (tx-data)
+  ;;        (handle (run-stm% tx-data tx)
+  ;;                (fn (e)
+  ;;                  (run-stm% tx-data (catch-tx e)))))))
+  ;;   (inline)
+  ;;   (define (handle-all tx catch-tx)
+  ;;     (STM%
+  ;;      (fn (tx-data)
+  ;;        (handle-all (run-stm% tx-data tx)
+  ;;                    (fn ()
+  ;;                      (run-stm% tx-data (catch-tx)))))))
+  ;;   (inline)
+  ;;   (define (try-dynamic tx)
+  ;;     (STM%
+  ;;      (fn (tx-data)
+  ;;        (map (fn (dyn-result--tx-result)
+  ;;               (match dyn-result--tx-result
+  ;;                 ((Err dyn-e)
+  ;;                  (TxSuccess (Err dyn-e)))
+  ;;                 ((Ok tx-result)
+  ;;                  (match tx-result
+  ;;                    ((TxFailed)
+  ;;                     TxFailed)
+  ;;                    ((TxRetryAfterWrite strategy)
+  ;;                     (TxRetryAfterWrite strategy))
+  ;;                    ((TxSuccess val)
+  ;;                     (TxSuccess (Ok val)))))))
+  ;;             (try-dynamic (run-stm% tx-data tx)))))))
   )
 
 (coalton-toplevel
@@ -441,12 +435,12 @@ For safety, disconnects the transactions when done."
     (wrap-io (new-tvar% val)))
 
   (inline)
-  (declare new-tvar-tx (MonadIo :m => :a -> STM :m (TVar :a)))
+  (declare new-tvar-tx (:a -> STM (TVar :a)))
   (define (new-tvar-tx val)
     "Create a synchronized mutable variable in the middle of an atomic transaction."
     (STM%
      (fn (_)
-       (wrap-io (TxSuccess (new-tvar% val))))))
+       (TxSuccess (new-tvar% val)))))
 
   ;; NOTE: For now, using the coalton-threads Atomic Integer instead of
   ;; our atomics, because it's probably faster, since our atomic type doesn't
@@ -479,14 +473,13 @@ For safety, disconnects the transactions when done."
       (unpark-set% pset)))
 
   (inline)
-  (declare tx-begin-io% (MonadIo :m => Void -> :m TxData%))
-  (define (tx-begin-io%)
-    (wrap-io
-      (rec % ()
-        (let snapshot = (at:read-at-int global-lock))
-        (if (bit-odd? snapshot)
+  (declare tx-begin% (Void -> TxData%))
+  (define (tx-begin%)
+    (rec % ()
+      (let snapshot = (at:read-at-int global-lock))
+      (if (bit-odd? snapshot)
           (%)
-          (new-tx-data% snapshot)))))
+          (new-tx-data% snapshot))))
 
   (derive Eq)
   (define-type ValidateRes%
@@ -519,7 +512,7 @@ For safety, disconnects the transactions when done."
             ((Some x) x))))))
 
   (inline)
-  (declare wait-for-write-tx!% (Runtime :rt :t => Proxy :rt * TimeoutStrategy * TxData% -> Unit))
+  (declare wait-for-write-tx!% (Runtime :rt :t => Proxy :rt * TimeoutStrategy * TxData% -> Void))
   (define (wait-for-write-tx!% rt-prx strategy tx-data)
     ;; CONCURRENT:
     ;; - Inherits concurrent semantics of park-in-sets-if%
@@ -531,7 +524,7 @@ For safety, disconnects the transactions when done."
            (validate% tx-data)))
      strategy
      (map read-entry-pset% (c:read (.read-log tx-data))))
-    Unit)
+    (values))
 
   (declare inner-read-tvar% (TVar :a * TxData% -> TxResult% :a))
   (define (inner-read-tvar% tvar tx-data)
@@ -561,113 +554,108 @@ For safety, disconnects the transactions when done."
      (log-write-value% (.write-log tx-data) tvar val)))
 
   (inline)
-  (declare read-tvar (MonadIo :m => TVar :a -> STM :m :a))
+  (declare read-tvar (TVar :a -> STM :a))
   (define (read-tvar tvar)
     "Read a mutable variable inside an atomic transaction."
     (STM%
      (fn (tx-data)
-       (wrap-io
-         (inner-read-tvar% tvar tx-data)))))
+       (inner-read-tvar% tvar tx-data))))
 
   (inline)
-  (declare write-tvar (MonadIo :m => TVar :a * :a -> STM :m Unit))
+  (declare write-tvar (TVar :a * :a -> STM Unit))
   (define (write-tvar tvar val)
     "Write to a mutable variable inside an atomic transaction."
     (STM%
      (fn (tx-data)
-       (wrap-io (inner-write-tvar% tvar val tx-data)))))
+       (inner-write-tvar% tvar val tx-data))))
 
-  (declare swap-tvar (MonadIo :m => TVar :a * :a -> STM :m :a))
+  (declare swap-tvar (TVar :a * :a -> STM :a))
   (define (swap-tvar tvar new-val)
     "Swap the value of a mutable variable inside an atomic transaction. Returns the old
 value."
     (STM%
      (fn (tx-data)
-       (wrap-io
-         (match (inner-read-tvar% tvar tx-data)
-           ((TxRetryAfterWrite strategy)
-            (TxRetryAfterWrite strategy))
-           ((TxFailed)
-            TxFailed)
-           ((TxSuccess val)
-            ;; Respect non success status out of the write
-            (map (const val)
-                 (inner-write-tvar% tvar new-val tx-data))))))))
+       (match (inner-read-tvar% tvar tx-data)
+         ((TxRetryAfterWrite strategy)
+          (TxRetryAfterWrite strategy))
+         ((TxFailed)
+          TxFailed)
+         ((TxSuccess val)
+          ;; Respect non success status out of the write
+          (map (const val)
+               (inner-write-tvar% tvar new-val tx-data)))))))
 
-  (declare modify-tvar (MonadIo :m => TVar :a * (:a -> :a) -> STM :m :a))
+  (declare modify-tvar (TVar :a * (:a -> :a) -> STM :a))
   (define (modify-tvar tvar f)
     "Modify a mutable variable inside an atomic transaction. Returns the new value."
     (STM%
      (fn (tx-data)
-       (wrap-io
-         (match (inner-read-tvar% tvar tx-data)
-           ((TxRetryAfterWrite strategy)
-            (TxRetryAfterWrite strategy))
-           ((TxFailed)
-            TxFailed)
-           ((TxSuccess val)
-            (let result = (f val))
-            ;; Respect non success status out of the write
-            (map (const result)
-                 (inner-write-tvar% tvar result tx-data))))))))
+       (match (inner-read-tvar% tvar tx-data)
+         ((TxRetryAfterWrite strategy)
+          (TxRetryAfterWrite strategy))
+         ((TxFailed)
+          TxFailed)
+         ((TxSuccess val)
+          (let result = (f val))
+          ;; Respect non success status out of the write
+          (map (const result)
+               (inner-write-tvar% tvar result tx-data)))))))
 
-  (declare modify-swap-tvar (MonadIo :m => TVar :a * (:a -> :a) -> STM :m :a))
+  (declare modify-swap-tvar (TVar :a * (:a -> :a) -> STM :a))
   (define (modify-swap-tvar tvar f)
     "Modify a mutable variable inside an atomic transaction. Returns the old value."
     (STM%
      (fn (tx-data)
-       (wrap-io
-         (match (inner-read-tvar% tvar tx-data)
-           ((TxRetryAfterWrite strategy)
-            (TxRetryAfterWrite strategy))
-           ((TxFailed)
-            TxFailed)
-           ((TxSuccess val)
-            (let result = (f val))
-            ;; Respect non success status out of the write
-            (map (const val)
-                 (inner-write-tvar% tvar result tx-data))))))))
+       (match (inner-read-tvar% tvar tx-data)
+         ((TxRetryAfterWrite strategy)
+          (TxRetryAfterWrite strategy))
+         ((TxFailed)
+          TxFailed)
+         ((TxSuccess val)
+          (let result = (f val))
+          ;; Respect non success status out of the write
+          (map (const val)
+               (inner-write-tvar% tvar result tx-data)))))))
 
-  (declare tx-commit-io% (Threads :rt :t :m => TxData% -> :m Boolean))
-  (define (tx-commit-io% tx-data)
+  (declare tx-commit% (Runtime :rt :t => Proxy :rt * TxData% -> Boolean))
+  (define (tx-commit% rt-prx tx-data)
     ;; CONCURRENT:
     ;; - Function is a no-op for read-only transactions, so no need to mask
     ;; - Masks right before incrementing the global spinlock counter, which would render
     ;;   the STM inoperable if stopped before re-incrementing
     ;; - Unmasks only after committing the transaction, unlocking the global spinlock,
     ;;   and notifying waiting retries
-    (wrap-io-with-runtime (rt-prx)
-      (when (opt:some? (c:read (.parent-tx tx-data)))
-        (error "Cannot commit a nested transaction."))
-      (if (read-only? tx-data)
-          True
-          (progn
-            (let result = (c:new True))
-            (mask-current! rt-prx)
-            (while (and
-                    ;; Stop looping if we already need to abort.
-                    (c:read result)
-                    (not (at:int-cas global-lock
-                                     (c:read (.lock-snapshot tx-data))
-                                     (1+ (c:read (.lock-snapshot tx-data))))))
-              (let validate-res = (validate% tx-data))
-              (match validate-res
-                ((TxContinue% time)
-                 (c:write! (.lock-snapshot tx-data) time)
-                 Unit)
-                ((TxAbort%)
-                 (c:write! result False)
-                 Unit)))
-            (when (c:read result)
-              (commit-logged-writes (.write-log tx-data))
-              (at:atomic-inc1 global-lock)
-              (broadcast-write-tx!% tx-data)
-              Unit)
-            (unmask-current! rt-prx)
-            (c:read result)))))
+    (when (opt:some? (c:read (.parent-tx tx-data)))
+      (error "Cannot commit a nested transaction."))
+    (if (read-only? tx-data)
+        True
+        (progn
+          (let result = (c:new True))
+          (mask-current! rt-prx)
+          (while (and
+                  ;; Stop looping if we already need to abort.
+                  (c:read result)
+                  (not (at:int-cas global-lock
+                                   (c:read (.lock-snapshot tx-data))
+                                   (1+ (c:read (.lock-snapshot tx-data))))))
+                 (let validate-res = (validate% tx-data))
+                 (match validate-res
+                   ((TxContinue% time)
+                    (c:write! (.lock-snapshot tx-data) time)
+                    Unit)
+                   ((TxAbort%)
+                    (c:write! result False)
+                    Unit)))
+          (when (c:read result)
+            (commit-logged-writes (.write-log tx-data))
+            (at:atomic-inc1 global-lock)
+            (broadcast-write-tx!% tx-data)
+            Unit)
+          (unmask-current! rt-prx)
+          (c:read result))))
 
   (inline)
-  (declare retry-with (MonadIo :m => TimeoutStrategy -> STM :m :a))
+  (declare retry-with (TimeoutStrategy -> STM :a))
   (define (retry-with strategy)
     "Retry the current operation because the observed state is invalid. Waits for a write
 transaction to commit to a TVar that has already been read during this transaction, and
@@ -686,11 +674,10 @@ Concurrent:
   - Will timeout depending on strategy."
     (STM%
      (fn (_)
-      (wrap-io
-        (TxRetryAfterWrite strategy)))))
+       (TxRetryAfterWrite strategy))))
 
   (inline)
-  (declare retry (MonadIo :m => STM :m :a))
+  (declare retry (STM :a))
   (define retry
     "Retry the current operation because the observed state is invalid. Waits for a write
 transaction to commit to a TVar that has already been read during this transaction, and
@@ -709,7 +696,7 @@ Concurrent:
     (retry-with NoTimeout))
 
   (inline)
-  (declare retry-unless (MonadIo :m => Boolean -> STM :m Unit))
+  (declare retry-unless (Boolean -> STM Unit))
   (define (retry-unless ok?)
     "Retry unless `ok?` is true. If `ok?` is false, then waits for a write transaction
 to commit to a TVar that has already been read during this transaction, and then tries
@@ -725,7 +712,7 @@ Concurrent:
         retry))
 
   (inline)
-  (declare retry-unless-tvar (MonadIo :m => TVar Boolean -> STM :m Unit))
+  (declare retry-unless-tvar (TVar Boolean -> STM Unit))
   (define (retry-unless-tvar ok?)
     "Retry unless `ok?` is true. If `ok?` is false, then waits for a write transaction
 to commit to a TVar that has already been read during this transaction, and then tries
@@ -742,26 +729,26 @@ Concurrent:
          (pure Unit)
          retry)))
 
-  (declare or-else (MonadIo :m => STM :m :a * STM :m :a -> STM :m :a))
+  (declare or-else (STM :a * STM :a -> STM :a))
   (define (or-else tx-a tx-b)
     "Run TX-A. If it signals a retry, run TX-b. If both transactions signal a
 retry, then the entire transaction retries."
     (STM%
      (fn (tx-data)
-       (do
-         (let a-tx-data = (child-tx-data% tx-data))
-         (matchM (run-stm% a-tx-data tx-a)
-           ((TxFailed)
-            (merge-into-parent-tx% a-tx-data)
-            (pure TxFailed))
-           ((TxSuccess val)
-            (merge-into-parent-tx% a-tx-data)
-            (pure (TxSuccess val)))
-           ((TxRetryAfterWrite _)
-            (merge-read-log-into-parent-tx% a-tx-data)
-            (run-stm% tx-data tx-b)))))))
+       (let a-tx-data = (child-tx-data% tx-data))
+       (match (run-stm% a-tx-data tx-a)
+         ((TxFailed)
+          (merge-into-parent-tx% a-tx-data)
+          TxFailed)
+         ((TxSuccess val)
+          (merge-into-parent-tx% a-tx-data)
+          (TxSuccess val))
+         ((TxRetryAfterWrite _)
+          (merge-read-log-into-parent-tx% a-tx-data)
+          (run-stm% tx-data tx-b))))))
 
-  (declare run-tx ((Threads :rt :t :m) (Exceptions :m) => STM :m :a -> :m :a))
+  ;; (declare run-tx ((Threads :rt :t :m) (Exceptions :m) => STM :m :a -> :m :a))
+  (declare run-tx ((Threads :rt :t :m) => STM :a -> :m :a))
   (define (run-tx tx)
      "Run an atomic transaction. If the transaction raises an exception, the transaction
 is aborted and the exception is re-raised.
@@ -771,25 +758,20 @@ a consistent snapshot of the data. Therefore, TX must be pure."
     ;; CONCURRENT:
     ;; - Inherits concurrent semantics from wait-for-write-tx!% and tx-commit-io%
     ;; - No other part of run-tx has any concurrent concerns
-    (let m-prx = Proxy)
-    (let rt-prx = (runtime-for m-prx))
-    (as-proxy-of
+    (wrap-io-with-runtime (rt-prx)
      (rec % ()
-       (do
-        (tx-data <- (tx-begin-io%))
-        (do-matchM (run-stm% tx-data tx)
-          ((TxFailed)
-           (%))
-          ((TxRetryAfterWrite strategy)
-           (progn
-             (wait-for-write-tx!% rt-prx strategy tx-data)
-             (%)))
-          ((TxSuccess val)
-           (commit-succeeded? <- (tx-commit-io% tx-data))
-           (if commit-succeeded?
-               (pure val)
-               (%))))))
-     m-prx))
+       (let tx-data = (tx-begin%))
+       (match (run-stm% tx-data tx)
+         ((TxFailed)
+          (%))
+         ((TxRetryAfterWrite strategy)
+          (wait-for-write-tx!% rt-prx strategy tx-data)
+          (%))
+         ((TxSuccess val)
+          (let commit-succeeded? = (tx-commit% rt-prx tx-data))
+          (if commit-succeeded?
+              val
+              (%)))))))
   )
 
 (defmacro do-run-tx (cl:&body body)

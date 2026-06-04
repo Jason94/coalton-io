@@ -232,7 +232,7 @@ to retry."
     (v:index-unsafe (mod-hash (hash key) (db-length db))
                     (.buckets (.data db))))
 
-  (declare write-key-tx (String * String * Database -> STM IO Unit))
+  (declare write-key-tx (String * String * Database -> STM Unit))
   (define (write-key-tx key val db)
     (let bucket = (bucket-for key db))
     (do
@@ -248,7 +248,7 @@ to retry."
      (bucket-map <- (run-tx (read-tvar bucket)))
      (pure (hm:lookup bucket-map key))))
 
-  (declare rename-key (String * String * Database -> STM IO Boolean))
+  (declare rename-key (String * String * Database -> STM Boolean))
   (define (rename-key key new-key db)
     "Rename a key in the database. Returns True if the original key was found, False if
 it was missing."

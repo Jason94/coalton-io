@@ -66,7 +66,7 @@
       (active-tvar <- (new-tvar False))
       (pure (TRWLock n-readers-tvar n-writers-tvar active-tvar))))
 
-  (declare reader-acquire-tx (TRWLock -> STM IO Unit))
+  (declare reader-acquire-tx (TRWLock -> STM Unit))
   (define (reader-acquire-tx lock)
     "Acquire a tlock. Blocks until the lock becomes available to readers. Returns the
 token used to release the lock."
@@ -78,15 +78,18 @@ token used to release the lock."
          (modify-tvar (.n-readers lock) 1+))
      (pure Unit)))
 
-  (declare reader-release-tx (TRWLock -> STM IO Unit))
+  (declare reader-release-tx (TRWLock -> STM Unit))
   (define (reader-release-tx lock)
     "Attempts to release a reader on LOCK. If there were no active readers, errors."
     (do
-     (new-n-readers <- (modify-tvar (.n-readers lock) 1-))
-     (do-when (< new-n-readers 0)
-       (raise "Attempted to release a reader on a TRWLock with no active readers."))))
+     (_new-n-readers <- (modify-tvar (.n-readers lock) 1-))
+     (pure Unit)
+     ))
+     ;; TODO: Bring back when I revive the STM exceptions instance
+     ;; (do-when (< new-n-readers 0)
+     ;;   (raise "Attempted to release a reader on a TRWLock with no active readers."))))
 
-  ;; NOTE: This could return a transaction (STM IO Unit) instead of an IO operation. But
+  ;; NOTE: This could return a transaction (STM Unit) instead of an IO operation. But
   ;; doing it this way makes it impossible to accidentally combine pend-writer-acquire
   ;; and writer-acquire in the same transaction, which would break the algorithm.
   (declare pend-writer-acquire (TRWLock -> IO Unit))
@@ -113,10 +116,11 @@ to ever acquire it."
   (define (writer-release lock)
     "Attempts to release the writer lock on LOCK. Errors if the writer lock was not acquired."
     (do-run-tx
-      (writer-active? <- (read-tvar (.writer-active? lock)))
+      (_writer-active? <- (read-tvar (.writer-active? lock)))
       (n-writers-waiting <- (read-tvar (.n-writers-waiting lock)))
-      (do-when (or (not writer-active?) (zero? n-writers-waiting))
-        (raise "Attempted to release the writer lock on a TRWLock that was not busy."))
+     ;; TODO: Bring back when I revive the STM exceptions instance
+      ;; (do-when (or (not writer-active?) (zero? n-writers-waiting))
+      ;;   (raise "Attempted to release the writer lock on a TRWLock that was not busy."))
       (write-tvar (.writer-active? lock) False)
       (write-tvar (.n-writers-waiting lock) (1- n-writers-waiting))))
 

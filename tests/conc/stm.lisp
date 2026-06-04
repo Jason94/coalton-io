@@ -24,6 +24,10 @@
 (fiasco:define-test-package #:coalton-io/tests/conc/stm-fiasco)
 (coalton-fiasco-init #:coalton-io/tests/conc/stm-fiasco)
 
+(coalton-toplevel
+  (declare tx-io!%_ (IO :a -> STM :a))
+  (define tx-io!%_ tx-io!%))
+
 ;;;
 ;;; Single threaded tests
 ;;;
@@ -94,40 +98,40 @@
       (run-tx (read-tvar a)))))
   (is (== 10 result)))
 
-(define-test test-exception-aborts-transaction ()
-  (let result =
-    (run-io!
-     (do
-      (a <- (new-tvar 0))
-      (result1 <-
-       (try-all
-        (do-run-tx
-          (write-tvar a 100)
-          (raise "Raising exception after write")
-          (read-tvar a))))
-      (result2 <- (run-tx (read-tvar a)))
-      (pure (Tuple result1 result2)))))
-  (is (== (Tuple None 0)
-          result)))
+;; (define-test test-exception-aborts-transaction ()
+;;   (let result =
+;;     (run-io!
+;;      (do
+;;       (a <- (new-tvar 0))
+;;       (result1 <-
+;;        (try-all
+;;         (do-run-tx
+;;           (write-tvar a 100)
+;;           (raise "Raising exception after write")
+;;           (read-tvar a))))
+;;       (result2 <- (run-tx (read-tvar a)))
+;;       (pure (Tuple result1 result2)))))
+;;   (is (== (Tuple None 0)
+;;           result)))
 
-(define-test test-tx-wrap-error ()
-  (let result =
-    (run-io!
-     (do
-      (a <- (new-tvar 0))
-      (result1 <-
-       (try-all
-        (do-run-tx
-          (write-tvar a 10)
-          (next-val <- (wrap-error
-                         (error "Coalton error!")
-                         100))
-          (write-tvar a next-val)
-          (read-tvar a))))
-      (result2 <- (run-tx (read-tvar a)))
-      (pure (Tuple result1 result2)))))
-  (is (== (Tuple None 0)
-          result)))
+;; (define-test test-tx-wrap-error ()
+;;   (let result =
+;;     (run-io!
+;;      (do
+;;       (a <- (new-tvar 0))
+;;       (result1 <-
+;;        (try-all
+;;         (do-run-tx
+;;           (write-tvar a 10)
+;;           (next-val <- (wrap-error
+;;                          (error "Coalton error!")
+;;                          100))
+;;           (write-tvar a next-val)
+;;           (read-tvar a))))
+;;       (result2 <- (run-tx (read-tvar a)))
+;;       (pure (Tuple result1 result2)))))
+;;   (is (== (Tuple None 0)
+;;           result)))
 
 (define-test test-or-else-tx1-write ()
   (let result =
@@ -194,11 +198,11 @@
       (result-fut <-
         (do-fork-future_
          (do-run-tx
-           (n-retries <- (tx-io!% (read retry-count)))
+           (n-retries <- (tx-io!%_ (read retry-count)))
            (x-val <- (read-tvar x))
            (do-when (zero? x-val)
-             (tx-io!% (modify retry-count 1+))
-             (tx-io!% (try-put-mvar retry-gate Unit))
+             (tx-io!%_ (modify retry-count 1+))
+             (tx-io!%_ (try-put-mvar retry-gate Unit))
              retry)
            (pure x-val))))
       ;; Wait until the retry is triggered
@@ -227,10 +231,10 @@
         (do-run-tx
           (x-val <- (read-tvar used-tvar))
           (do-when (zero? x-val)
-            (tx-io!% (modify retry-count 1+))
-            (tx-io!% (try-put-mvar retry-gate Unit))
+            (tx-io!%_ (modify retry-count 1+))
+            (tx-io!%_ (try-put-mvar retry-gate Unit))
             retry)
-          (tx-io!% (try-put-mvar finished-gate Unit))))
+          (tx-io!%_ (try-put-mvar finished-gate Unit))))
       ;; Wait until the retry is triggered
       (take-mvar retry-gate)
       (sleep 2)
@@ -261,14 +265,14 @@
         (fork-future_
          (do-run-tx
            (a-val <- (read-tvar a))
-           (tx-io!% (modify observed-as (fn (lst)
+           (tx-io!%_ (modify observed-as (fn (lst)
                                           (Cons a-val lst))))
            ;; Let the write-tx know that we've read the first tvar
-           (tx-io!% (put-mvar read-gate Unit))
+           (tx-io!%_ (put-mvar read-gate Unit))
            ;; Wait for the write-tx to write to both tvars
-           (tx-io!% (take-mvar write-gate))
+           (tx-io!%_ (take-mvar write-gate))
            (b-val <- (read-tvar b))
-           (tx-io!% (modify observed-bs (fn (lst)
+           (tx-io!%_ (modify observed-bs (fn (lst)
                                           (Cons b-val lst))))
            (pure (Tuple a-val b-val)))))
       (do-fork-thread_
@@ -307,20 +311,20 @@
         (fork-future_
          (do-run-tx
            (a-val <- (read-tvar a))
-           (tx-io!% (modify observed-as (fn (lst)
+           (tx-io!%_ (modify observed-as (fn (lst)
                                           (Cons a-val lst))))
            (b-val <-
              (if (even? a-val)
                (read-tvar b)
                (pure -10)))
-           (tx-io!% (modify observed-bs (fn (lst)
+           (tx-io!%_ (modify observed-bs (fn (lst)
                                           (Cons b-val lst))))
            ;; Let the write-tx know that we've read
-           (tx-io!% (put-mvar read-gate Unit))
+           (tx-io!%_ (put-mvar read-gate Unit))
            ;; Wait for the write-tx to write to its tvars
-           (tx-io!% (take-mvar write-gate))
+           (tx-io!%_ (take-mvar write-gate))
            (c-val <- (read-tvar c))
-           (tx-io!% (modify observed-cs (fn (lst)
+           (tx-io!%_ (modify observed-cs (fn (lst)
                                           (Cons c-val lst))))
            (pure (Tuple3 a-val b-val c-val)))))
       (take-mvar read-gate)
@@ -366,7 +370,7 @@
                           (write-tvar a 10)
                           (do
                            (write-tvar a 5)
-                           (tx-io!% (put-mvar retry-gate Unit))
+                           (tx-io!%_ (put-mvar retry-gate Unit))
                            retry)))
                      (do
                       (write-tvar b 20)
@@ -401,15 +405,15 @@
         (do-fork-future_
           (do-run-tx
             (or-else (do
-                      (tx-io!% (modify count-1-run 1+))
+                      (tx-io!%_ (modify count-1-run 1+))
                       (read-tvar read-in-tx1)
                       (write-tvar write-in-tx1 True)
                       retry)
                      (do
-                      (tx-io!% (modify count-2-run 1+))
+                      (tx-io!%_ (modify count-2-run 1+))
                       (write-tvar write-in-tx2 True)
-                      (tx-io!% (try-put-mvar retry-gate Unit))
-                      (tx-io!% (take-mvar allow-tx2-finish-gate)))))))
+                      (tx-io!%_ (try-put-mvar retry-gate Unit))
+                      (tx-io!%_ (take-mvar allow-tx2-finish-gate)))))))
       ;; Wait for tx-2 to finish the first time
       (take-mvar retry-gate)
       (run-tx (write-tvar read-in-tx1 -100)) ; Dirtying tx1's read log should trigger or-else to re-run
