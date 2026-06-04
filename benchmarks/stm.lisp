@@ -44,26 +44,24 @@ this is the pathological worst case for an STM (and really, for any synchronized
 data structure, such as lock or atomic based ones)."
     (run-io!
      (do
+      ;; Setup benchmark parameters and shared data
       (tvar <- (new-tvar 0))
-      (n-finished <- (new-tvar 0))
       (let work-per-thread = (coalton/math:div workload n-threads))
       (scheduler <- (new-ring-buffer-scheduler n-threads))
       (pool <- (new-worker-pool n-threads scheduler))
+      ;; Run the benchmark
       (wrap-io (b:start (b:current-timer)))
       (do-times-io_ n-threads
         (do-submit-job_ pool
           (do-times-io_ work-per-thread
             (do-run-tx
-              (modify-tvar tvar 1+)))
-          (run-tx (modify-tvar n-finished 1+))))
-      (do-run-tx
-        (n-finished <- (read-tvar n-finished))
-        (retry-unless (== n-threads n-finished)))
+              (modify-tvar tvar 1+)))))
+      ;; Cleanup and verify correctness
+      (request-shutdown pool)
+      (await pool)
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
-      (request-shutdown pool)
-      (await pool)
       (do-run-tx
         (val <- (read-tvar tvar))
         (do-when (/= val workload)
@@ -77,6 +75,7 @@ Note that this is the pathological worst case for an STM (and really, for any
 synchronized data structure, such as lock or atomic based ones)."
     (run-io!
      (do
+      ;; Setup benchmark parameters and shared data
       (tvar1 <- (new-tvar 0))
       (tvar2 <- (new-tvar 0))
       (tvar3 <- (new-tvar 0))
@@ -85,11 +84,11 @@ synchronized data structure, such as lock or atomic based ones)."
       (tvar6 <- (new-tvar 0))
       (tvar7 <- (new-tvar 0))
       (tvar8 <- (new-tvar 0))
-      (n-finished <- (new-tvar 0))
       (let work-per-thread = (coalton/math:div workload n-threads))
       (let iterations-per-thread = (coalton/math:div work-per-thread 8))
       (scheduler <- (new-ring-buffer-scheduler n-threads))
       (pool <- (new-worker-pool n-threads scheduler))
+      ;; Run the benchmark
       (wrap-io (b:start (b:current-timer)))
       (do-times-io_ n-threads
         (do-submit-job_ pool
@@ -102,16 +101,13 @@ synchronized data structure, such as lock or atomic based ones)."
               (modify-tvar tvar5 1+)
               (modify-tvar tvar6 1+)
               (modify-tvar tvar7 1+)
-              (modify-tvar tvar8 1+)))
-          (run-tx (modify-tvar n-finished 1+))))
-      (do-run-tx
-        (n-finished <- (read-tvar n-finished))
-        (retry-unless (== n-threads n-finished)))
+              (modify-tvar tvar8 1+)))))
+      ;; Cleanup and verify correctness
+      (request-shutdown pool)
+      (await pool)
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
-      (request-shutdown pool)
-      (await pool)
       (do-run-tx
         (val1 <- (read-tvar tvar1))
         (val2 <- (read-tvar tvar2))
@@ -139,7 +135,6 @@ contention."
      (do
       ;; Setup benchmark parameters and shared data
       (tarr <- (tr:new-tarray tarr-size 0))
-      (n-finished <- (new-tvar 0))
       (let work-per-thread = (coalton/math:div workload n-threads))
       (let iterations-per-thread = (coalton/math:div work-per-thread tarr-size))
       (let ixs = (l:range 0 (1- tarr-size)))
@@ -153,17 +148,13 @@ contention."
             (do-foreach-io_ (i ixs)
               (do-run-tx
                 (x <- (tr:aref# tarr i))
-                (tr:set tarr i (1+ x)))))
-          (run-tx (modify-tvar n-finished 1+))))
-      (do-run-tx
-        (n-finished <- (read-tvar n-finished))
-        (retry-unless (== n-threads n-finished)))
+                (tr:set tarr i (1+ x)))))))
       ;; Cleanup and verify correctness
+      (request-shutdown pool)
+      (await pool)
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
-      (request-shutdown pool)
-      (await pool)
       (sum <- (new-tvar 0))
       (do-foreach-io_ (i ixs)
         (do-run-tx
