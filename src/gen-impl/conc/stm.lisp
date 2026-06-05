@@ -52,6 +52,8 @@
   `(lisp (-> Void) ()
      (sb-thread:barrier (:read))))
 
+(cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 0)))
+
 (named-readtables:in-readtable coalton:coalton)
 
 ;; This is an implementation of the NOrec STM algorithm, described:

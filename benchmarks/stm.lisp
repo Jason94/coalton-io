@@ -206,7 +206,7 @@ case scenario for the STM."
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
-(defparameter *count* 50)
+(defparameter *count* 80)
 
 (define-benchmark small-tx-1-worker ()
   (loop :repeat *count*
