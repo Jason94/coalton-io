@@ -20,6 +20,7 @@
   (:import-from #:coalton/experimental/do-control-core
    #:do-when)
   (:import-from #:coalton/experimental/do-control-loops
+   #:do-loop-while
    #:do-loop-times)
   (:local-nicknames
    (:f #:coalton/format)
@@ -33,9 +34,10 @@
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
+;; TODO: Redo the raise checks when I re-implement the exceptions instance
 (coalton-toplevel
-  ;; Divisible by 8 to be able to evenly split workloads at all thread counts
-  (define workload (the UFix 320000))
+  ;; Divisible by 2, 4, & 6 to be able to evenly split workloads at all thread counts
+  (define workload (the UFix 480000))
   
   (declare small-tx-n-times (UFix -> Void))
   (define (small-tx-n-times n-threads)
@@ -62,10 +64,11 @@ data structure, such as lock or atomic based ones)."
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
-      (do-run-tx
-        (val <- (read-tvar tvar))
-        (do-when (/= val workload)
-          (raise (f:format f:Str "small-tx-~a-times expected total ~a but received ~a" n-threads workload val))))))
+      ;; (do-run-tx
+      ;;   (val <- (read-tvar tvar))
+      ;;   (do-when (/= val workload)
+      ;;     (raise (f:format f:Str "small-tx-~a-times expected total ~a but received ~a" n-threads workload val))))))
+       ))
     (values))
 
   (declare large-tx-n-times (UFix -> Void))
@@ -108,18 +111,19 @@ synchronized data structure, such as lock or atomic based ones)."
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
-      (do-run-tx
-        (val1 <- (read-tvar tvar1))
-        (val2 <- (read-tvar tvar2))
-        (val3 <- (read-tvar tvar3))
-        (val4 <- (read-tvar tvar4))
-        (val5 <- (read-tvar tvar5))
-        (val6 <- (read-tvar tvar6))
-        (val7 <- (read-tvar tvar7))
-        (val8 <- (read-tvar tvar8))
-        (let total = (sum (make-list val1 val2 val3 val4 val5 val6 val7 val8)))
-        (do-when (/= total workload)
-          (raise (f:format f:Str "large-tx-~a-times expected total ~a but received ~a" n-threads workload total))))))
+       ))
+      ;; (do-run-tx
+      ;;   (val1 <- (read-tvar tvar1))
+      ;;   (val2 <- (read-tvar tvar2))
+      ;;   (val3 <- (read-tvar tvar3))
+      ;;   (val4 <- (read-tvar tvar4))
+      ;;   (val5 <- (read-tvar tvar5))
+      ;;   (val6 <- (read-tvar tvar6))
+      ;;   (val7 <- (read-tvar tvar7))
+      ;;   (val8 <- (read-tvar tvar8))
+        ;; (let total = (sum (make-list val1 val2 val3 val4 val5 val6 val7 val8)))
+        ;; (do-when (/= total workload)
+        ;;   (raise (f:format f:Str "large-tx-~a-times expected total ~a but received ~a" n-threads workload total))))))
     (values))
 
   (declare loop-tarr-n-times (UFix * UFix -> Void))
@@ -160,9 +164,10 @@ contention."
         (do-run-tx
           (x <- (tr:aref# tarr i))
           (modify-tvar sum (fn (y) (+ x y)))))
-      (sum <- (run-tx (read-tvar sum)))
-      (do-when (/= sum workload)
-        (raise (f:format f:Str "loop-tarr-~a-times expected total ~a but received ~a" n-threads workload sum)))))
+       ))
+      ;; (sum <- (run-tx (read-tvar sum)))
+      ;; (do-when (/= sum workload)
+      ;;   (raise (f:format f:Str "loop-tarr-~a-times expected total ~a but received ~a" n-threads workload sum)))))
     (values))
 
   (declare write-separate (UFix -> Void))
@@ -195,10 +200,43 @@ case scenario for the STM."
         (do-run-tx
           (x <- (tr:aref# tarr i))
           (modify-tvar sum (fn (y) (+ x y)))))
-      (sum <- (run-tx (read-tvar sum)))
-      (do-when (/= sum workload)
-        (raise (f:format f:Str "loop-tarr-~a-times expected total ~a but received ~a" n-threads workload sum)))))
+       ))
+      ;; (sum <- (run-tx (read-tvar sum)))
+      ;; (do-when (/= sum workload)
+      ;;   (raise (f:format f:Str "loop-tarr-~a-times expected total ~a but received ~a" n-threads workload sum)))))
     (values))
+
+  (declare increment-round-robin (UFix -> Void))
+  (define (increment-round-robin n-threads)
+    "This benchmark tests `retry` performance. Higher thread counts lead to more spurious
+wakes."
+    (run-io!
+     (do
+      ;; Setup benchmark parameters and shared data
+      (count <- (new-tvar 0))
+      (scheduler <- (new-ring-buffer-scheduler n-threads))
+      (pool <- (new-worker-pool n-threads scheduler))
+      ;; Run the benchmark
+      (wrap-io (b:start (b:current-timer)))
+      (do-loop-times (i n-threads)
+        (do-submit-job_ pool
+          (do-loop-while
+            (val <-
+              (do-run-tx
+                (val <- (read-tvar count))
+                (if (or (== i (mod val n-threads))
+                        (>= val workload))
+                    (modify-tvar count 1+)
+                    retry)))
+            (pure (< val workload)))))
+      ;; Cleanup and verify correctness
+      (request-shutdown pool)
+      (await pool)
+      (wrap-io
+       (b:stop (b:current-timer))
+       (b:commit (b:current-timer)))))
+    (values))
+      ;; TODO: Verify count = workload
  )
 
 
@@ -206,7 +244,7 @@ case scenario for the STM."
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
-(defparameter *count* 80)
+(defparameter *count* 60)
 
 (define-benchmark small-tx-1-worker ()
   (loop :repeat *count*
@@ -229,11 +267,11 @@ case scenario for the STM."
             (benchmark-stm/native::small-tx-n-times 4)))
   (report trivial-benchmark::*current-timer*))
 
-(define-benchmark small-tx-8-worker ()
+(define-benchmark small-tx-6-worker ()
   (loop :repeat *count*
         :do
            (coalton:coalton
-            (benchmark-stm/native::small-tx-n-times 8)))
+            (benchmark-stm/native::small-tx-n-times 6)))
   (report trivial-benchmark::*current-timer*))
 
 (define-benchmark large-tx-1-worker ()
@@ -257,67 +295,67 @@ case scenario for the STM."
             (benchmark-stm/native::large-tx-n-times 4)))
   (report trivial-benchmark::*current-timer*))
 
-(define-benchmark large-tx-8-worker ()
+(define-benchmark large-tx-6-worker ()
   (loop :repeat *count*
         :do
            (coalton:coalton
-            (benchmark-stm/native::large-tx-n-times 8)))
+            (benchmark-stm/native::large-tx-n-times 6)))
   (report trivial-benchmark::*current-timer*))
 
 (define-benchmark loop-tarr-1-worker ()
   (loop :repeat *count*
         :do
            (coalton:coalton
-            (benchmark-stm/native::loop-tarr-n-times 1 8)))
+            (benchmark-stm/native::loop-tarr-n-times 1 6)))
   (report trivial-benchmark::*current-timer*))
 
 (define-benchmark loop-tarr-2-worker ()
   (loop :repeat *count*
         :do
            (coalton:coalton
-            (benchmark-stm/native::loop-tarr-n-times 2 8)))
+            (benchmark-stm/native::loop-tarr-n-times 2 6)))
   (report trivial-benchmark::*current-timer*))
 
 (define-benchmark loop-tarr-4-worker ()
   (loop :repeat *count*
         :do
            (coalton:coalton
-            (benchmark-stm/native::loop-tarr-n-times 4 8)))
+            (benchmark-stm/native::loop-tarr-n-times 4 6)))
   (report trivial-benchmark::*current-timer*))
 
-(define-benchmark loop-tarr-8-worker ()
+(define-benchmark loop-tarr-6-worker ()
   (loop :repeat *count*
         :do
            (coalton:coalton
-            (benchmark-stm/native::loop-tarr-n-times 8 8)))
+            (benchmark-stm/native::loop-tarr-n-times 6 6)))
   (report trivial-benchmark::*current-timer*))
 
 (define-benchmark loop-large-tarr-1-worker ()
   (loop :repeat *count*
         :do
            (coalton:coalton
-            (benchmark-stm/native::loop-tarr-n-times 1 80)))
+            (benchmark-stm/native::loop-tarr-n-times 1 60)))
   (report trivial-benchmark::*current-timer*))
 
 (define-benchmark loop-large-tarr-2-worker ()
   (loop :repeat *count*
         :do
            (coalton:coalton
-            (benchmark-stm/native::loop-tarr-n-times 2 80)))
+            (benchmark-stm/native::loop-tarr-n-times 2 60)))
   (report trivial-benchmark::*current-timer*))
 
 (define-benchmark loop-large-tarr-4-worker ()
   (loop :repeat *count*
         :do
            (coalton:coalton
-            (benchmark-stm/native::loop-tarr-n-times 4 80)))
+            (benchmark-stm/native::loop-tarr-n-times 4 60)))
   (report trivial-benchmark::*current-timer*))
 
-(define-benchmark loop-large-tarr-8-worker ()
+(define-benchmark loop-large-tarr-6-worker ()
   (loop :repeat *count*
         :do
            (coalton:coalton
-            (benchmark-stm/native::loop-tarr-n-times 8 80)))
+            (benchmark-stm/native::loop-tarr-n-times 6 60)))
   (report trivial-benchmark::*current-timer*))
 
 (define-benchmark write-separate-1-workers ()
@@ -341,9 +379,34 @@ case scenario for the STM."
             (benchmark-stm/native::write-separate 4)))
   (report trivial-benchmark::*current-timer*))
 
-(define-benchmark write-separate-8-workers ()
+(define-benchmark write-separate-6-workers ()
   (loop :repeat *count*
         :do
            (coalton:coalton
-            (benchmark-stm/native::write-separate 8)))
+            (benchmark-stm/native::write-separate 6)))
+  (report trivial-benchmark::*current-timer*))
+
+;; NOTE: Not benchmarking increment-round-robin with 1 worker
+;; because it will never retry, so it would just benchmark
+;; that many modify-tvars in a loop.
+
+(define-benchmark increment-round-robin-2-workers ()
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-stm/native::increment-round-robin 2)))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark increment-round-robin-4-workers ()
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-stm/native::increment-round-robin 4)))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark increment-round-robin-6-workers ()
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-stm/native::increment-round-robin 6)))
   (report trivial-benchmark::*current-timer*))
