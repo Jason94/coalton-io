@@ -44,38 +44,26 @@
 
   (inline)
   (declare foreach-io ((LiftIo IO :m) (it:IntoIterator :i :a)
-                        => :i * (c:Cell :a -> IO :b) -> :m Unit))
+                        => :i * (:a -> IO :b) -> :m Unit))
   (define (foreach-io coll a->mb)
     (lift-io
      (the
       (IO Unit)
       (wrap-io
        (let itr = (it:into-iter coll))
-       (let fst = (it:next! itr))
-       (match fst
-         ((None)
-          Unit)
-         ((Some initial-val)
-          (let c = (c:new initial-val))
-          (let monad-op = (a->mb c))
-          (run-io-unhandled! monad-op)
-          (foreach (a itr)
-                   (c:write! c a)
-                   (run-io-unhandled! monad-op))
-          Unit))))))
+       (foreach (a itr)
+         (run-io-unhandled! (a->mb a)))
+       Unit))))
 
   (inline)
-  (declare times-io (LiftIo IO :m => UFix * (c:Cell UFix -> IO :a) -> :m Unit))
+  (declare times-io (LiftIo IO :m => UFix * (UFix -> IO :a) -> :m Unit))
   (define (times-io n x->io-op)
     (lift-io
      (the
       (IO Unit)
       (wrap-io
-       (let c = (c:new 0))
-       (let io-op = (x->io-op c))
        (dotimes (i n)
-         (c:write! c i)
-         (run-io-unhandled! io-op))
+         (run-io-unhandled! (x->io-op i)))
        Unit))))
 
   (inline)
@@ -100,21 +88,17 @@ results."
 
 (defmacro do-foreach-io ((var-sym into-itr) cl:&body body)
   "Efficiently perform an IO operation for each element of an iterator."
-  (cl:let ((cell-sym (cl:gensym "iteration-val")))
-    `(foreach-io ,into-itr
-      (fn (,cell-sym)
-        (do
-         (,var-sym <- (wrap-io (c:read ,cell-sym)))
-         ,@body)))))
+  `(foreach-io ,into-itr
+    (fn (,var-sym)
+      (do
+       ,@body))))
 
 (defmacro do-times-io ((count-sym n) cl:&body body)
   "Efficiently perform an IO operation N times with a counter."
-  (cl:let ((cell-sym (cl:gensym "iteration-count")))
-    `(times-io ,n
-      (fn (,cell-sym)
-        (do
-         (,count-sym <- (wrap-io (c:read ,cell-sym)))
-         ,@body)))))
+  `(times-io ,n
+    (fn (,count-sym)
+      (do
+      ,@body))))
 
 (defmacro do-repeat-io (n cl:&body body)
   "Efficiently perform an IO operation N times."
