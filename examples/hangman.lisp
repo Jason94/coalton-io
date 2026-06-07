@@ -223,14 +223,17 @@
               (modify inc-wrong-guesses)
             (write-line (<> "The word was " secret-word))
             (write-line "You won!")
-            lp:break-loop)))
+            lp:break-loop
+            )))
        (do-whenM over-and-failed?
          (write-line "You ran out of guesses. Better luck next time!")
          (write-line (<> "The secret word was: " secret-word))
          lp:break-loop)
        (write-status secret-word))
       ))
+  )
 
+(coalton-toplevel
   (declare get-word-from-dictionary (String -> IO String))
   (define (get-word-from-dictionary fname)
     ;; Loop through the file twice to avoid storing the whole file
@@ -250,8 +253,7 @@
        (do-loop-times (_ n-word)
          (f:read-line fs))
        (raise-result
-        (f:read-line fs)))))
-  )
+        (f:read-line fs))))))
 
 (cl:defun play ()
   (coalton (run-hangman

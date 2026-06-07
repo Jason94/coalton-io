@@ -43,24 +43,23 @@
      (TArray% arr)))
 
   (inline)
-  (declare aref (MonadIo :m => TArray :a * UFix -> STM :m (Optional :a)))
+  (declare aref (TArray :a * UFix -> STM (Optional :a)))
   (define (aref tarr i)
     (if (< i (la:length (tarr% tarr)))
         (STM%
          (fn (tx-data)
-           (wrap-io
-            (map Some
-                 (inner-read-tvar% (la:aref (tarr% tarr) i)
-                                   tx-data)))))
+           (Some
+            (inner-read-tvar% (la:aref (tarr% tarr) i)
+                              tx-data))))
         (pure None)))
 
   (inline)
-  (declare aref# (MonadIo :m => TArray :a * UFix -> STM :m :a))
+  (declare aref# (TArray :a * UFix -> STM :a))
   (define (aref# tarr i)
     (read-tvar (la:aref (tarr% tarr) i)))
 
   (inline)
-  (declare set (MonadIo :m => TArray :a * UFix * :a -> STM :m Unit))
+  (declare set (TArray :a * UFix * :a -> STM Unit))
   (define (set tarr i elem)
     (write-tvar (la:aref (tarr% tarr) i)
                 elem))
