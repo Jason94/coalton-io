@@ -10,7 +10,6 @@
    #:io/simple-io
    #:io/simple-io/loops
    #:io/exceptions
-   #:io/simple-io
    #:io/thread
    #:io/conc/stm
    )

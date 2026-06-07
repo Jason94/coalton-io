@@ -139,7 +139,7 @@ Exceptions can be handled in several ways, including only handling exceptions of
    (file-data <-
      (handle-all (read-file-data "data.csv")
                  (const (pure Nil))))
-   (do-foreach (str file-data)
+   (do-foreach-io (str file-data)
      (write-line str)))
 ```
 
@@ -152,7 +152,7 @@ Exceptions can be handled in several ways, including only handling exceptions of
                    (lisp (-> List String) ()
                      (cl-read-file-data "data.csv")))
                  (const (pure Nil))))
-   (do-foreach (str file-data)
+   (do-foreach-io (str file-data)
      (write-line str)))
 ```
 
@@ -280,7 +280,8 @@ This (slightly longer) example program manages ticket sales with transactions. T
          (pure (Tuple money-earned customers-with-tickets))))
     (write-line (build-str "Earned $" money-earned))
     (write-line "Customers who bought tickets:")
-    (foreach-io_ customers-with-tickets write-line))
+    (do-foreach-io (customer customers-with-tickets)
+      (write-line customer)))
 ```
 
 ## Contributing

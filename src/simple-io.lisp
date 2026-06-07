@@ -15,6 +15,8 @@
    #:handle-io
    #:handle-all-io
    #:try-dynamic-io
+
+   #:with-run-in-io_
    ))
 
 (in-package :io/simple-io)

@@ -54,3 +54,52 @@
   (is (== (make-list 0 10 20 30)
           (l:reverse (c:read run-ints))))
   (is (== 30 last-var)))
+
+(define-test test-dotimes-io-empty ()
+  (let count = (c:new 0))
+  (run-io!
+   (do-times-io (i 0)
+     (wrap-io
+      (c:update! ƒx.(+ x i) count))))
+  (is (== 0 (c:read count))))
+
+(define-test test-dotimes-io ()
+  (let count = (c:new 0))
+  (run-io!
+   (do-times-io (i 4)
+     (wrap-io
+      (c:update! ƒx.(+ x i) count))))
+  (is (== 6 ;; 0 + 1 + 2 + 3
+          (c:read count))))
+
+(coalton-toplevel
+  (declare add-to-cell (UFix * c:Cell UFix -> IO Unit))
+  (define (add-to-cell n count)
+    (wrap-io
+     (c:update! ƒx.(+ x n) count)
+     Unit)))
+
+(define-test test-dotimes-io-inner-func ()
+  (let count = (c:new 0))
+  (run-io!
+   (do-times-io (i 4)
+     (add-to-cell i count)))
+  (is (== 6 ;; 0 + 1 + 2 + 3
+          (c:read count))))
+
+(define-test test-repeat-io-empty ()
+  (let count = (c:new 0))
+  (run-io!
+   (do-repeat-io 0
+     (wrap-io
+      (c:update! 1+ count))))
+  (is (== 0 (c:read count))))
+
+(define-test test-repeat-io ()
+  (let count = (c:new 0))
+  (run-io!
+   (do-repeat-io 10
+     (wrap-io
+      (c:update! 1+ count))))
+  (is (== 10
+          (c:read count))))

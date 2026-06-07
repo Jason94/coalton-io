@@ -33,6 +33,8 @@
    #:handle-all-io
    #:try-dynamic-io
 
+   #:with-run-in-io_
+
    ;; Library Private
    #:run-io-no-cleanup!
    #:run-io-unhandled!
