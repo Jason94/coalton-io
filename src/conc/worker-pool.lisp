@@ -13,11 +13,17 @@
    #:do-submit-job
    #:do-submit-job-with
 
+   #:IndexChunk
+   #:submit-indexed-chunks
+   #:do-submit-indexed-chunks
+
    ;; Re-exports from io/io-impl/conc/worker-pool
    #:new-worker-pool_
    #:submit-job_
    #:do-submit-job_
    #:do-submit-job-with_
+   #:submit-indexed-chunks_
+   #:do-submit-indexed-chunks_
    ))
 
 (in-package :io/conc/worker-pool)

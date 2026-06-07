@@ -27,7 +27,9 @@
    (:r #:coalton-library/result)
    (:f #:io/file)
    (:m #:io/mut)
-   ))
+   )
+  (:export
+   #:run-example))
 
 (in-package :io/examples/hangman)
 
@@ -255,7 +257,7 @@
        (raise-result
         (f:read-line fs))))))
 
-(cl:defun play ()
+(cl:defun run-example ()
   (coalton (run-hangman
             (HangmanConf
              7

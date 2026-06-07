@@ -80,18 +80,25 @@ _coalton-io_ has a several example programs:
 
 * [Greeter](examples/greeter.lisp) - Ask the user for their name and print a friendly greeting in the terminal.
   - _Demonstrates_: How to make and run an IO program, terminal IO
+* [Threading: Basics](examples/thread-basics.lisp) - Start a new thread that prints to the console while the main thread sleeps.
+  _ _Demonstrates_: How to start and stop a thread, IO basics.
 
 #### Intermediate Examples
 
 * [Networking](examples/network-demo.lisp) - Run a simple client and server that allows the client to send messages to the server.
   - _Demonstrates_: Networking, resource safety, terminal IO
-* [Hangman](examples/hangman.lisp) - Play a game of hangman in the terminal. Shows `IO` basics and terminal IO.
-  - _Demonstrates_: Terminal IO, file IO, how to implement the common "ReaderT" pattern for structuring functional programs, how to use "capability class" style to make generic io-capable functions
-* [Channels & Threading](examples/channels-threading.lisp) - Multithreaded application to process an input data file.
-  - _Demonstrates_: Multithreading, file IO, passing data safely between threads at a low level using channels and MVar's
+* [Threading: Worker Pools](examples/thread-pool.lisp) - Use a worker pool to run CPU calculations on multiple threads.
+  - _Demonstrates_: How to use `coalton-io` to parallelize an existing Coalton program, thread pools.
   
 #### Advanced Examples
 
+* [Hangman](examples/hangman.lisp) - Play a game of hangman in the terminal. Shows `IO` basics and terminal IO.
+  - _Demonstrates_: Terminal IO, file IO, monad transformers, the common "ReaderT" pattern for structuring functional programs, how to use "capability class" style to make generic io functions
+* [Threading: Parallel Pipelines](examples/channels-threading.lisp) - Complex, multithreaded pipeline to process an input data file.
+  - _Demonstrates_: Multithreading, file IO, combining different concurrency tools to build an optimized parallel processing pipeline.
+  
+#### Example Applications
+  
 * [Redis](examples/redis/) - A CLI client and multithreaded key/value server that implement a small portion of the RESP binary protocol.
   - _Demonstrates_: Resource handling, terminal IO, multithreading, networking, advanced STM use for synchronized data access and how to use the STM to implement lock-type data structures
 

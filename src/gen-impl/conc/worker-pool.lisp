@@ -13,9 +13,13 @@
    #:io/classes/conc/scheduler
    #:io/gen-impl/conc/group
    )
+  (:import-from #:coalton-library/experimental/do-control-core
+   #:do-when)
   (:import-from #:coalton-library/experimental/do-control-loops
    #:do-loop-times)
   (:local-nicknames
+   (:m #:coalton/math/integral)
+   (:it #:coalton/iterator)
    (:l #:coalton-library/list))
   (:export
    #:WorkerPool
@@ -25,10 +29,18 @@
    #:submit-job-with
    #:do-submit-job
    #:do-submit-job-with
+
+   #:IndexChunk
+   #:submit-indexed-chunks
+   #:do-submit-indexed-chunks
    ))
 (in-package :io/gen-impl/conc/worker-pool)
 
 (named-readtables:in-readtable coalton:coalton)
+
+;;;
+;;; WorkerPool Core
+;;; 
 
 (coalton-toplevel
     
@@ -145,3 +157,77 @@ To immediately stop the threads, use `stop`."
   `(submit-job-with ,strategy ,pool
     (do
      ,@body)))
+
+;;;
+;;; Chunking
+;;;
+
+(coalton-toplevel
+  (derive Eq)
+  (define-struct IndexChunk
+    "A chunk of indexed work with a start and end (exclusive)."
+    (start UFix)
+    (end UFix))
+
+  (define-instance (it:IntoIterator IndexChunk UFix)
+    (inline)
+    (define (it:into-iter chunk)
+      (it:range-increasing 1 (.start chunk) (.end chunk))))
+
+  (declare submit-indexed-chunks ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :i)
+                                  (Exceptions :i) (Scheduler :s) (Exceptions :m)
+                                  => WorkerPool :s :i :t * UFix * UFix * UFix * (IndexChunk -> :r :a)
+                                  &key (:timeout TimeoutStrategy)
+                                  -> :m Unit))
+  (define (submit-indexed-chunks pool start end chunk-size chunk->job &key (timeout NoTimeout))
+    "Submit chunks of indexed-work to the worker pool. The first chunk starts at `start`,
+and the last chunk ends at `end`, exclusive. Each chunk has size `chunk-size`, except the
+last, which has the remaining work. A job is responsible for executing all work inside the
+chunk it is passed.
+
+Any jobs submitted after a shutdown request will be ignored.
+
+Concurrent:
+  - If the pool's scheduler is backed by a bounded data structure, then this can block
+    while the scheduler is full."
+    (cond
+      ((> start end)
+       (raise "Error: `start` must come before `end`"))
+      ((zero? chunk-size)
+       (raise "Error: `chunk-size` cannot be 0"))
+      ((== start end)
+       (pure Unit))
+      (True
+       (let (values n-normal-chunks rem-work) = (m:divmod (- end start) chunk-size))
+       (do
+        (do-loop-times (i n-normal-chunks)
+          (let chunk-start = (+ start (* chunk-size i)))
+          (let chunk-end = (+ chunk-start chunk-size))
+          (submit-job-with
+           timeout
+           pool
+           (chunk->job (IndexChunk chunk-start chunk-end))))
+        (do-when (not (zero? rem-work))
+          (submit-job-with
+           timeout
+           pool
+           (chunk->job (IndexChunk (- end rem-work) end))))))))
+  )
+
+(defmacro do-submit-indexed-chunks (pool (chunk-sym (start end chunk-size cl:&key (timeout 'NoTimeout))) cl:&body body)
+  "Submit chunks of indexed-work to the worker pool. The first chunk starts at `start`,
+and the last chunk ends at `end`, exclusive. Each chunk has size `chunk-size`, except the
+last, which has the remaining work. A job is responsible for executing all work inside the
+chunk it is passed.
+
+Any jobs submitted after a shutdown request will be ignored.
+
+Concurrent:
+  - If the pool's scheduler is backed by a bounded data structure, then this can block
+    while the scheduler is full."
+  `(submit-indexed-chunks ,pool ,start ,end ,chunk-size
+    (fn (,chunk-sym)
+      (do
+       ,@body))
+    :timeout ,timeout))
+      

@@ -103,3 +103,15 @@
       (c:update! 1+ count))))
   (is (== 10
           (c:read count))))
+
+(define-test test-while-io ()
+  (let result =
+    (run-io!
+     (do
+      (x-var <- (mt:new-var 1))
+      (do-while-io
+        (x <- (mt:modify x-var ƒx.(* x 2)))
+        (pure (< x 10)))
+      (mt:read x-var))))
+  (is (== 16 result)))
+

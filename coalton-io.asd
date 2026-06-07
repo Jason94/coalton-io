@@ -181,7 +181,9 @@ mutable variables, multithreading, and several data structures to safely share s
                 :serial t
                 :components
                 ((:file "greeter")
-                 (:file "channels-threading")
+                 (:file "thread-basics")
+                 (:file "thread-pool")
+                 (:file "thread-pipeline")
                  (:file "hangman")
                  (:file "network-demo")
                  (:file "redis/protocol")
