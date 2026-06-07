@@ -6,7 +6,7 @@
 ;;; code doing the same thing. Benchmarks test both using the efficient-fused
 ;;; looping operations and naive looping/recursion.
 
-(define-io-benchmark simple-io ()
+(define-io-benchmark-package simple-io ()
   (:use
    #:coalton
    #:coalton-prelude
@@ -24,6 +24,10 @@
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
+(coalton-toplevel
+  (declare *n* UFix)
+  (define *n* 10000000))
+
 ;;; The increment-hash-list benchmark takes the range of stringified ints from [0, n) and
 ;;; and loops through the list, hashing the increment of each list. The goal it to test
 ;;; a tight loop of very light, CPU-bound work. It does not allocate the results in a
@@ -34,32 +38,31 @@
 
 (coalton-toplevel
 
+  (define x-cell-hash (c:new (hash 0)))
+
   (declare lst (List Integer))
-  (define lst (l:range 0 3000000))
+  (define lst (l:range 0 (into *n*)))
 
   (declare increment-list-loop-non-monadic (Void -> Void))
   (define (increment-list-loop-non-monadic)
     (foreach (x lst)
-      (hash (1+ x))))
+      (c:write! x-cell-hash (hash (1+ x)))))
 
-  ;; TODO: For some reason SBCL is able to specialize some arithmetic in the non-monadic
-  ;; version, but not this one. That's going to give it some degree of artificial edge
-  ;; in the benchmark.
   (declare increment-list-loop-io-fused (Void -> Void))
   (define (increment-list-loop-io-fused)
     (run-io!
      (do-foreach-io_ (x lst)
-       (wrap-io (hash (1+ x)))))
+       (wrap-io
+        (c:write! x-cell-hash (hash (1+ x)))
+        Unit)))
     (values))
-  )
 
-(coalton-toplevel
   (declare increment-list-recursive-non-monadic (Void -> Void))
   (define (increment-list-recursive-non-monadic)
     (rec % ((rem lst))
       (match rem
         ((Cons x rest)
-         (hash (1+ x))
+         (c:write! x-cell-hash (hash (1+ x)))
          (% rest))
         ((Nil)
          (values)))))
@@ -71,7 +74,8 @@
        (match rem
          ((Cons x rest)
           (do
-           (pure (hash (1+ x)))
+           (wrap-io
+            (c:write! x-cell-hash (hash (1+ x))))
            (% rest)))
          ((Nil)
           (pure Unit)))))
@@ -79,9 +83,6 @@
   )
 
 (coalton-toplevel
-  (declare *n* UFix)
-  (define *n* 500000)
-
   (define x-cell (c:new 0))
 
   (define (reset)
@@ -108,8 +109,8 @@
       (c:write! cell
                 (noinline (f)))))                
 
-  (declare hash-n-times-monadic (Void -> Void))
-  (define (hash-n-times-monadic)
+  (declare hash-n-times-monadic-fused (Void -> Void))
+  (define (hash-n-times-monadic-fused)
     (reset)
     (let cell = (c:new (hash 0)))
     (run-io!
@@ -125,60 +126,34 @@
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
-(defparameter *count* 100)
+(defparameter *warmup* 10)
+(defparameter *count* 50)
 
-(define-benchmark increment-list-loop-non-monadic ()
-  (declare (optimize speed))
-  (loop :repeat *count*
-        :do (with-benchmark-sampling
-              (coalton:call-coalton-function
-               benchmark-simple-io/native::increment-list-loop-non-monadic)))
-  (report trivial-benchmark::*current-timer*))
+(io/benchmarks:define-io-benchmark increment-list-loop-non-monadic (:warmup-count *warmup* :sample-count *count*)
+  (coalton:call-coalton-function
+   benchmark-simple-io/native::increment-list-loop-non-monadic))
 
-(define-benchmark increment-list-loop-io-fused ()
-  (declare (optimize speed))
-  (loop :repeat *count*
-        :do (with-benchmark-sampling
-              (coalton:call-coalton-function
-               benchmark-simple-io/native::increment-list-loop-io-fused)))
-  (report trivial-benchmark::*current-timer*))
+(io/benchmarks:define-io-benchmark increment-list-loop-io-fused (:warmup-count *warmup* :sample-count *count*)
+  (coalton:call-coalton-function
+   benchmark-simple-io/native::increment-list-loop-io-fused))
 
-(define-benchmark increment-list-recursive-non-monadic ()
-  (declare (optimize speed))
-  (loop :repeat *count*
-        :do (with-benchmark-sampling
-              (coalton:call-coalton-function
-               benchmark-simple-io/native::increment-list-recursive-non-monadic)))
-  (report trivial-benchmark::*current-timer*))
+(io/benchmarks:define-io-benchmark increment-list-recursive-non-monadic (:warmup-count *warmup* :sample-count *count*)
+  (coalton:call-coalton-function
+   benchmark-simple-io/native::increment-list-recursive-non-monadic))
 
-(define-benchmark increment-list-recursive-monadic-non-fused ()
-  (declare (optimize speed))
-  (loop :repeat *count*
-        :do (with-benchmark-sampling
-              (coalton:call-coalton-function
-               benchmark-simple-io/native::increment-list-recursive-monadic-non-fused)))
-  (report trivial-benchmark::*current-timer*))
+;; This benchmark is particularly slow, so run with 1/4 of the normal count
+(io/benchmarks:define-io-benchmark increment-list-recursive-monadic-non-fused (:warmup-count *warmup* :sample-count *count*)
+  (coalton:call-coalton-function
+   benchmark-simple-io/native::increment-list-recursive-monadic-non-fused))
 
-(define-benchmark hash-n-times-non-monadic ()
-  (declare (optimize speed))
-  (loop :repeat *count*
-        :do (with-benchmark-sampling
-              (coalton:call-coalton-function
-               benchmark-simple-io/native::hash-n-times-non-monadic)))
-  (report trivial-benchmark::*current-timer*))
+(io/benchmarks:define-io-benchmark hash-n-times-non-monadic (:warmup-count *warmup* :sample-count *count*)
+  (coalton:call-coalton-function
+   benchmark-simple-io/native::hash-n-times-non-monadic))
 
-(define-benchmark hash-n-times-non-monadic-lambda ()
-  (declare (optimize speed))
-  (loop :repeat *count*
-        :do (with-benchmark-sampling
-              (coalton:call-coalton-function
-               benchmark-simple-io/native::hash-n-times-non-monadic-lambda)))
-  (report trivial-benchmark::*current-timer*))
+(io/benchmarks:define-io-benchmark hash-n-times-non-monadic-lambda (:warmup-count *warmup* :sample-count *count*)
+  (coalton:call-coalton-function
+   benchmark-simple-io/native::hash-n-times-non-monadic-lambda))
 
-(define-benchmark hash-n-times-monadic ()
-  (declare (optimize speed))
-  (loop :repeat *count*
-        :do (with-benchmark-sampling
-              (coalton:call-coalton-function
-               benchmark-simple-io/native::hash-n-times-monadic)))
-  (report trivial-benchmark::*current-timer*))
+(io/benchmarks:define-io-benchmark hash-n-times-monadic-fused (:warmup-count *warmup* :sample-count *count*)
+  (coalton:call-coalton-function
+   benchmark-simple-io/native::hash-n-times-monadic-fused))

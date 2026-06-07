@@ -5,7 +5,7 @@
 ;;; These benchmarks test the STM at different thread counts
 ;;; with different sizes of transactions.
 
-(define-io-benchmark stm ()
+(define-io-benchmark-package stm ()
   (:use
    #:coalton
    #:coalton-prelude

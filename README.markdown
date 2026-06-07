@@ -14,7 +14,7 @@ _coalton-io_ provides tools to write safe, functional programs in Coalton that c
   - Masking to protect critical areas
 * Safely sharing data between threads (_coalton-io_ provides Atomic variables, MVars, MChans, a Software Transactional Memory, Futures, Thread Pools, and more)
 
-`IO` is fast. Even in high-frequency hot loops, [benchmarks](benchmarks/benchmark_simple_io.csv) show that `IO` is competitive (_within 50%-80% speed of impure Coalton_) with iterative, non-pure Coalton code. If hot loops don't need to execute effects inside the loop, then `IO` runs with no significant overhead.
+`IO` is _fast_. Even in high-frequency loops, [benchmarks](benchmarks/benchmark_simple_io.csv) show that `IO` is competitive (_within 80%-100%_) with iterative, non-pure Coalton code. If hot loops don't need to execute effects inside the loop, then `IO` runs with no significant overhead.
 
 _coalton-io_ also allows you to extend all of this functionality for free if you want to write your own underlying effect type.
 
