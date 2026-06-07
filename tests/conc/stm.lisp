@@ -98,41 +98,6 @@
       (run-tx (read-tvar a)))))
   (is (== 10 result)))
 
-;; (define-test test-exception-aborts-transaction ()
-;;   (let result =
-;;     (run-io!
-;;      (do
-;;       (a <- (new-tvar 0))
-;;       (result1 <-
-;;        (try-all
-;;         (do-run-tx
-;;           (write-tvar a 100)
-;;           (raise "Raising exception after write")
-;;           (read-tvar a))))
-;;       (result2 <- (run-tx (read-tvar a)))
-;;       (pure (Tuple result1 result2)))))
-;;   (is (== (Tuple None 0)
-;;           result)))
-
-;; (define-test test-tx-wrap-error ()
-;;   (let result =
-;;     (run-io!
-;;      (do
-;;       (a <- (new-tvar 0))
-;;       (result1 <-
-;;        (try-all
-;;         (do-run-tx
-;;           (write-tvar a 10)
-;;           (next-val <- (wrap-error
-;;                          (error "Coalton error!")
-;;                          100))
-;;           (write-tvar a next-val)
-;;           (read-tvar a))))
-;;       (result2 <- (run-tx (read-tvar a)))
-;;       (pure (Tuple result1 result2)))))
-;;   (is (== (Tuple None 0)
-;;           result)))
-
 (define-test test-or-else-tx1-write ()
   (let result =
     (run-io!
