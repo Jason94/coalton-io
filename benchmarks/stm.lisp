@@ -150,7 +150,7 @@ contention."
           (do-repeat-io iterations-per-thread
             (do-times-io (i tarr-size)
               (do-run-tx
-                (x <- (tr:aref# tarr i))
+                (x <- (tr:at# tarr i))
                 (tr:set tarr i (1+ x)))))))
       ;; Cleanup and verify correctness
       (request-shutdown pool)
@@ -161,7 +161,7 @@ contention."
       (sum <- (new-tvar 0))
       (do-times-io (i tarr-size)
         (do-run-tx
-          (x <- (tr:aref# tarr i))
+          (x <- (tr:at# tarr i))
           (modify-tvar sum (fn (y) (+ x y)))))
       (sum <- (run-tx (read-tvar sum)))
       (do-when (/= sum workload)
@@ -185,7 +185,7 @@ case scenario for the STM."
         (do-submit-job_ pool
           (do-repeat-io work-per-thread
             (do-run-tx
-              (x <- (tr:aref# tarr i))
+              (x <- (tr:at# tarr i))
               (tr:set tarr i (1+ x))))))
       ;; Cleanup and verify correctness
       (request-shutdown pool)
@@ -196,7 +196,7 @@ case scenario for the STM."
       (sum <- (new-tvar 0))
       (do-loop-times (i n-threads)
         (do-run-tx
-          (x <- (tr:aref# tarr i))
+          (x <- (tr:at# tarr i))
           (modify-tvar sum (fn (y) (+ x y)))))
       (sum <- (run-tx (read-tvar sum)))
       (do-when (/= sum workload)
