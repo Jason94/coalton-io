@@ -7,10 +7,12 @@
 (cl:defpackage #:io/benchmarks
   (:use #:cl
         #:trivial-benchmark)
-  (:export #:run-benchmark
-           #:run-benchmark-ci
-           #:run-benchmarks
-           #:run-benchmarks-ci))
+  (:export
+   #:define-io-benchmark
+   #:run-benchmark
+   #:run-benchmark-ci
+   #:run-benchmarks
+   #:run-benchmarks-ci))
 
 (cl:in-package #:io/benchmarks)
 
@@ -20,7 +22,7 @@
 
 (defparameter *all-benchmarks* '())
 
-(defmacro define-io-benchmark (name
+(defmacro define-io-benchmark-package (name
                                benchmark-clauses
                                &rest native-clauses)
   (let ((benchmark-package (intern (format nil "BENCHMARK-~S" name) 'keyword))
@@ -29,6 +31,17 @@
        (pushnew ',benchmark-package *all-benchmarks*)
        (define-benchmark-package ,benchmark-package ,@benchmark-clauses)
        (defpackage ,native-package ,@native-clauses))))
+
+(defmacro define-io-benchmark (name (&key sample-count (warmup-count 0)) &body body)
+  `(define-benchmark ,name ()
+     (declare (optimize speed))
+     (loop :repeat ,warmup-count
+           :do (progn
+                 ,@body))
+     (loop :repeat ,sample-count
+           :do (with-benchmark-sampling
+                 ,@body))
+  (report trivial-benchmark::*current-timer*)))
 
 ;;;
 ;;; CSV helpers

@@ -4,7 +4,7 @@
 ;;;
 ;;; These benchmarks test different schedulers against each other in the same benchmarks.
 
-(define-io-benchmark schedulers ()
+(define-io-benchmark-package schedulers ()
   (:use
    #:coalton
    #:coalton-prelude

@@ -360,6 +360,7 @@ effect in a BaseIo."
         (reverse (c:read results)))
       (proxy-swap-inner io-prx))))
 
+  (inline)
   (declare foreach-io_ ((LiftIo IO :m) (it:IntoIterator :i :a)
                         => :i * (c:Cell :a -> IO :b) -> :m Unit))
   (define (foreach-io_ coll a->mb)
@@ -383,6 +384,7 @@ iterator is passed into the operation via a cell."
              (run-io-unhandled! monad-op))
            Unit))))))
 
+  (inline)
   (declare times-io_ (LiftIo IO :m => UFix * IO :a -> :m Unit))
   (define (times-io_ n io-op)
     "Efficiently perform an IO operation N times."
