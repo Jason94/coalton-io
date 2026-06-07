@@ -18,6 +18,7 @@
    #:do-foreach-io
    #:do-map-into-io
    #:do-times-io
+   #:do-repeat-io
 
    ;; Library Private
    ))
@@ -70,17 +71,31 @@ iterator is passed into the operation via a cell."
           Unit))))))
 
   (inline)
-  (declare times-io (LiftIo IO :m => UFix * IO :a -> :m Unit))
-  (define (times-io n io-op)
+  (declare times-io (LiftIo IO :m => UFix * (c:Cell UFix -> IO :a) -> :m Unit))
+  (define (times-io n x->io-op)
     "Efficiently perform an IO operation N times."
     (lift-io
      (the
       (IO Unit)
-      (wrap-io_
-       (fn ()
-         (dotimes (_ n)
-           (run-io-unhandled! io-op))
-         Unit)))))
+      (wrap-io
+       (let c = (c:new 0))
+       (let io-op = (x->io-op c))
+       (dotimes (i n)
+         (c:write! c i)
+         (run-io-unhandled! io-op))
+       Unit))))
+
+  (inline)
+  (declare repeat-io (LiftIo IO :m => UFix * IO :a -> :m Unit))
+  (define (repeat-io n io-op)
+    "Efficiently perform an IO operation N times."
+    (lift-io
+     (the
+      (IO Unit)
+      (wrap-io
+       (dotimes (_ n)
+         (run-io-unhandled! io-op))
+       Unit))))
   )
 
 (defmacro do-map-into-io ((var lst) cl:&body body)
@@ -100,8 +115,17 @@ to the value of the element in the iterator."
          (,var-sym <- (wrap-io (c:read ,cell-sym)))
          ,@body)))))
 
-(defmacro do-times-io (n cl:&body body)
+(defmacro do-times-io ((count-sym n) cl:&body body)
   "Efficiently perform an IO operation N times."
-  `(times-io ,n
+  (cl:let ((cell-sym (cl:gensym "iteration-count")))
+    `(times-io ,n
+      (fn (,cell-sym)
+        (do
+         (,count-sym <- (wrap-io (c:read ,cell-sym)))
+         ,@body)))))
+
+(defmacro do-repeat-io (n cl:&body body)
+  "Efficiently perform an IO operation N times."
+  `(repeat-io ,n
     (do
      ,@body)))

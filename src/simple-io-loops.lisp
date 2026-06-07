@@ -7,5 +7,6 @@
    #:do-foreach-io
    #:do-map-into-io
    #:do-times-io
+   #:do-repeat-io
    ))
 
