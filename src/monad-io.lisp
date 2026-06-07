@@ -21,12 +21,5 @@
 
    #:UnliftIo
    #:with-run-in-io
-
-   #:map-into-io
-   #:do-map-into-io
-   #:foreach-io
-   #:do-foreach-io
-   #:times-io
-   #:do-times-io
    ))
 (in-package :io/monad-io)

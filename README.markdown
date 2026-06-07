@@ -14,7 +14,7 @@ _coalton-io_ provides tools to write safe, functional programs in Coalton that c
   - Masking to protect critical areas
 * Safely sharing data between threads (_coalton-io_ provides Atomic variables, MVars, MChans, a Software Transactional Memory, Futures, Thread Pools, and more)
 
-`IO` is _fast_. Even in high-frequency loops, [benchmarks](benchmarks/benchmark_simple_io.csv) show that `IO` is competitive (_within 80%-100%_) with iterative, non-pure Coalton code. If hot loops don't need to execute effects inside the loop, then `IO` runs with no significant overhead.
+`IO` is _fast_. Even in high-frequency loops, [benchmarks](benchmarks/benchmark_simple_io.csv) show that `IO`'s performance is on-par with iterative, non-pure Coalton code.
 
 _coalton-io_ also allows you to extend all of this functionality for free if you want to write your own underlying effect type.
 
@@ -139,7 +139,7 @@ Exceptions can be handled in several ways, including only handling exceptions of
    (file-data <-
      (handle-all (read-file-data "data.csv")
                  (const (pure Nil))))
-   (do-foreach (str file-data)
+   (do-foreach-io (str file-data)
      (write-line str)))
 ```
 
@@ -152,7 +152,7 @@ Exceptions can be handled in several ways, including only handling exceptions of
                    (lisp (-> List String) ()
                      (cl-read-file-data "data.csv")))
                  (const (pure Nil))))
-   (do-foreach (str file-data)
+   (do-foreach-io (str file-data)
      (write-line str)))
 ```
 
@@ -256,7 +256,7 @@ This (slightly longer) example program manages ticket sales with transactions. T
    (let cost = 40.0)
    (let customers = (make-list "A" "B" "C" "D" "E"))
    (bought-a-ticket <- (new-tvar Nil))
-   (do-foreach-io_ (customer customers)
+   (do-foreach-io (customer customers)
      (do-fork
        (initial-balance <- (random_ 100.0))
        (balance <- (new-tvar initial-balance))
@@ -280,7 +280,8 @@ This (slightly longer) example program manages ticket sales with transactions. T
          (pure (Tuple money-earned customers-with-tickets))))
     (write-line (build-str "Earned $" money-earned))
     (write-line "Customers who bought tickets:")
-    (foreach-io_ customers-with-tickets write-line))
+    (do-foreach-io (customer customers-with-tickets)
+      (write-line customer)))
 ```
 
 ## Contributing

@@ -4,8 +4,6 @@
    #:coalton
    #:coalton-prelude
    #:coalton-library/functions
-   #:coalton-library/types
-   #:coalton-library/experimental/do-control-core
    #:io/utils
    #:io/threads-exceptions
    #:io/classes/thread
@@ -14,19 +12,13 @@
    #:io/io-impl/runtime
    #:io/threads-impl/runtime
    )
-  (:import-from #:coalton-library/experimental/loops
-   #:dolist
-   #:dotimes)
-  (:import-from #:coalton-library/experimental/do-control-loops-adv
-   #:LoopT)
   (:import-from #:coalton-library/types
    #:RuntimeRepr)
   (:local-nicknames
    (:r #:coalton-library/result)
    (:st #:coalton-library/monad/statet)
    (:env #:coalton-library/monad/environment)
-   (:it #:coalton-library/iterator)
-   (:c #:coalton-library/cell))
+   )
   (:export
    ;; Library Public
    #:IO
@@ -42,15 +34,10 @@
    #:try-dynamic-io
 
    #:with-run-in-io_
-   #:foreach-io_
-   #:do-foreach-io_
-   #:map-into-io_
-   #:do-map-into-io_
-   #:times-io_
-   #:do-times-io_
 
    ;; Library Private
    #:run-io-no-cleanup!
+   #:run-io-unhandled!
    ))
 (in-package :io/io-impl/simple-io)
 
@@ -331,93 +318,6 @@ need to unlift, run, then immediately re-run a function. See, e.g., io-file:with
   (define-instance (MonadIo IO)
     (inline)
     (define wrap-io_ wrap-io%_)))
-
-;;;
-;;; Extra Functions
-;;;
-
-(coalton-toplevel
-
-  ;; TODO: This might not be more efficient, if the inliner is able to eliminate
-  ;; the (run) call in `map-into-io` for the (UnliftIo IO IO) case. Test with
-  ;; a benchmark. But even if they're not more efficient, they still solve some
-  ;; inference issues.
-  (declare map-into-io_ ((LiftIo IO :m) (it:IntoIterator :i :a)
-                         => :i * (:a -> IO :b) -> :m (List :b)))
-  (define (map-into-io_ itr a->mb)
-    "Efficiently perform a monadic operation for each element of an iterator
-and return the results. More efficient than map-into-io, if you can run your
-effect in a BaseIo."
-    (let io-prx = Proxy)
-    (lift-io
-     (as-proxy-of
-      (wrap-io
-        (let results = (c:new (make-list)))
-        (foreach (a itr)
-          (c:push! results (run-io-unhandled! (as-proxy-of
-                                               (a->mb a)
-                                               io-prx))))
-        (reverse (c:read results)))
-      (proxy-swap-inner io-prx))))
-
-  (inline)
-  (declare foreach-io_ ((LiftIo IO :m) (it:IntoIterator :i :a)
-                        => :i * (c:Cell :a -> IO :b) -> :m Unit))
-  (define (foreach-io_ coll a->mb)
-    "Efficiently perform a monadic operation for each element of an iterator.
-More efficient than foreach-io, if your effect can run in IO. The next element of the
-iterator is passed into the operation via a cell."
-    (lift-io
-     (wrap-io%_
-      (fn ()
-        (let itr = (it:into-iter coll))
-        (let fst = (it:next! itr))
-        (match fst
-          ((None)
-           Unit)
-          ((Some initial-val)
-           (let c = (c:new initial-val))
-           (let monad-op = (a->mb c))
-           (run-io-unhandled! monad-op)
-           (foreach (a itr)
-             (c:write! c a)
-             (run-io-unhandled! monad-op))
-           Unit))))))
-
-  (inline)
-  (declare times-io_ (LiftIo IO :m => UFix * IO :a -> :m Unit))
-  (define (times-io_ n io-op)
-    "Efficiently perform an IO operation N times."
-    (lift-io
-     (wrap-io%_
-      (fn ()
-        (dotimes (_ n)
-          (run-io-unhandled! io-op))
-        Unit))))
-  )
-
-(defmacro do-map-into-io_ ((var lst) cl:&body body)
-  `(map-into-io_ ,lst
-     (fn (,var)
-       (do
-        ,@body))))
-
-(defmacro do-foreach-io_ ((var-sym into-itr) cl:&body body)
-  "Efficiently perform a monadic operation for each element of an iterator.
-More efficient than foreach-io, if your effect can run in IO. VAR-SYM is bound
-to the value of the element in the iterator."
-  (cl:let ((cell-sym (cl:gensym "iteration-val")))
-    `(foreach-io_ ,into-itr
-      (fn (,cell-sym)
-        (do
-         (,var-sym <- (wrap-io (c:read ,cell-sym)))
-         ,@body)))))
-
-(defmacro do-times-io_ (n cl:&body body)
-  "Efficiently perform an IO operation N times."
-  `(times-io_ ,n
-    (do
-     ,@body)))
 
 ;;;
 ;;; IO Capability Implementations

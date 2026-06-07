@@ -12,7 +12,9 @@
    #:coalton-prelude
    #:io/utils
    #:io/monad-io
-   #:io/simple-io)
+   #:io/simple-io
+   #:io/simple-io/loops
+   )
   (:import-from #:coalton-library/experimental/loops
    #:dotimes)
   (:local-nicknames
@@ -43,32 +45,13 @@
   (declare lst (List Integer))
   (define lst (l:range 0 (into *n*)))
 
-  (declare increment-list-loop-non-monadic (Void -> Void))
-  (define (increment-list-loop-non-monadic)
+  (declare iterate-list-iterative-loop (Void -> Void))
+  (define (iterate-list-iterative-loop)
     (foreach (x lst)
       (c:write! x-cell-hash (hash (1+ x)))))
 
-  (declare increment-list-loop-io-fused (Void -> Void))
-  (define (increment-list-loop-io-fused)
-    (run-io!
-     (do-foreach-io_ (x lst)
-       (wrap-io
-        (c:write! x-cell-hash (hash (1+ x)))
-        Unit)))
-    (values))
-
-  (declare increment-list-recursive-non-monadic (Void -> Void))
-  (define (increment-list-recursive-non-monadic)
-    (rec % ((rem lst))
-      (match rem
-        ((Cons x rest)
-         (c:write! x-cell-hash (hash (1+ x)))
-         (% rest))
-        ((Nil)
-         (values)))))
-
-  (declare increment-list-recursive-monadic-non-fused (Void -> Void))
-  (define (increment-list-recursive-monadic-non-fused)
+  (declare iterate-list-monadic-unfused-recursion (Void -> Void))
+  (define (iterate-list-monadic-unfused-recursion)
     (run-io!
      (rec % ((rem lst))
        (match rem
@@ -79,6 +62,15 @@
            (% rest)))
          ((Nil)
           (pure Unit)))))
+    (values))
+
+  (declare iterate-list-monadic-fused-loop (Void -> Void))
+  (define (iterate-list-monadic-fused-loop)
+    (run-io!
+     (do-foreach-io (x lst)
+       (wrap-io
+        (c:write! x-cell-hash (hash (1+ x)))
+        Unit)))
     (values))
   )
 
@@ -92,34 +84,48 @@
   (define (calculate-hash)
     (hash (c:increment! x-cell)))
   
-  (declare hash-n-times-non-monadic (Void -> Void))
-  (define (hash-n-times-non-monadic)
+  (declare repeat-n-times-iterative-loop (Void -> Void))
+  (define (repeat-n-times-iterative-loop)
     (reset)
     (let cell = (c:new (hash 0)))
     (dotimes (_ *n*)
       (c:write! cell
                 (calculate-hash))))
 
-  (declare hash-n-times-non-monadic-lambda (Void -> Void))
-  (define (hash-n-times-non-monadic-lambda)
-    (reset)
-    (let cell = (c:new (hash 0)))
-    (let f = (fn () (calculate-hash)))
-    (dotimes (_ *n*)
-      (c:write! cell
-                (noinline (f)))))                
-
-  (declare hash-n-times-monadic-fused (Void -> Void))
-  (define (hash-n-times-monadic-fused)
+  (declare repeat-n-times-monadic-fused-loop (Void -> Void))
+  (define (repeat-n-times-monadic-fused-loop)
     (reset)
     (let cell = (c:new (hash 0)))
     (run-io!
-     (do-times-io_ *n*
+     (do-repeat-io *n*
        (wrap-io
          (c:write! cell (calculate-hash))
          Unit)))
     (values))
-                          
+  )
+
+(coalton-toplevel
+  (define index-cell (c:new (hash 0)))
+
+  (define (reset-index)
+    (c:write! index-cell (hash 0)))
+
+  (declare index-n-times-iterative-loop (Void -> Void))
+  (define (index-n-times-iterative-loop)
+    (reset-index)
+    (dotimes (i *n*)
+      (c:write! index-cell
+                (hash i))))
+
+  (declare index-n-times-monadic-fused-loop (Void -> Void))
+  (define (index-n-times-monadic-fused-loop)
+    (reset)
+    (run-io!
+     (do-times-io (i *n*)
+       (wrap-io
+        (c:write! index-cell
+                  (hash i)))))
+    (values))
   )
 
 (in-package #:benchmark-simple-io)
@@ -129,31 +135,30 @@
 (defparameter *warmup* 10)
 (defparameter *count* 50)
 
-(io/benchmarks:define-io-benchmark increment-list-loop-non-monadic (:warmup-count *warmup* :sample-count *count*)
+(io/benchmarks:define-io-benchmark iterate-list-iterative-loop (:warmup-count *warmup* :sample-count *count*)
   (coalton:call-coalton-function
-   benchmark-simple-io/native::increment-list-loop-non-monadic))
+   benchmark-simple-io/native::iterate-list-iterative-loop))
 
-(io/benchmarks:define-io-benchmark increment-list-loop-io-fused (:warmup-count *warmup* :sample-count *count*)
+(io/benchmarks:define-io-benchmark iterate-list-monadic-unfused-recursion (:warmup-count *warmup* :sample-count *count*)
   (coalton:call-coalton-function
-   benchmark-simple-io/native::increment-list-loop-io-fused))
+   benchmark-simple-io/native::iterate-list-monadic-unfused-recursion))
 
-(io/benchmarks:define-io-benchmark increment-list-recursive-non-monadic (:warmup-count *warmup* :sample-count *count*)
+(io/benchmarks:define-io-benchmark iterate-list-monadic-fused-loop (:warmup-count *warmup* :sample-count *count*)
   (coalton:call-coalton-function
-   benchmark-simple-io/native::increment-list-recursive-non-monadic))
+   benchmark-simple-io/native::iterate-list-monadic-fused-loop))
 
-;; This benchmark is particularly slow, so run with 1/4 of the normal count
-(io/benchmarks:define-io-benchmark increment-list-recursive-monadic-non-fused (:warmup-count *warmup* :sample-count *count*)
+(io/benchmarks:define-io-benchmark repeat-n-times-iterative-loop (:warmup-count *warmup* :sample-count *count*)
   (coalton:call-coalton-function
-   benchmark-simple-io/native::increment-list-recursive-monadic-non-fused))
+   benchmark-simple-io/native::repeat-n-times-iterative-loop))
 
-(io/benchmarks:define-io-benchmark hash-n-times-non-monadic (:warmup-count *warmup* :sample-count *count*)
+(io/benchmarks:define-io-benchmark repeat-n-times-monadic-fused-loop (:warmup-count *warmup* :sample-count *count*)
   (coalton:call-coalton-function
-   benchmark-simple-io/native::hash-n-times-non-monadic))
+   benchmark-simple-io/native::repeat-n-times-monadic-fused-loop))
 
-(io/benchmarks:define-io-benchmark hash-n-times-non-monadic-lambda (:warmup-count *warmup* :sample-count *count*)
+(io/benchmarks:define-io-benchmark index-n-times-iterative-loop (:warmup-count *warmup* :sample-count *count*)
   (coalton:call-coalton-function
-   benchmark-simple-io/native::hash-n-times-non-monadic-lambda))
+   benchmark-simple-io/native::index-n-times-iterative-loop))
 
-(io/benchmarks:define-io-benchmark hash-n-times-monadic-fused (:warmup-count *warmup* :sample-count *count*)
+(io/benchmarks:define-io-benchmark index-n-times-monadic-fused-loop (:warmup-count *warmup* :sample-count *count*)
   (coalton:call-coalton-function
-   benchmark-simple-io/native::hash-n-times-monadic-fused))
+   benchmark-simple-io/native::index-n-times-monadic-fused-loop))

@@ -9,6 +9,7 @@
    #:io/exceptions
    #:io/monad-io
    #:io/simple-io
+   #:io/simple-io/loops
    #:io/resource
    #:io/thread
    #:io/conc/stm
@@ -291,8 +292,8 @@ https://rdb.fnordig.de/file_format.html"
       ;; Even though IO doesn't have a builtin mutable vector type, it's easy to use wrap-io
       ;; to perform normal, side-effectul Coalton code.
       (buffer <- (wrap-io (v:make RespNull RespNull)))
-      (do-foreach-io_ (bucket buckets)
-        (do-foreach-io_ ((Tuple key val) bucket)
+      (do-foreach-io (bucket buckets)
+        (do-foreach-io ((Tuple key val) bucket)
           (wrap-io
            (v:set! 0 (RespBulkString key) buffer)
            (v:set! 1 (RespBulkString val) buffer)

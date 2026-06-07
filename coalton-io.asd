@@ -73,6 +73,7 @@
                   :serial t
                   :components ((:file "runtime")
                                (:file "simple-io")
+                               (:file "loops")
                                (:file "io-thread")
                                (:file "io-mvar")
                                (:file "io-future")
@@ -85,6 +86,7 @@
                  (:file "io-exception")
                  (:file "monad-io")
                  (:file "simple-io")
+                 (:file "simple-io-loops")
 
                  (:file "io-mut")
                  (:file "io-term")
@@ -129,6 +131,7 @@ mutable variables, multithreading, and several data structures to safely share s
                 (
                  (:file "test-utils")
                  (:file "simple-io")
+                 (:file "simple-io-loops")
                  (:file "exception")
                  (:file "mut")
                  (:file "random")

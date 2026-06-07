@@ -11,6 +11,7 @@
    #:coalton-library/experimental/do-control-loops
    #:io/monad-io
    #:io/simple-io
+   #:io/simple-io/loops
    #:io/thread
    #:io/conc/scheduler
    #:io/conc/group
@@ -54,7 +55,7 @@
       (pool <- (new-worker-pool n-threads scheduler))
       (sleep 15)
       (wrap-io (b:start (b:current-timer)))
-      (do-times-io_ n-tasks
+      (do-repeat-io n-tasks
         (do-submit-job_ pool
           (at:modify completed-count 1+)))
       (do-loop-while
@@ -101,7 +102,7 @@
              ;; This looks backwards, but it's correct as of 12/31/2025.
              ;; See https://github.com/coalton-lang/coalton/issues/1742
              (at:read ready-to-start))
-           (do-times-io_ tasks-per-producer
+           (do-repeat-io tasks-per-producer
              (do-submit-job_ pool
                (at:modify completed-count 1+)))
            ))))

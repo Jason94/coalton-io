@@ -13,6 +13,7 @@
    #:io/monad-io
    #:io/exceptions
    #:io/simple-io
+   #:io/simple-io/loops
    #:io/thread
    #:io/conc/ring-buffer
    #:io/conc/worker-pool
@@ -52,9 +53,9 @@ data structure, such as lock or atomic based ones)."
       (pool <- (new-worker-pool n-threads scheduler))
       ;; Run the benchmark
       (wrap-io (b:start (b:current-timer)))
-      (do-times-io_ n-threads
+      (do-repeat-io n-threads
         (do-submit-job_ pool
-          (do-times-io_ work-per-thread
+          (do-repeat-io work-per-thread
             (do-run-tx
               (modify-tvar tvar 1+)))))
       ;; Cleanup and verify correctness
@@ -90,9 +91,9 @@ synchronized data structure, such as lock or atomic based ones)."
       (pool <- (new-worker-pool n-threads scheduler))
       ;; Run the benchmark
       (wrap-io (b:start (b:current-timer)))
-      (do-times-io_ n-threads
+      (do-repeat-io n-threads
         (do-submit-job_ pool
-          (do-times-io_ iterations-per-thread
+          (do-repeat-io iterations-per-thread
             (do-run-tx
               (modify-tvar tvar1 1+)
               (modify-tvar tvar2 1+)
@@ -140,15 +141,14 @@ contention."
       (tarr <- (tr:new-tarray tarr-size 0))
       (let work-per-thread = (coalton/math:div workload n-threads))
       (let iterations-per-thread = (coalton/math:div work-per-thread tarr-size))
-      (let ixs = (l:range 0 (1- tarr-size)))
       (scheduler <- (new-ring-buffer-scheduler n-threads))
       (pool <- (new-worker-pool n-threads scheduler))
       ;; Run the benchmark
       (wrap-io (b:start (b:current-timer)))
-      (do-times-io_ n-threads
+      (do-repeat-io n-threads
         (do-submit-job_ pool
-          (do-times-io_ iterations-per-thread
-            (do-foreach-io_ (i ixs)
+          (do-repeat-io iterations-per-thread
+            (do-times-io (i tarr-size)
               (do-run-tx
                 (x <- (tr:aref# tarr i))
                 (tr:set tarr i (1+ x)))))))
@@ -159,7 +159,7 @@ contention."
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
       (sum <- (new-tvar 0))
-      (do-foreach-io_ (i ixs)
+      (do-times-io (i tarr-size)
         (do-run-tx
           (x <- (tr:aref# tarr i))
           (modify-tvar sum (fn (y) (+ x y)))))
@@ -183,7 +183,7 @@ case scenario for the STM."
       (wrap-io (b:start (b:current-timer)))
       (do-loop-times (i n-threads)
         (do-submit-job_ pool
-          (do-times-io_ work-per-thread
+          (do-repeat-io work-per-thread
             (do-run-tx
               (x <- (tr:aref# tarr i))
               (tr:set tarr i (1+ x))))))
