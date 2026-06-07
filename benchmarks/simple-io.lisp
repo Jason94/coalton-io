@@ -15,16 +15,21 @@
    #:io/simple-io
    #:io/simple-io/loops
    )
+  (:import-from #:io/io-impl/simple-io
+   #:run-io-unhandled!)
   (:import-from #:coalton-library/experimental/loops
    #:dotimes)
   (:local-nicknames
    (:c #:coalton-library/cell)
    (:l #:coalton-library/list)
-   (:itr #:coalton-library/iterator)))
+   (:itr #:coalton-library/iterator)
+   (:mt #:io/mut)))
 
 (in-package #:benchmark-simple-io/native)
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
+
+(named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
   (declare *n* UFix)
@@ -96,7 +101,7 @@
   (define (repeat-n-times-monadic-fused-loop)
     (reset)
     (let cell = (c:new (hash 0)))
-    (run-io!
+    (run-io-unhandled!
      (do-repeat-io *n*
        (wrap-io
          (c:write! cell (calculate-hash))
@@ -104,28 +109,83 @@
     (values))
   )
 
+
 (coalton-toplevel
+
+  ;;;
+  ;;; Internal Cell Benchmarks
+  ;;; 
+  
+  (declare index-n-times-iterative-loop (Void -> Hash))
+  (define (index-n-times-iterative-loop)
+    (let var = (c:new (hash 0)))
+    (dotimes (i *n*)
+      (c:write! var (hash i)))
+    (c:read var))
+
+  (declare index-n-times-monadic-fused-loop (Void -> Hash))
+  (define (index-n-times-monadic-fused-loop)
+    (let var = (c:new (hash 0)))
+    (run-io-unhandled!
+     (do
+      (do-times-io (i *n*)
+        (wrap-io
+         (c:write! var (hash i))))
+      (pure (c:read var)))))
+
+  (declare index-n-times-full-monadic-fused-loop (Void -> Hash))
+  (define (index-n-times-full-monadic-fused-loop)
+    (run-io-unhandled!
+     (do
+      (var <- (mt:new-var (hash 0)))
+      (do-times-io (i *n*)
+        (mt:write var (hash i)))
+      (mt:read var))))
+
+  ;;;
+  ;;; External Cell Benchmarks
+  ;;; 
+  
   (define index-cell (c:new (hash 0)))
 
   (define (reset-index)
     (c:write! index-cell (hash 0)))
 
-  (declare index-n-times-iterative-loop (Void -> Void))
-  (define (index-n-times-iterative-loop)
+  (declare index-n-times-iterative-loop-external (Void -> Hash))
+  (define (index-n-times-iterative-loop-external)
     (reset-index)
     (dotimes (i *n*)
       (c:write! index-cell
-                (hash i))))
+                (hash i)))
+    (c:read index-cell))
 
-  (declare index-n-times-monadic-fused-loop (Void -> Void))
-  (define (index-n-times-monadic-fused-loop)
+  (declare index-n-times-monadic-fused-loop-external (Void -> Hash))
+  (define (index-n-times-monadic-fused-loop-external)
     (reset-index)
-    (run-io!
-     (do-times-io (i *n*)
-       (wrap-io
-        (c:write! index-cell
-                  (hash i)))))
-    (values))
+    (run-io-unhandled!
+     (do
+      (do-times-io (i *n*)
+        (wrap-io
+         (c:write! index-cell
+                   (hash i))))
+      (pure (c:read index-cell)))))      
+
+  (define index-mut
+    (run-io! (mt:new-var (hash 0))))
+
+  (inline)
+  (declare reset-mut (IO Hash))
+  (define reset-mut
+    (mt:write index-mut (hash 0)))
+
+  (declare index-n-times-full-monadic-fused-loop-external (Void -> Hash))
+  (define (index-n-times-full-monadic-fused-loop-external)
+    (run-io-unhandled!
+     (do
+      reset-mut
+      (do-times-io (i *n*)
+        (mt:write index-mut (hash i)))
+      (mt:read index-mut))))
   )
 
 (in-package #:benchmark-simple-io)
@@ -162,3 +222,19 @@
 (io/benchmarks:define-io-benchmark index-n-times-monadic-fused-loop (:warmup-count *warmup* :sample-count *count*)
   (coalton:call-coalton-function
    benchmark-simple-io/native::index-n-times-monadic-fused-loop))
+
+(io/benchmarks:define-io-benchmark index-n-times-full-monadic-fused-loop (:warmup-count *warmup* :sample-count *count*)
+  (coalton:call-coalton-function
+   benchmark-simple-io/native::index-n-times-full-monadic-fused-loop))
+
+(io/benchmarks:define-io-benchmark index-n-times-iterative-loop-external (:warmup-count *warmup* :sample-count *count*)
+  (coalton:call-coalton-function
+   benchmark-simple-io/native::index-n-times-iterative-loop-external))
+
+(io/benchmarks:define-io-benchmark index-n-times-monadic-fused-loop-external (:warmup-count *warmup* :sample-count *count*)
+  (coalton:call-coalton-function
+   benchmark-simple-io/native::index-n-times-monadic-fused-loop-external))
+
+(io/benchmarks:define-io-benchmark index-n-times-full-monadic-fused-loop-external (:warmup-count *warmup* :sample-count *count*)
+  (coalton:call-coalton-function
+   benchmark-simple-io/native::index-n-times-full-monadic-fused-loop-external))
