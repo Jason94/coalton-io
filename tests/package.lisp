@@ -11,26 +11,31 @@
 (coalton-fiasco-init #:coalton-io/fiasco-test-package)
 
 (cl:defun run-tests ()
-  (fiasco:run-package-tests
-   :packages '(
-               #:coalton-io/tests/io-fiasco
-               #:coalton-io/tests/io-loops-fiasco
-               #:coalton-io/tests/exception-fiasco
-               #:coalton-io/tests/mut-fiasco
-               #:coalton-io/tests/random-fiasco
-               #:coalton-io/tests/resource-fiasco
-               #:coalton-io/tests/thread-fiasco
-               #:coalton-io/tests/thread-async-boundary-fiasco
-               #:coalton-io/tests/thread-impl/runtime/structured-conc-fiasco
-               #:coalton-io/tests/mvar-fiasco
-               #:coalton-io/tests/future-fiasco
-               #:coalton-io/tests/io-atomic-fiasco
-               #:coalton-io/tests/io-impl/thread-fiasco
-               #:coalton-io/tests/conc/parking-fiasco
-               #:coalton-io/tests/conc/group-fiasco
-               #:coalton-io/tests/conc/stm-fiasco
-               #:coalton-io/tests/conc/worker-pool-fiasco
-               #:coalton-io/tests/conc/ring-buffer-fiasco
-               #:coalton-io/tests/conc/stm/tarray-fiasco
-               )
-   :interactive cl:t))
+  (cl:multiple-value-bind (ok results)
+      (fiasco:run-package-tests
+       :packages '(
+                   #:coalton-io/tests/io-fiasco
+                   #:coalton-io/tests/io-loops-fiasco
+                   #:coalton-io/tests/exception-fiasco
+                   #:coalton-io/tests/mut-fiasco
+                   #:coalton-io/tests/random-fiasco
+                   #:coalton-io/tests/resource-fiasco
+                   #:coalton-io/tests/thread-fiasco
+                   #:coalton-io/tests/thread-async-boundary-fiasco
+                   #:coalton-io/tests/thread-impl/runtime/structured-conc-fiasco
+                   #:coalton-io/tests/mvar-fiasco
+                   #:coalton-io/tests/future-fiasco
+                   #:coalton-io/tests/io-atomic-fiasco
+                   #:coalton-io/tests/io-impl/thread-fiasco
+                   #:coalton-io/tests/conc/parking-fiasco
+                   #:coalton-io/tests/conc/group-fiasco
+                   #:coalton-io/tests/conc/stm-fiasco
+                   #:coalton-io/tests/conc/worker-pool-fiasco
+                   #:coalton-io/tests/conc/ring-buffer-fiasco
+                   #:coalton-io/tests/conc/stm/tarray-fiasco
+                   )
+       :interactive cl:nil)
+    (cl:declare (cl:ignore results))
+    (cl:unless ok
+      (cl:error "coalton-io tests failed."))
+    ok))

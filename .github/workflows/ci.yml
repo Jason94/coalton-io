@@ -98,8 +98,17 @@ jobs:
           set -euxo pipefail
           cat <<'EOF' > run-tests.lisp
           (require :asdf)
-          (asdf:load-asd "coalton-io.asd")
-          (asdf:test-system :coalton-io)
-          (uiop:quit 0)
+
+          (handler-case
+            (progn
+              (asdf:load-asd "coalton-io.asd")
+              (asdf:test-system :coalton-io)
+              (format t "~&coalton-io tests completed successfully.~%")
+              (uiop:quit 0))
+
+           (serious-condition (e)
+             (format *error-output* "~&ERROR while running coalton-io tests: ~A~%" e)
+             (uiop:quit 1)))
           EOF
-          qlot exec ros run --non-interactive --load run-tests.lisp
+
+          qlot exec ros -L sbcl-bin run -- --non-interactive --disable-debugger --load run-tests.lisp
