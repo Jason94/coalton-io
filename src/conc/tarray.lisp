@@ -6,8 +6,10 @@
    ;; Re-exports from io/gen-impl/conc/stm/tarray
    #:TArray
    #:new-tarray
-   #:aref
-   #:aref#
+   #:at
+   #:at#
    #:set
+   #:modify
+   #:modify-swap
    ))
 (in-package :io/conc/stm/tarray)

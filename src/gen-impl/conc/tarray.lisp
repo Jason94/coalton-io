@@ -14,9 +14,11 @@
    ;; Library Public
    #:TArray
    #:new-tarray
-   #:aref
-   #:aref#
+   #:at
+   #:at#
    #:set
+   #:modify
+   #:modify-swap
    ))
 (in-package :io/gen-impl/conc/stm/tarray)
 
@@ -26,6 +28,7 @@
 
   (repr :transparent)
   (define-type (TArray :a)
+    "A transactional array, where each element is a synchronized transactional variable."
     (TArray% (la:LispArray (TVar :a))))
 
   (inline)
@@ -43,8 +46,9 @@
      (TArray% arr)))
 
   (inline)
-  (declare aref (TArray :a * UFix -> STM (Optional :a)))
-  (define (aref tarr i)
+  (declare at (TArray :a * UFix -> STM (Optional :a)))
+  (define (at tarr i)
+    "Read the value in `tarr` at index `i`."
     (if (< i (la:length (tarr% tarr)))
         (STM%
          (fn (tx-data)
@@ -54,13 +58,29 @@
         (pure None)))
 
   (inline)
-  (declare aref# (TArray :a * UFix -> STM :a))
-  (define (aref# tarr i)
+  (declare at# (TArray :a * UFix -> STM :a))
+  (define (at# tarr i)
+    "Read the value in `tarr` at index `i`. Errors if out of bounds."
     (read-tvar (la:aref (tarr% tarr) i)))
 
   (inline)
   (declare set (TArray :a * UFix * :a -> STM Unit))
   (define (set tarr i elem)
+    "Set the value in `tarr` at index `i` to `elem`."
     (write-tvar (la:aref (tarr% tarr) i)
                 elem))
+
+  (inline)
+  (declare modify (TArray :a * UFix * (:a -> :a) -> STM :a))
+  (define (modify tarr i f)
+    "Update the value in `tarr` at index `i` with `f`. Returns the new value."
+    (modify-tvar (la:aref (tarr% tarr) i)
+                 f))
+
+  (inline)
+  (declare modify-swap (TArray :a * UFix * (:a -> :a) -> STM :a))
+  (define (modify-swap tarr i f)
+    "Update the value in `tarr` at index `i` with `f`. Returns the old value."
+    (modify-swap-tvar (la:aref (tarr% tarr) i)
+                      f))
  )
