@@ -92,15 +92,6 @@
       (c:write! cell
                 (calculate-hash))))
 
-  (declare repeat-n-times-iterative-loop-lambda (Void -> Void))
-  (define (repeat-n-times-iterative-loop-lambda)
-    (reset)
-    (let cell = (c:new (hash 0)))
-    (let f = (fn () (calculate-hash)))
-    (dotimes (_ *n*)
-      (c:write! cell
-                (noinline (f)))))                
-
   (declare repeat-n-times-monadic-fused-loop (Void -> Void))
   (define (repeat-n-times-monadic-fused-loop)
     (reset)
@@ -111,7 +102,30 @@
          (c:write! cell (calculate-hash))
          Unit)))
     (values))
-                          
+  )
+
+(coalton-toplevel
+  (define index-cell (c:new (hash 0)))
+
+  (define (reset-index)
+    (c:write! index-cell (hash 0)))
+
+  (declare index-n-times-iterative-loop (Void -> Void))
+  (define (index-n-times-iterative-loop)
+    (reset-index)
+    (dotimes (i *n*)
+      (c:write! index-cell
+                (hash i))))
+
+  (declare index-n-times-monadic-fused-loop (Void -> Void))
+  (define (index-n-times-monadic-fused-loop)
+    (reset)
+    (run-io!
+     (do-times-io (i *n*)
+       (wrap-io
+        (c:write! index-cell
+                  (hash i)))))
+    (values))
   )
 
 (in-package #:benchmark-simple-io)
@@ -137,10 +151,14 @@
   (coalton:call-coalton-function
    benchmark-simple-io/native::repeat-n-times-iterative-loop))
 
-(io/benchmarks:define-io-benchmark repeat-n-times-iterative-loop-lambda (:warmup-count *warmup* :sample-count *count*)
-  (coalton:call-coalton-function
-   benchmark-simple-io/native::repeat-n-times-iterative-loop-lambda))
-
 (io/benchmarks:define-io-benchmark repeat-n-times-monadic-fused-loop (:warmup-count *warmup* :sample-count *count*)
   (coalton:call-coalton-function
    benchmark-simple-io/native::repeat-n-times-monadic-fused-loop))
+
+(io/benchmarks:define-io-benchmark index-n-times-iterative-loop (:warmup-count *warmup* :sample-count *count*)
+  (coalton:call-coalton-function
+   benchmark-simple-io/native::index-n-times-iterative-loop))
+
+(io/benchmarks:define-io-benchmark index-n-times-monadic-fused-loop (:warmup-count *warmup* :sample-count *count*)
+  (coalton:call-coalton-function
+   benchmark-simple-io/native::index-n-times-monadic-fused-loop))
