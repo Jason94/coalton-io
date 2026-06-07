@@ -119,7 +119,7 @@
 
   (declare index-n-times-monadic-fused-loop (Void -> Void))
   (define (index-n-times-monadic-fused-loop)
-    (reset)
+    (reset-index)
     (run-io!
      (do-times-io (i *n*)
        (wrap-io
