@@ -131,6 +131,7 @@ mutable variables, multithreading, and several data structures to safely share s
                 (
                  (:file "test-utils")
                  (:file "simple-io")
+                 (:file "simple-io-loops")
                  (:file "exception")
                  (:file "mut")
                  (:file "random")

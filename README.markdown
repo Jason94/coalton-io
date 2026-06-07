@@ -256,7 +256,7 @@ This (slightly longer) example program manages ticket sales with transactions. T
    (let cost = 40.0)
    (let customers = (make-list "A" "B" "C" "D" "E"))
    (bought-a-ticket <- (new-tvar Nil))
-   (do-foreach-io_ (customer customers)
+   (do-foreach-io (customer customers)
      (do-fork
        (initial-balance <- (random_ 100.0))
        (balance <- (new-tvar initial-balance))

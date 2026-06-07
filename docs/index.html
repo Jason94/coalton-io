@@ -325,11 +325,11 @@ as the global thread for structured concurrency, and exits any child threads on 
     id=io-io-impl-simple-io-try-dynamic-io-value><a href="#io-io-impl-simple-io-try-dynamic-io-value"><code>(TRY-DYNAMIC-IO IO-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-impl/simple-io.lisp#L266-L281">src</a></sub></sup></sub></sup></h4><code>&forall; :A. <a href="#io-io-impl-simple-io-io-type">IO</a> :A &rarr; <a href="#io-io-impl-simple-io-io-type">IO</a> (<a href="#coalton-classes-result-type">Result</a> <a href="#io-utils-dynamic-type">Dynamic</a> :A)</code></div>
       <hr><h1 id=io-simple-io-loops-package>Package <code>IO/SIMPLE-IO/LOOPS</code></h1><div class=macros-content>
        <h3 class=macros-header>Macros</h3><h4
+    id=io-io-impl-simple-io-loops-do-repeat-io-macro><a href="#io-io-impl-simple-io-loops-do-repeat-io-macro"><code>DO-REPEAT-IO (N &amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Efficiently perform an IO operation N times.</p><h4
+    id=io-io-impl-simple-io-loops-do-map-into-io-macro><a href="#io-io-impl-simple-io-loops-do-map-into-io-macro"><code>DO-MAP-INTO-IO ((VAR LST) &amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><h4
     id=io-io-impl-simple-io-loops-do-foreach-io-macro><a href="#io-io-impl-simple-io-loops-do-foreach-io-macro"><code>DO-FOREACH-IO ((VAR-SYM INTO-ITR) &amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Efficiently perform a monadic operation for each element of an iterator.
 More efficient than foreach-io, if your effect can run in IO. VAR-SYM is bound
 to the value of the element in the iterator.</p><h4
-    id=io-io-impl-simple-io-loops-do-repeat-io-macro><a href="#io-io-impl-simple-io-loops-do-repeat-io-macro"><code>DO-REPEAT-IO (N &amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Efficiently perform an IO operation N times.</p><h4
-    id=io-io-impl-simple-io-loops-do-map-into-io-macro><a href="#io-io-impl-simple-io-loops-do-map-into-io-macro"><code>DO-MAP-INTO-IO ((VAR LST) &amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><h4
     id=io-io-impl-simple-io-loops-do-times-io-macro><a href="#io-io-impl-simple-io-loops-do-times-io-macro"><code>DO-TIMES-IO ((COUNT-SYM N) &amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Efficiently perform an IO operation N times.</p></div>
       <hr><h1 id=io-resource-package>Package <code>IO/RESOURCE</code></h1><div class=types-content>
        <h3 class=types-header>Types</h3><h4 id=io-resource-exitcase-type><a href="#io-resource-exitcase-type"><code>ExitCase</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L35-L38">src</a></sub></sup></sub></sup></h4><ul class=constructors-list>
@@ -754,6 +754,7 @@ Example:
     id=io-classes-network-byteconnectionsocket-type><a href="#io-classes-network-byteconnectionsocket-type"><code>ByteConnectionSocket</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/network.lisp#L75-L76">src</a></sub></sup></sub></sup></h4><p class=docstring>A socket connecting a client and server using a byte stream.</p><details>
         <summary>Instances</summary>
         <ul class=instances-list>
+         <li class=instances-item><code><a href="#io-examples-redis-protocol-bytestream-class">ByteStream</a> <a href="#io-classes-network-byteconnectionsocket-type">ByteConnectionSocket</a></code>
          <li class=instances-item><code><a href="#coalton-types-runtimerepr-class">RuntimeRepr</a> <a href="#io-classes-network-byteconnectionsocket-type">ByteConnectionSocket</a></code></ul></details><h4
     id=io-classes-network-byteserversocket-type><a href="#io-classes-network-byteserversocket-type"><code>ByteServerSocket</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/network.lisp#L71-L72">src</a></sub></sup></sub></sup></h4><p class=docstring>A server socket listening for new byte-stream connections.</p><details>
         <summary>Instances</summary>

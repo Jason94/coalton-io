@@ -140,15 +140,14 @@ contention."
       (tarr <- (tr:new-tarray tarr-size 0))
       (let work-per-thread = (coalton/math:div workload n-threads))
       (let iterations-per-thread = (coalton/math:div work-per-thread tarr-size))
-      (let ixs = (l:range 0 (1- tarr-size)))
       (scheduler <- (new-ring-buffer-scheduler n-threads))
       (pool <- (new-worker-pool n-threads scheduler))
       ;; Run the benchmark
       (wrap-io (b:start (b:current-timer)))
-      (do-times-io_ n-threads
+      (do-repeat-io n-threads
         (do-submit-job_ pool
-          (do-times-io_ iterations-per-thread
-            (do-foreach-io_ (i ixs)
+          (do-repeat-io iterations-per-thread
+            (do-times-io (i tarr-size)
               (do-run-tx
                 (x <- (tr:aref# tarr i))
                 (tr:set tarr i (1+ x)))))))
@@ -159,7 +158,7 @@ contention."
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
       (sum <- (new-tvar 0))
-      (do-foreach-io_ (i ixs)
+      (do-times-io (i tarr-size)
         (do-run-tx
           (x <- (tr:aref# tarr i))
           (modify-tvar sum (fn (y) (+ x y)))))

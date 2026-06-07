@@ -7,6 +7,8 @@
    #:coalton-library/experimental/do-control-core
    #:io/utils
    #:io/monad-io
+   #:io/simple-io
+   #:io/simple-io/loops
    #:io/exceptions
    #:io/simple-io
    #:io/thread
@@ -337,7 +339,7 @@ Example stream input, where the '_' type byte has already been read:
      (write-bytes (int->bytes (into (v:length data)))
                      conn)
      (write-terminator conn)
-     (do-foreach-io_ (x data)
+     (do-foreach-io (x data)
        (write-resp x conn))))
 
   (declare write-resp-int (ByteStream :s => Integer * :s -> IO Unit))

@@ -12,7 +12,9 @@
    #:coalton-prelude
    #:io/utils
    #:io/monad-io
-   #:io/simple-io)
+   #:io/simple-io
+   #:io/simple-io/loops
+   )
   (:import-from #:coalton-library/experimental/loops
    #:dotimes)
   (:local-nicknames
@@ -51,7 +53,7 @@
   (declare increment-list-loop-io-fused (Void -> Void))
   (define (increment-list-loop-io-fused)
     (run-io!
-     (do-foreach-io_ (x lst)
+     (do-foreach-io (x lst)
        (wrap-io
         (c:write! x-cell-hash (hash (1+ x)))
         Unit)))
@@ -114,7 +116,7 @@
     (reset)
     (let cell = (c:new (hash 0)))
     (run-io!
-     (do-times-io_ *n*
+     (do-repeat-io *n*
        (wrap-io
          (c:write! cell (calculate-hash))
          Unit)))
