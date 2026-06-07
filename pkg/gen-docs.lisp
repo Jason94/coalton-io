@@ -17,6 +17,7 @@
                                  'io/exceptions
                                  'io/monad-io
                                  'io/simple-io
+                                 'io/simple-io/loops
                                  'io/resource
                                  'io/mut
                                  'io/term

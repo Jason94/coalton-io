@@ -35,14 +35,8 @@
    #:UnliftIo
    #:with-run-in-io
    #:base-io-prx-for
-   #:unlift-io-prx-for
+   #:unlift-io-prx-for))
 
-   #:map-into-io
-   #:do-map-into-io
-   #:foreach-io
-   #:do-foreach-io
-   #:times-io
-   #:do-times-io))
 (in-package :io/classes/monad-io)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -178,91 +172,3 @@ putting in the full type of M-OP, not just (IO :a).
   ;; `(run! (the (,m-type :a) ,m-op)))
   `(run! (the ,m-type ,m-op)))
 
-;;;
-;;; Efficient Iteration Ops
-;;;
-
-(coalton-toplevel
-  (declare map-into-io ((UnliftIo :r :io) (LiftTo :r :m) (it:IntoIterator :i :a)
-                         => :i * (:a -> :r :b) -> :m (List :b)))
-  (define (map-into-io itr a->rb)
-    "Efficiently perform a monadic operation for each element of an iterator
-and return the results. If you're having inference issues, try map-into-io_"
-    (lift-to
-     (with-run-in-io
-         (fn (run)
-           (wrap-io
-             (let results = (c:new (make-list)))
-             (foreach (a itr)
-               (c:push! results (run! (run (a->rb a)))))
-             (reverse (c:read results)))))))
-
-  (declare foreach-io ((UnliftIo :r :io) (LiftTo :r :m) (it:IntoIterator :i :a)
-                       => :i * (c:Cell :a -> :r :b) -> :m Unit))
-  (define (foreach-io coll a->mb)
-    "Efficiently perform a monadic operation for each element of an iterator.
-The next element of the iterator is passed into the operation via a cell.
-If your effect can be run in simple-io/IO, the version in that package will be
-faster!"
-    (lift-to
-     (with-run-in-io
-       (fn (run)
-         (wrap-io
-           (let itr = (it:into-iter coll))
-           (let fst = (it:next! itr))
-           (match fst
-             ((None)
-              Unit)
-             ((Some initial-val)
-              (let c = (c:new initial-val))
-              (let monad-op = (run (a->mb c)))
-              (run! monad-op)
-              (foreach (a itr)
-                (c:write! c a)
-                (run! monad-op))
-              Unit)))))))
-
-  (declare times-io ((UnliftIo :r :io) (LiftTo :r :m) => UFix * :r :b -> :m Unit))
-  (define (times-io n io-op)
-    "Efficiently perform an IO operation N times. If the effect can be run in
-simple-io/IO, the version in that package will be faster!"
-    (lift-to
-     (with-run-in-io
-       (fn (run)
-         (let base-op = (run io-op))
-         (wrap-io
-           (dotimes (_ n)
-             (run! base-op))
-           Unit)))))
-  )
-
-;;
-;; Syntactic Sugar Macros
-;;
-
-(defmacro do-map-into-io ((var lst) cl:&body body)
-  `(map-into-io ,lst
-     (fn (,var)
-       (do
-        ,@body))))
-
-(defmacro do-foreach-io ((var-sym into-itr) cl:&body body)
-  "Efficiently perform a monadic operation for each element of an iterator.
-VAR-SYM is bound to the value of the element in the iterator. If your effect can
-be run in simple-io/IO, the version in that package will be faster!"
-  (cl:let ((cell-sym (cl:gensym "iteration-val")))
-    `(foreach-io ,into-itr
-      (fn (,cell-sym)
-        (do
-         ,@(cl-maptree (cl:lambda (sym)
-                         (cl:if (cl:eq sym var-sym)
-                            `(c:read ,cell-sym)
-                            sym))
-                       body))))))
-
-(defmacro do-times-io (n cl:&body body)
-  "Efficiently perform an IO operation N times. If the effect can be run in
-simple-io/IO, the version in that package will be faster!"
-  `(times-io ,n
-    (do
-     ,@body)))

@@ -1,8 +1,8 @@
 (cl:in-package :cl-user)
 (defpackage :io/simple-io
   (:use
-   #:io/io-impl/simple-io
-   #:io/classes/monad-io)
+   #:io/classes/monad-io
+   #:io/io-impl/simple-io)
   (:export
    ;; Re-exports from io/io-impl/simple-io
    #:IO
@@ -15,14 +15,6 @@
    #:handle-io
    #:handle-all-io
    #:try-dynamic-io
-
-   #:with-run-in-io_
-   #:foreach-io_
-   #:do-foreach-io_
-   #:map-into-io_
-   #:do-map-into-io_
-   #:times-io_
-   #:do-times-io_
    ))
 
 (in-package :io/simple-io)
