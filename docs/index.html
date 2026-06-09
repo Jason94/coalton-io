@@ -327,11 +327,13 @@ as the global thread for structured concurrency, and exits any child threads on 
 need to unlift, run, then immediately re-run a function. See, e.g., io-file:with-open-file%.</p></div>
       <hr><h1 id=io-simple-io-loops-package>Package <code>IO/SIMPLE-IO/LOOPS</code></h1><div class=macros-content>
        <h3 class=macros-header>Macros</h3><h4
+    id=io-io-impl-simple-io-loops-do-foreach-io-macro><a href="#io-io-impl-simple-io-loops-do-foreach-io-macro"><code>DO-FOREACH-IO ((VAR-SYM INTO-ITR) &amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Efficiently perform an IO operation for each element of an iterator.</p><h4
     id=io-io-impl-simple-io-loops-do-repeat-io-macro><a href="#io-io-impl-simple-io-loops-do-repeat-io-macro"><code>DO-REPEAT-IO (N &amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Efficiently perform an IO operation N times.</p><h4
     id=io-io-impl-simple-io-loops-do-map-into-io-macro><a href="#io-io-impl-simple-io-loops-do-map-into-io-macro"><code>DO-MAP-INTO-IO ((VAR LST) &amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Efficiently perform an IO operation for each element of an iterator and return the
 results.</p><h4
-    id=io-io-impl-simple-io-loops-do-foreach-io-macro><a href="#io-io-impl-simple-io-loops-do-foreach-io-macro"><code>DO-FOREACH-IO ((VAR-SYM INTO-ITR) &amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Efficiently perform an IO operation for each element of an iterator.</p><h4
-    id=io-io-impl-simple-io-loops-do-times-io-macro><a href="#io-io-impl-simple-io-loops-do-times-io-macro"><code>DO-TIMES-IO ((COUNT-SYM N) &amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Efficiently perform an IO operation N times with a counter.</p></div>
+    id=io-io-impl-simple-io-loops-do-times-io-macro><a href="#io-io-impl-simple-io-loops-do-times-io-macro"><code>DO-TIMES-IO ((COUNT-SYM N) &amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Efficiently perform an IO operation N times with a counter.</p><h4
+    id=io-io-impl-simple-io-loops-do-while-val-io-macro><a href="#io-io-impl-simple-io-loops-do-while-val-io-macro"><code>DO-WHILE-VAL-IO ((VAR VAR-OP) &amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Efficiently run `body` with `var` so long as `var-op` produces a value.</p><h4
+    id=io-io-impl-simple-io-loops-do-while-io-macro><a href="#io-io-impl-simple-io-loops-do-while-io-macro"><code>DO-WHILE-IO (&amp;BODY BODY)</code></a> <sup><sub>MACRO</sub></sup></h4><p class=docstring>Efficiently loop an IO operation until it returns `False`.</p></div>
       <hr><h1 id=io-resource-package>Package <code>IO/RESOURCE</code></h1><div class=types-content>
        <h3 class=types-header>Types</h3><h4 id=io-resource-exitcase-type><a href="#io-resource-exitcase-type"><code>ExitCase</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L35-L38">src</a></sub></sup></sub></sup></h4><ul class=constructors-list>
         <li><code>Completed</code>
@@ -405,7 +407,7 @@ the computation completed successfully (Completed) or errored (Errored).</p></di
         <li class=methods-item><code>NEW-VAR :: :A &rarr; :M (<a href="#io-classes-mut-var-type">Var</a> :A)</code><span><br>Create a new variable with an initial value.</span>
         <li class=methods-item><code>READ :: <a href="#io-classes-mut-var-type">Var</a> :A &rarr; :M :A</code><span><br>Read the current value stored in a variable.</span>
         <li class=methods-item><code>WRITE :: <a href="#io-classes-mut-var-type">Var</a> :A * :A &rarr; :M :A</code><span><br>Set the value in a variable and return the old value.</span>
-        <li class=methods-item><code>MODIFY :: <a href="#io-classes-mut-var-type">Var</a> :A * (:A &rarr; :A) &rarr; :M :A</code><span><br>Modify the value in a variable by applying F, and return the old value.</span></ul><details>
+        <li class=methods-item><code>MODIFY :: <a href="#io-classes-mut-var-type">Var</a> :A * (:A &rarr; :A) &rarr; :M :A</code><span><br>Modify the value in a variable by applying F, and return the new value.</span></ul><details>
         <summary>Instances</summary>
         <ul class=instances-list>
          <li class=instances-item><code><a href="#io-classes-mut-mutablevar-class">MutableVar</a> :M &rArr; <a href="#io-classes-mut-mutablevar-class">MutableVar</a> (<a href="#coalton-monad-freet-freet-type">FreeT</a> <a href="#io-stubs-term-termstubf-type">TermStubF</a> :M)</code>

@@ -66,7 +66,7 @@ Concurrent:
      ,@body)))
 
 (defmacro do-submit-job-with_ (strategy pool cl:&body body)
-  `(submit-job_ ,strategy ,pool
+  `(submit-job-with_ ,strategy ,pool
     (do
      ,@body)))
 

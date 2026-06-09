@@ -3,7 +3,6 @@
   (:use
    #:coalton
    #:coalton-prelude
-   ;; #:io/monad-io
    #:io/simple-io
    #:io/thread)
   (:import-from #:io/simple-io/loops
@@ -20,7 +19,7 @@
   ;;; An (IO Unit) is a program that is capable of performing IO operations, like terminal
   ;;; IO or multithreading, and returns a "Unit" type value when it is run.
   ;;;
-  ;;; Here, we build the greeter program, but we don't run it! In normal Coalton, this
+  ;;; Here, we build the main program, but we don't run it! In normal Coalton, this
   ;;; function would have to be a (Void -> Unit) function. If it was just a (Unit) value,
   ;;; then compiling it would ask the user for their name at compile time! But when we
   ;;; create an (IO Unit) value, we're just assembling a program that we can run later.
@@ -39,8 +38,8 @@
      ;; part of the `multithreaded-program` IO program.
      ;;
      ;; In `do` notation, we capture this return value using the `<-` command. Here, we
-     ;; store the handle to the spawned thread so we can stop it later.
-     (thread <-
+     ;; store the handle to the spawned thread, which we could use to stop it later.
+     (_thread <-
       (do-fork-thread_
         ;; `do-while-io` takes an inner IO program that returns a `Boolean` when run. It returns
         ;; another IO program that runs the IO program while it returns `True`, then stops.
@@ -59,9 +58,30 @@
      (write-line-sync "Main thread sleeping")
      (sleep 2000)
 
-     ;; Stop the inner thread and exit
-     (stop thread)
-     (write-line-sync "Main thread done")))) 
+     (write-line-sync "Main thread done")
+
+     ;; coalton-io's structured concurrency runtime manages thread lifecycles to prevent
+     ;; orphaned threads. By default, when a thread finishes, it stops all child threads.
+     ;; Because we forked `_thread` with the default settings, we don't need to stop it
+     ;; ourselves. In addition, even if threads are forked outside of their parent's scope,
+     ;; all threads are cleaned up when `run-io!` exits.
+     ;;
+     ;; For more on how to use structured concurrency, see:
+     ;; https://jason94.github.io/coalton-io/#io-classes-thread-forkscope-type
+     ;; https://jason94.github.io/coalton-io/#io-classes-thread-fork-thread-value
+     ;;
+     ;; For more on the implementation details of structured concurrency in coalton-io, see:
+     ;; https://github.com/Jason94/coalton-io/blob/master/docs/runtime.md#structured-concurrency
+     ;;
+     ;;
+     ;; If you want to stop threads manually, either to make it explicit or as part of a more
+     ;; complex program, use `stop` and `await` like so:
+     ;;
+     ;; `stop` immediately tells the target thread to stop, and `await` blocks the current
+     ;; thread until the given thread has finished running completely:
+     ;; (stop _thread)
+     ;; (await _thread)
+     ))) 
         
      
 

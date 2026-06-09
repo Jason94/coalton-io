@@ -81,7 +81,7 @@ _coalton-io_ has a several example programs:
 * [Greeter](examples/greeter.lisp) - Ask the user for their name and print a friendly greeting in the terminal.
   - _Demonstrates_: How to make and run an IO program, terminal IO
 * [Threading: Basics](examples/thread-basics.lisp) - Start a new thread that prints to the console while the main thread sleeps.
-  _ _Demonstrates_: How to start and stop a thread, IO basics.
+  - _Demonstrates_: How to start and stop a thread, IO basics, _structured concurrency_ basics.
 
 #### Intermediate Examples
 
@@ -94,7 +94,7 @@ _coalton-io_ has a several example programs:
 
 * [Hangman](examples/hangman.lisp) - Play a game of hangman in the terminal. Shows `IO` basics and terminal IO.
   - _Demonstrates_: Terminal IO, file IO, monad transformers, the common "ReaderT" pattern for structuring functional programs, how to use "capability class" style to make generic io functions
-* [Threading: Parallel Pipelines](examples/channels-threading.lisp) - Complex, multithreaded pipeline to process an input data file.
+* [Threading: Parallel Pipelines](examples/thread-pipeline.lisp) - Complex, multithreaded pipeline to process an input data file.
   - _Demonstrates_: Multithreading, file IO, combining different concurrency tools to build an optimized parallel processing pipeline.
   
 #### Example Applications

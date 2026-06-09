@@ -45,7 +45,7 @@
   (define (new-data)
     (let input = (v:with-initial-element count 0))
     (dotimes (i (v:length input))
-      (v:set! i i input))
+      (v:set! i (1+ i) input))
     (ProgramData
      input
      (v:with-initial-element (v:length input) 0)))

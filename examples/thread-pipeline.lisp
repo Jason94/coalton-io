@@ -30,7 +30,7 @@
 ;;; the lines from a large file, parsing them as integers, and summing them.
 ;;;
 ;;; It demonstrates how to use several of coalton-io's concurrency tools together to
-;;; write an optimized multithreaded pipelie, such as: worker pools, queues, and futures.
+;;; write an optimized multithreaded pipeline, such as: worker pools, queues, and futures.
 ;;;
 ;;; The first step: Read the file.
 ;;; The second step: Parse the lines into integers.
@@ -53,7 +53,7 @@
 ;;; It has a thread-local running total. When it receives a parsed integer from the second
 ;;; step, it adds it to the running total. This is a good task to run on a single thread
 ;;; because (1) adding is a relatively cheap operation, and (2) by keeping the running
-;;; total local to one thread, it avoids the overhead of sychronized access. (If you wanted
+;;; total local to one thread, it avoids the overhead of synchronized access. (If you wanted
 ;;; to parallelize summing, it would be easy to have multiple threads with individual
 ;;; thread-local sums, and add them together at the end. That is, essentially, the
 ;;; map-reduce algorithm. But that isn't always easy to do.)
@@ -128,7 +128,7 @@ number of lines, where each line is a random integer between `0` and `data-max`.
      (scheduler <- (new-ring-buffer-scheduler (* 100 n-workers)))
      (pool <- (new-worker-pool_ n-workers scheduler))
      
-     ;; Reader threads in the pool will pass the parsed lines to the summer thread
+     ;; Worker threads in the pool will pass the parsed lines to the summer thread
      ;; via this channel. We use an unbounded queue for this, instead of the
      ;; buffered queue used for the worker pool, to prevent the worker threads from
      ;; blocking on submitting to the summer thread.
