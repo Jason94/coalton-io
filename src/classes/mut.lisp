@@ -44,7 +44,7 @@
      "Set the value in a variable and return the old value."
      (Var :a * :a -> :m :a))
     (modify
-     "Modify the value in a variable by applying F, and return the old value."
+     "Modify the value in a variable by applying F, and return the new value."
      (Var :a * (:a -> :a) -> :m :a))))
 
 (defmacro derive-mutable-var (monad-param monadT-form)

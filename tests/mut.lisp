@@ -26,24 +26,20 @@
               (new <- (read v))
               (pure (Tuple old new)))))))
 
-(define-test test-mut-modify-returns-old ()
-  (is (== (Tuple 5 8)
+(define-test test-mut-modify-returns-new ()
+  (is (== 8
           (run-io!
             (do
               (v   <- (new-var 5))
-              (old <- (modify v (fn (x) (+ x 3))))
-              (new <- (read v))
-              (pure (Tuple old new)))))))
+              (new <- (modify v (fn (x) (+ x 3))))
+              (pure new))))))
 
 (define-test test-mut-sequenced-write-modify ()
-  (is (== (make-list 0 4 4 8 8 9)
+  (is (== (make-list 0 8 9)
           (run-io!
             (do
               (v     <- (new-var 0))
-              (oldW  <- (write v 4))
-              (r1    <- (read v))
-              (oldM1 <- (modify v (fn (x) (* x 2))))
-              (r2    <- (read v))
-              (oldM2 <- (modify v (fn (x) (+ x 1))))
-              (r3    <- (read v))
-              (pure (make-list oldW r1 oldM1 r2 oldM2 r3)))))))
+              (old1  <- (write v 4))
+              (r2 <- (modify v (fn (x) (* x 2))))
+              (r3 <- (modify v (fn (x) (+ x 1))))
+              (pure (make-list old1 r2 r3)))))))

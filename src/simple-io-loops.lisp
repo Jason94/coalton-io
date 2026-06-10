@@ -8,5 +8,7 @@
    #:do-map-into-io
    #:do-times-io
    #:do-repeat-io
+   #:do-while-io
+   #:do-while-val-io
    ))
 

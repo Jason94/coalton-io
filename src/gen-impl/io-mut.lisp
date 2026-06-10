@@ -44,8 +44,8 @@
   (inline)
   (declare modify% (MonadIo :m => Var :a * (:a -> :a) -> :m :a))
   (define (modify% (Var% cel) f)
-    "Modify the value in an Var and return the old value."
-    (wrap-io (c:update-swap! f cel))))
+    "Modify the value in an Var and return the new value."
+    (wrap-io (c:update! f cel))))
 
 (defmacro implement-mutable-var (monad)
   `(define-instance (MutableVar ,monad)

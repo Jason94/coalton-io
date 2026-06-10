@@ -10,6 +10,7 @@
   (:import-from #:coalton-library/experimental/loops
    #:dotimes)
   (:local-nicknames
+   (:dcc #:coalton/experimental/do-control-core)
    (:it #:coalton-library/iterator)
    (:c #:coalton-library/cell)
    )
@@ -19,6 +20,8 @@
    #:do-map-into-io
    #:do-times-io
    #:do-repeat-io
+   #:do-while-io
+   #:do-while-val-io
 
    ;; Library Private
    ))
@@ -76,6 +79,34 @@
        (dotimes (_ n)
          (run-io-unhandled! io-op))
        Unit))))
+
+  (inline)
+  (declare while-io (LiftIo IO :m => IO Boolean -> :m Unit))
+  (define (while-io io-op)
+    (lift-io
+     (the
+      (IO Unit)
+      (wrap-io
+       (for ((next? (run-io-unhandled! io-op)
+                    (run-io-unhandled! io-op)))
+            :while next?)
+       Unit))))
+
+  (inline)
+  (declare while-val-io ((LiftIo IO :m) (dcc::Yielder :y) => IO (:y :a) * (:a -> IO :b) -> :m Unit))
+  (define (while-val-io io-val io-body)
+    (lift-io
+     (the
+      (IO Unit)
+      (wrap-io
+       (for ()
+         (match (dcc::yield (run-io-unhandled! io-val))
+           ((None)
+            (break))
+           ((Some a)
+            (run-io-unhandled! (io-body a))
+            (values))))
+       Unit))))
   )
 
 (defmacro do-map-into-io ((var lst) cl:&body body)
@@ -105,3 +136,17 @@ results."
   `(repeat-io ,n
     (do
      ,@body)))
+
+(defmacro do-while-io (cl:&body body)
+  "Efficiently loop an IO operation until it returns `False`."
+  `(while-io
+    (do
+     ,@body)))
+
+(defmacro do-while-val-io ((var var-op) cl:&body body)
+  "Efficiently run `body` with `var` so long as `var-op` produces a value."
+  `(while-val-io
+    ,var-op
+    (fn (,var)
+      (do
+       ,@body))))

@@ -103,3 +103,36 @@
       (c:update! 1+ count))))
   (is (== 10
           (c:read count))))
+
+(define-test test-while-io ()
+  (let result =
+    (run-io!
+     (do
+      (x-var <- (mt:new-var 1))
+      (do-while-io
+        (x <- (mt:modify x-var ƒx.(* x 2)))
+        (pure (< x 10)))
+      (mt:read x-var))))
+  (is (== 16 result)))
+
+(define-test test-while-val-io-empty ()
+  (let result =
+    (run-io!
+     (do
+      (count <- (mt:new-var 0))
+      (queue <- (wrap-io (c:new Nil)))
+      (do-while-val-io (x (wrap-io (c:pop! queue)))
+        (mt:modify count ƒc.(+ x c) ))
+      (mt:read count))))
+  (is (== 0 result)))
+
+(define-test test-while-val-io ()
+  (let result =
+    (run-io!
+     (do
+      (count <- (mt:new-var 0))
+      (queue <- (wrap-io (c:new (make-list 1 2 3))))
+      (do-while-val-io (x (wrap-io (c:pop! queue)))
+        (mt:modify count ƒc.(+ x c) ))
+      (mt:read count))))
+  (is (== 6 result)))
