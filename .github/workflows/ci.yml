@@ -112,3 +112,23 @@ jobs:
           EOF
 
           qlot exec ros -L sbcl-bin run -- --non-interactive --disable-debugger --load run-tests.lisp
+
+      - name: Compile examples
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cat <<'EOF' > compile-examples.lisp
+          (require :asdf)
+
+          (handler-case
+              (progn
+                (asdf:load-asd "coalton-io.asd")
+                (asdf:load-system :coalton-io/examples)
+                (format t "~&coalton-io/examples compiled successfully.~%")
+                (uiop:quit 0))
+            (serious-condition (e)
+              (format *error-output* "~&ERROR while compiling examples: ~A~%" e)
+              (uiop:quit 1)))
+          EOF
+
+          qlot exec ros -L sbcl-bin run -- --non-interactive --disable-debugger --load compile-examples.lisp
