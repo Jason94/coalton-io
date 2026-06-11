@@ -18,6 +18,7 @@
    (:c #:coalton-library/cell)
    (:bt  #:io/utilities/bt-compat)
    (:at #:io/threads-impl/atomics)
+   (:mo #:io/threads-impl/memory-order)
    )
   (:export
    ;; Library Public
@@ -48,9 +49,6 @@
   )
 (in-package :io/gen-impl/conc/stm)
 
-(defmacro mem-barrier ()
-  `(lisp (-> Void) ()
-     (sb-thread:barrier (:read))))
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 0)))
 
@@ -367,23 +365,48 @@ For safety, disconnects the transactions when done."
      (fn (_)
        (new-tvar% val))))
 
-  ;; NOTE: For now, using the coalton-threads Atomic Integer instead of
-  ;; our atomics, because it's probably faster, since our atomic type doesn't
-  ;; have a way to use sb-ext:atomic-incf. BUT, the MOST important thing
-  ;; is that whatever we do use HAS to eventually call something that is
-  ;; a memory barrier in SBCL.
-  ;; https://www.sbcl.org/manual/sbcl.pdf
-  ;; TODO: Upon further reading, atomic operations *do* establish a memory barrier.
-  ;; It might be possible to remove the explicit memory barrier calls, which would
-  ;; give the STM portability beyond SBCL.
+  ;; NOrec global version clock.
+  ;;
+  ;; IMPORTANT MEMORY-ORDERING CONTRACT:
+  ;;
+  ;;   The correctness of the algorithm depends on ordering the transaction's TVar
+  ;;   reads and writes around samples/updates of this global clock.
+  ;;
+  ;;   Reads:
+  ;;     - AT:READ-AT-INT only reads the integer value. It must not be treated
+  ;;       as a memory barrier.
+  ;;     - STM code must place MO:READ-BARRIER explicitly where the NOrec proof
+  ;;       requires read ordering around version-clock sampling.
+  ;;
+  ;;   Writer lock acquisition:
+  ;;     - AT:INT-CAS is used to move the clock from an even value to the next
+  ;;       odd value. This is the writer's commit lock acquisition.
+  ;;     - On SBCL, Bordeaux Threads v2 maps this to SB-EXT:COMPARE-AND-SWAP,
+  ;;       which SBCL documents as a full :MEMORY barrier.
+  ;;     - On supported CCL targets, Bordeaux Threads v2 maps this to
+  ;;       CCL::CONDITIONAL-STORE, which is CCL's platform atomic CAS primitive.
+  ;;       Though not publicly documented, on x86 platforms, CCL compiles this
+  ;;       to include a full memory barrier. On ARM32 (CCL does not support
+  ;;       ARM64), this does not include a memory barrier.
+  ;;
+  ;;   Writer publication:
+  ;;     - After committing the write log, AT:ATOMIC-INC1 publishes the next
+  ;;       even clock value.
+  ;;     - This publication step must order the committed TVar stores before
+  ;;       the clock becomes even again.
+  ;;     - On SBCL, Bordeaux Threads v2 maps this to SB-EXT:ATOMIC-INCF, which
+  ;;       SBCL documents as a full :MEMORY barrier.
+  ;;     - On supported CCL targets, Bordeaux Threads v2 maps this to
+  ;;       CCL::ATOMIC-INCF-DECF. On x86 platforms this includes a memory barrier,
+  ;;       and on ARM32 it does not.
+
   (declare global-lock at:AtomicInteger)
   (define global-lock (at:new-at-int 0))
 
   (inline)
   (declare get-global-time (Void -> Word))
   (define (get-global-time)
-    "Read the global lock time and establish a memory barrier."
-    (mem-barrier)
+    "Read the global version clock. Callers must place memory barriers explicitly."
     (at:read-at-int global-lock))
 
   (inline)
@@ -401,10 +424,14 @@ For safety, disconnects the transactions when done."
   (declare tx-begin% (Void -> TxData%))
   (define (tx-begin%)
     (rec % ()
-      (let snapshot = (at:read-at-int global-lock))
+      (let snapshot = (get-global-time))
       (if (bit-odd? snapshot)
           (%)
-          (new-tx-data% snapshot))))
+          (progn
+            ;; The initial version-clock sample must be ordered before the
+            ;; transaction's later TVar reads.
+            (mo:read-barrier)
+            (new-tx-data% snapshot)))))
 
   (derive Eq)
   (define-type ValidateRes%
@@ -418,14 +445,20 @@ For safety, disconnects the transactions when done."
       (if (bit-odd? start-time)
             (%)
         (progn
+          ;; Order the first version-clock sample before scanning the read log.
+          (mo:read-barrier)
           (let read-log-iter = (iterate-read-log tx-data))
           (let check =
             (rec %% ((next-read? (i:next! read-log-iter)))
               (match next-read?
                 ((None)
-                 (if (== start-time (get-global-time))
-                     (Some (TxContinue% start-time))
-                     None))
+                 (progn
+                   ;; Order all read-log value reads before the final
+                   ;; version-clock sample.
+                   (mo:read-barrier)
+                   (if (== start-time (get-global-time))
+                       (Some (TxContinue% start-time))
+                       None)))
                 ((Some read-entry)
                  (if (not (unsafe-pointer-eq?
                            (read-entry-current-val% read-entry)
@@ -457,10 +490,12 @@ For safety, disconnects the transactions when done."
       ((Some written-val)
        (from-anything written-val))
       ((None)
-       (rec % ((val (progn (mem-barrier)
-                           (tvar-value% tvar))))
+       (rec % ((val (tvar-value% tvar)))
+         ;; Order the TVar value read before checking whether the version clock
+         ;; still matches the transaction snapshot.
+         (mo:read-barrier)
          (if (== (cached-snapshot tx-data)
-                 (at:read-at-int global-lock))
+                 (get-global-time))
              (progn
                (log-read-value tvar val tx-data)
                val)

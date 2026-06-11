@@ -32,7 +32,8 @@
                                ))
                  (:module "thread-impl"
                   :serial t
-                  :components ((:file "atomics")
+                  :components ((:file "memory-order")
+                               (:file "atomics")
                                (:file "runtime")))
                  ;; TODO: Finish converting this to use Runtime, then move
                  ;; to gen-impl/conc
