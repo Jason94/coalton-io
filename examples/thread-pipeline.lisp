@@ -10,7 +10,7 @@
    #:io/exceptions
    #:io/random
    #:io/conc/future
-   #:io/conc/ring-buffer
+   #:io/conc/scheduler
    #:io/conc/worker-pool
    #:coalton-library/experimental/do-control-core)
   (:local-nicknames
@@ -125,7 +125,7 @@ number of lines, where each line is a random integer between `0` and `data-max`.
 
      ;; Because one line in a file will get sent as one job into the pool, we
      ;; create a scheduler with a larger capacity.
-     (scheduler <- (new-ring-buffer-scheduler (* 100 n-workers)))
+     (scheduler <- (new-bounded-scheduler (* 100 n-workers)))
      (pool <- (new-worker-pool_ n-workers scheduler))
      
      ;; Worker threads in the pool will pass the parsed lines to the summer thread

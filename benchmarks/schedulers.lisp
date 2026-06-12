@@ -219,7 +219,7 @@
              io/conc/mchan-scheduler:new-mchan-scheduler)))
   (report trivial-benchmark::*current-timer*))
 
-(define-benchmark single-producer-1-consumer-x-tasks-ring-buffer-scheduler ()
+(define-benchmark single-producer-1-consumer-x-tasks-bounded-scheduler ()
   (declare (optimize speed))
   (loop :repeat *count*
         :do
@@ -227,10 +227,10 @@
             (benchmark-schedulers/native::benchmark-x-receives
              *tasks*
              1
-             (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
+             (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
   (report trivial-benchmark::*current-timer*))
 
-(define-benchmark single-producer-2-consumer-x-tasks-ring-buffer-scheduler ()
+(define-benchmark single-producer-2-consumer-x-tasks-bounded-scheduler ()
   (declare (optimize speed))
   (loop :repeat *count*
         :do
@@ -238,10 +238,10 @@
             (benchmark-schedulers/native::benchmark-x-receives
              *tasks*
              2
-             (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
+             (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
   (report trivial-benchmark::*current-timer*))
 
-(define-benchmark single-producer-4-consumer-x-tasks-ring-buffer-scheduler ()
+(define-benchmark single-producer-4-consumer-x-tasks-bounded-scheduler ()
   (declare (optimize speed))
   (loop :repeat *count*
         :do
@@ -249,10 +249,10 @@
             (benchmark-schedulers/native::benchmark-x-receives
              *tasks*
              4
-             (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
+             (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
   (report trivial-benchmark::*current-timer*))
 
-(define-benchmark 2-producers-2-consumers-x-tasks-ring-buffer-scheduler ()
+(define-benchmark 2-producers-2-consumers-x-tasks-bounded-scheduler ()
   (declare (optimize speed))
   (loop :repeat *count*
         :do
@@ -261,10 +261,10 @@
              *tasks*
              2
              2
-             (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
+             (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
   (report trivial-benchmark::*current-timer*))
 
-(define-benchmark 4-producers-2-consumers-x-tasks-ring-buffer-scheduler ()
+(define-benchmark 4-producers-2-consumers-x-tasks-bounded-scheduler ()
   (declare (optimize speed))
   (loop :repeat *count*
         :do
@@ -273,10 +273,10 @@
              *tasks*
              4
              2
-             (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
+             (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
   (report trivial-benchmark::*current-timer*))
 
-(define-benchmark 2-producers-4-consumers-x-tasks-ring-buffer-scheduler ()
+(define-benchmark 2-producers-4-consumers-x-tasks-bounded-scheduler ()
   (declare (optimize speed))
   (loop :repeat *count*
         :do
@@ -285,10 +285,10 @@
              *tasks*
              2
              4
-             (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
+             (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
   (report trivial-benchmark::*current-timer*))
 
-(define-benchmark 4-producers-4-consumers-x-tasks-ring-buffer-scheduler ()
+(define-benchmark 4-producers-4-consumers-x-tasks-bounded-scheduler ()
   (declare (optimize speed))
   (loop :repeat *count*
         :do
@@ -297,5 +297,5 @@
              *tasks*
              4
              4
-             (io/conc/ring-buffer:new-ring-buffer-scheduler *bounded-capacity*))))
+             (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
   (report trivial-benchmark::*current-timer*))

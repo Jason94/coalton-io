@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/gen-impl/conc/ring-buffer-scheduler
+(defpackage :io/gen-impl/conc/bounded-scheduler
   (:use
    #:coalton
    #:coalton-prelude
@@ -7,16 +7,16 @@
    #:io/classes/exceptions
    #:io/classes/thread
    #:io/classes/conc/scheduler
-   #:io/gen-impl/conc/ring-buffer
+   #:io/gen-impl/conc/queues/bounded-mpmc
    )
   (:export
    #:SchedulerError
    #:InvalidBoundedCapacityError
 
-   #:RingBufferScheduler
-   #:new-ring-buffer-scheduler
+   #:BoundedScheduler
+   #:new-bounded-scheduler
    ))
-(in-package :io/gen-impl/conc/ring-buffer-scheduler)
+(in-package :io/gen-impl/conc/bounded-scheduler)
 
 (named-readtables:in-readtable coalton:coalton)
 
@@ -28,29 +28,27 @@
     (define (error e)
       (match e
         ((InvalidBoundedCapacityError)
-         (error "Scheduler queue must have non-zero capacity")))))
+         (error "Bounded scheduler queue must have non-zero capacity")))))
 
   (repr :transparent)
-  (define-type (RingBufferScheduler :a)
-    "A RingBufferScheduler uses a single RingBuffer internally to manage tasks.
-
-MChanScheduler is bounded."
-    (RingBufferScheduler% (RingBuffer :a)))
+  (define-type (BoundedScheduler :a)
+    "A BoundedScheduler uses a single RingBuffer internally to manage tasks."
+    (BoundedScheduler% (BoundedMpmcQueue :a)))
 
   (inline)
-  (declare new-ring-buffer-scheduler ((Threads :rt :t :m) (Exceptions :m)
-                                      => UFix -> :m (RingBufferScheduler :a)))
-  (define (new-ring-buffer-scheduler capacity)
+  (declare new-bounded-scheduler ((Threads :rt :t :m) (Exceptions :m)
+                                  => UFix -> :m (BoundedScheduler :a)))
+  (define (new-bounded-scheduler capacity)
     (if (== 0 capacity)
      (raise InvalidBoundedCapacityError)
-     (pure (RingBufferScheduler% (new-ring-buffer% capacity)))))
+     (pure (BoundedScheduler% (new-bounded-mpmc-queue% capacity)))))
 
   (inline)
-  (declare queue% (RingBufferScheduler :a -> RingBuffer :a))
-  (define (queue% (RingBufferScheduler% queue))
+  (declare queue% (BoundedScheduler :a -> BoundedMpmcQueue :a))
+  (define (queue% (BoundedScheduler% queue))
     queue)
 
-  (define-instance (Scheduler RingBufferScheduler)
+  (define-instance (Scheduler BoundedScheduler)
     (inline)
     (define (submit item scheduler)
       (wrap-io-with-runtime (rt-prx)
