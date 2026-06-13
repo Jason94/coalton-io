@@ -18,6 +18,8 @@
    ))
 (in-package :io/gen-impl/conc/bounded-scheduler)
 
+(cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 1)))
+
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel

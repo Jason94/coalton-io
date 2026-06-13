@@ -8,7 +8,6 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:coalton-library/experimental/do-control-loops
    #:io/monad-io
    #:io/simple-io
    #:io/simple-io/loops
@@ -58,11 +57,9 @@
       (do-repeat-io n-tasks
         (do-submit-job_ pool
           (at:modify completed-count 1+)))
-      (do-loop-while
+      (do-while-io
         (val <- (at:read completed-count))
-        ;; This looks backwards, but it's correct as of 12/31/2025.
-        ;; See https://github.com/coalton-lang/coalton/issues/1742
-        (pure (>= val n-tasks)))
+        (pure (< val n-tasks)))
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
@@ -98,10 +95,8 @@
         (fork-group (l:repeat n-producers
           (do-fork-thread_
            ;; Wait for the main thread to start the benchmark timer
-           (do-loop-while
-             ;; This looks backwards, but it's correct as of 12/31/2025.
-             ;; See https://github.com/coalton-lang/coalton/issues/1742
-             (at:read ready-to-start))
+           (do-while-io
+             (map not (at:read ready-to-start)))
            (do-repeat-io tasks-per-producer
              (do-submit-job_ pool
                (at:modify completed-count 1+)))
@@ -110,11 +105,9 @@
       (sleep 15)
       (wrap-io (b:start (b:current-timer)))
       (at:write ready-to-start True)
-      (do-loop-while
+      (do-while-io
         (val <- (at:read completed-count))
-        ;; This looks backwards, but it's correct as of 12/31/2025.
-        ;; See https://github.com/coalton-lang/coalton/issues/1742
-        (pure (>= val n-tasks)))
+        (pure (< val n-tasks)))
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer)))
