@@ -32,7 +32,7 @@
 
   (repr :transparent)
   (define-type (BoundedScheduler :a)
-    "A BoundedScheduler uses a single RingBuffer internally to manage tasks."
+    "A `BoundedScheduler` has a limited capacity, and task submissions block if full."
     (BoundedScheduler% (BoundedMpmcQueue :a)))
 
   (inline)
