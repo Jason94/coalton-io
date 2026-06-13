@@ -21,12 +21,6 @@
    #:is-empty-mvar
    #:do-with-mvar
 
-   #:MChan
-   #:new-empty-chan
-   #:push-chan
-   #:pop-chan
-   #:try-pop-chan
-
    #:with-mvar
 
    ;; Re-exports from io/io-impl/mvar

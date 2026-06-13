@@ -8,7 +8,7 @@
      #:io/conc/mvar
      #:io/thread
      #:io/conc/future
-     #:io/conc/mchan-scheduler
+     #:io/conc/scheduler
      #:io/conc/worker-pool)
   (:local-nicknames
    (:mt #:io/mut))
@@ -25,7 +25,7 @@
     (run-io!
      (do
       (result <- new-empty-mvar)
-      (scheduler <- new-mchan-scheduler)
+      (scheduler <- new-unbounded-scheduler)
       (pool <- (new-worker-pool_ 2 scheduler))
       (do-submit-job_ pool
         (put-mvar result True))
@@ -39,7 +39,7 @@
     (run-io!
      (do
       (chunks <- (mt:new-var Nil))
-      (scheduler <- new-mchan-scheduler)
+      (scheduler <- new-unbounded-scheduler)
       (pool <- (new-worker-pool_ 1 scheduler))
       (do-submit-indexed-chunks_ pool (c (0 15 5))
         (mt:modify chunks ƒl.(Cons c l)))
@@ -56,7 +56,7 @@
     (run-io!
      (do
       (chunks <- (mt:new-var Nil))
-      (scheduler <- new-mchan-scheduler)
+      (scheduler <- new-unbounded-scheduler)
       (pool <- (new-worker-pool_ 1 scheduler))
       (do-submit-indexed-chunks_ pool (c (0 17 5))
         (mt:modify chunks ƒl.(Cons c l)))
@@ -74,7 +74,7 @@
     (run-io!
      (do
       (chunks <- (mt:new-var Nil))
-      (scheduler <- new-mchan-scheduler)
+      (scheduler <- new-unbounded-scheduler)
       (pool <- (new-worker-pool_ 1 scheduler))
       (do-submit-indexed-chunks_ pool (c (0 0 5))
         (mt:modify chunks ƒl.(Cons c l)))
@@ -90,7 +90,7 @@
      (try-all
       (do
        (chunks <- (mt:new-var Nil))
-       (scheduler <- new-mchan-scheduler)
+       (scheduler <- new-unbounded-scheduler)
        (pool <- (new-worker-pool_ 1 scheduler))
        (do-submit-indexed-chunks_ pool (c (10 0 5))
          (mt:modify chunks ƒl.(Cons c l)))

@@ -12,7 +12,7 @@ _coalton-io_ provides tools to write safe, functional programs in Coalton that c
   - Stopping threads at any time
   - Structured concurrency to prevent orphaned threads
   - Masking to protect critical areas
-* Safely sharing data between threads (_coalton-io_ provides Atomic variables, MVars, MChans, a Software Transactional Memory, Futures, Thread Pools, and more)
+* Safely sharing data between threads (_coalton-io_ provides Atomic variables, MVars, concurrent queues, Software Transactional Memory, Futures, Thread Pools, and more)
 
 `IO` is _fast_. Even in high-frequency loops, [benchmarks](benchmarks/benchmark_simple_io.csv) show that `IO`'s performance is on-par with iterative, non-pure Coalton code.
 
@@ -35,8 +35,8 @@ A good place to start is the [Greeter Example](examples/greeter.lisp). There are
      (write-line "Writing data file...")
      write-data-file
      (write-line "Done writing file...")
-     (input-chan <- mv:new-empty-chan)
-     (ints-chan <- mv:new-empty-chan)
+     (input-chan <- new-unbounded-mpmc-queue)
+     (ints-chan <- new-unbounded-mpmc-queue)
      (sum-mvar <- mv:new-empty-mvar)
      (write-line "Forking threads...")
      (fork (reader-thread input-chan))
@@ -117,7 +117,8 @@ _coalton-io_ provides the following features in these packages:
 * `io/network` - Connect sockets and send data over TCP/IP
 * `io/conc/future`- Futures that run an `IO` computation in another thread and return the value to the calling thread
 * `io/conc/atomic`- Atomic mutable variables for sharing state across threads
-* `io/conc/mvar`  - Provides `MVar`s (synchronized single-value mutable stores to hand off data between threads) and `MChan`s (thread safe FIFO queues to stream data between threads)
+* `io/conc/mvar`  - `MVar`s, synchronized single-value mutable stores to hand off data between threads
+* `io/conc/queues` - Thread safe unbounded and bounded FIFO queues to stream data between threads
 * `io/conc/parking` - Park and unpark threads to wait on multiple conditions
 * `io/conc/stm`   - Atomically run transactions on mutable memory shared between threads
 * `io/conc/group` - `ConcurrentGroup`s that atomically manage the masking, stopping, and awaiting of a group of `Concurrent`s

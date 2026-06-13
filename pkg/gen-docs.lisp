@@ -27,15 +27,15 @@
                                  'io/unique
                                  'io/network
                                  'io/conc/parking
+                                 'io/conc/group
                                  'io/conc/scheduler
+                                 'io/conc/worker-pool
                                  'io/conc/future
                                  'io/conc/atomic
                                  'io/conc/mvar
-                                 'io/conc/group
+                                 'io/conc/queues/bounded-mpmc
+                                 'io/conc/queues/unbounded-mpmc
                                  'io/conc/stm
-                                 'io/conc/mchan-scheduler
-                                 'io/conc/worker-pool
-                                 'io/conc/ring-buffer
                                  'io/conc/stm/tarray
                                  'io/io-all
                                  'io/stubs/term

@@ -15,7 +15,7 @@
    #:io/simple-io
    #:io/simple-io/loops
    #:io/thread
-   #:io/conc/ring-buffer
+   #:io/conc/scheduler
    #:io/conc/worker-pool
    #:io/conc/stm)
   (:import-from #:coalton/experimental/do-control-core
@@ -49,7 +49,7 @@ data structure, such as lock or atomic based ones)."
       ;; Setup benchmark parameters and shared data
       (tvar <- (new-tvar 0))
       (let work-per-thread = (coalton/math:div workload n-threads))
-      (scheduler <- (new-ring-buffer-scheduler n-threads))
+      (scheduler <- (new-bounded-scheduler n-threads))
       (pool <- (new-worker-pool n-threads scheduler))
       ;; Run the benchmark
       (wrap-io (b:start (b:current-timer)))
@@ -87,7 +87,7 @@ synchronized data structure, such as lock or atomic based ones)."
       (tvar8 <- (new-tvar 0))
       (let work-per-thread = (coalton/math:div workload n-threads))
       (let iterations-per-thread = (coalton/math:div work-per-thread 8))
-      (scheduler <- (new-ring-buffer-scheduler n-threads))
+      (scheduler <- (new-bounded-scheduler n-threads))
       (pool <- (new-worker-pool n-threads scheduler))
       ;; Run the benchmark
       (wrap-io (b:start (b:current-timer)))
@@ -141,7 +141,7 @@ contention."
       (tarr <- (tr:new-tarray tarr-size 0))
       (let work-per-thread = (coalton/math:div workload n-threads))
       (let iterations-per-thread = (coalton/math:div work-per-thread tarr-size))
-      (scheduler <- (new-ring-buffer-scheduler n-threads))
+      (scheduler <- (new-bounded-scheduler n-threads))
       (pool <- (new-worker-pool n-threads scheduler))
       ;; Run the benchmark
       (wrap-io (b:start (b:current-timer)))
@@ -177,7 +177,7 @@ case scenario for the STM."
       ;; Setup benchmark parameters and shared data
       (tarr <- (tr:new-tarray n-threads 0))
       (let work-per-thread = (coalton/math:div workload n-threads))
-      (scheduler <- (new-ring-buffer-scheduler n-threads))
+      (scheduler <- (new-bounded-scheduler n-threads))
       (pool <- (new-worker-pool n-threads scheduler))
       ;; Run the benchmark
       (wrap-io (b:start (b:current-timer)))
@@ -211,7 +211,7 @@ wakes."
      (do
       ;; Setup benchmark parameters and shared data
       (count <- (new-tvar 0))
-      (scheduler <- (new-ring-buffer-scheduler n-threads))
+      (scheduler <- (new-bounded-scheduler n-threads))
       (pool <- (new-worker-pool n-threads scheduler))
       ;; Run the benchmark
       (wrap-io (b:start (b:current-timer)))

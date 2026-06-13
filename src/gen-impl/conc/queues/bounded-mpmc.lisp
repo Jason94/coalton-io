@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/gen-impl/conc/ring-buffer
+(defpackage :io/gen-impl/conc/queues/bounded-mpmc
   (:use
    #:coalton
    #:coalton-prelude
@@ -17,22 +17,22 @@
    )
   (:export
    ;; Library Public
-   #:RingBuffer
+   #:BoundedMpmcQueue
 
-   #:new-ring-buffer
+   #:new-bounded-mpmc-queue
    #:enqueue
    #:try-enqueue
    #:dequeue
 
    ;; Library Private
-   #:new-ring-buffer%
+   #:new-bounded-mpmc-queue%
    #:enqueue!%
    #:enqueue-with!%
    #:try-enqueue!%
    #:dequeue!%
    #:dequeue-with!%
    ))
-(in-package :io/gen-impl/conc/ring-buffer)
+(in-package :io/gen-impl/conc/queues/bounded-mpmc)
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 1)))
 
@@ -40,8 +40,8 @@
 
 (coalton-toplevel
 
-  (define-struct (RingBuffer :a)
-    "A bounded FIFO Multi-Producer, Multi-Consumer Queue implemented as a RingBuffer."
+  (define-struct (BoundedMpmcQueue :a)
+    "A bounded FIFO Multi-Producer, Multi-Consumer Queue."
     (capacity         UFix)
     ;; Allow clearing the data so the buffer doesn't hold onto it and keep stale
     ;; data from being GC'd.
@@ -56,7 +56,7 @@
     (notify-not-full  bt:ConditionVariable))
 
   (inline)
-  (declare increment% (RingBuffer :a * UFix -> UFix))
+  (declare increment% (BoundedMpmcQueue :a * UFix -> UFix))
   (define (increment% buffer i)
     "Get the next index in BUFFER."
     (let next = (1+ i))
@@ -65,20 +65,20 @@
         next))
 
   (inline)
-  (declare empty?% (RingBuffer :a -> Boolean))
+  (declare empty?% (BoundedMpmcQueue :a -> Boolean))
   (define (empty?% buffer)
     (zero? (read (.count buffer))))
 
   (inline)
-  (declare full?% (RingBuffer :a -> Boolean))
+  (declare full?% (BoundedMpmcQueue :a -> Boolean))
   (define (full?% buffer)
     (== (read (.count buffer)) (.capacity buffer)))
 
   (inline)
-  (declare new-ring-buffer% (UFix -> RingBuffer :a))
-  (define (new-ring-buffer% capacity)
+  (declare new-bounded-mpmc-queue% (UFix -> BoundedMpmcQueue :a))
+  (define (new-bounded-mpmc-queue% capacity)
     "Create a new ring buffer with the given capacity."
-    (RingBuffer
+    (BoundedMpmcQueue
      capacity
      (lisp (-> Vector :a) (capacity)
        (cl:make-array capacity :element-type cl:t :adjustable cl:nil :fill-pointer cl:nil))
@@ -89,7 +89,7 @@
      (bt:new-cv)
      (bt:new-cv)))
 
-  (declare enqueue-with!% (Runtime :rt :t => Proxy :rt * :a * TimeoutStrategy * RingBuffer :a -> Void))
+  (declare enqueue-with!% (Runtime :rt :t => Proxy :rt * :a * TimeoutStrategy * BoundedMpmcQueue :a -> Void))
   (define (enqueue-with!% rt-prx elt strategy buffer)
     "Add ELT to BUFFER.
 
@@ -136,7 +136,7 @@ Concurrent:
             )))
 
   (inline)
-  (declare enqueue!% (Runtime :rt :t => Proxy :rt * :a * RingBuffer :a -> Void))
+  (declare enqueue!% (Runtime :rt :t => Proxy :rt * :a * BoundedMpmcQueue :a -> Void))
   (define (enqueue!% rt-prx elt buffer)
     "Add ELT to BUFFER.
 
@@ -145,7 +145,7 @@ Concurrent:
   - If full, blocks until BUFFER is not full."
     (enqueue-with!% rt-prx elt NoTimeout buffer))
 
-  (declare try-enqueue!% (Runtime :rt :t => Proxy :rt * :a * RingBuffer :a -> Boolean))
+  (declare try-enqueue!% (Runtime :rt :t => Proxy :rt * :a * BoundedMpmcQueue :a -> Boolean))
   (define (try-enqueue!% rt-prx elt buffer)
     "Attempt to add ELT to BUFFER. Returns True if equeue succeeded, False otherwise.
 
@@ -184,7 +184,7 @@ Concurrent: Can block acquiring lock on buffer."
           True)
         ))
 
-  (declare dequeue-with!% (Runtime :rt :t => Proxy :rt * TimeoutStrategy * RingBuffer :a -> :a))
+  (declare dequeue-with!% (Runtime :rt :t => Proxy :rt * TimeoutStrategy * BoundedMpmcQueue :a -> :a))
   (define (dequeue-with!% rt-prx strategy buffer)
     "Pop an element from BUFFER.
 
@@ -218,7 +218,7 @@ Concurrent:
           (progn
             (let should-notify = (full?% buffer))
             (let read-i = (read (.read-ptr buffer)))
-            (let elt = (opt:from-some "RingBuffer access error"
+            (let elt = (opt:from-some "BoundedMpmcQueue access error"
                                       (v:index-unsafe read-i (.data buffer))))
             ;; Allows stale data to be GC'd
             (v:set! read-i
@@ -236,7 +236,7 @@ Concurrent:
           )))
 
   (inline)
-  (declare dequeue!% (Runtime :rt :t => Proxy :rt * RingBuffer :a -> :a))
+  (declare dequeue!% (Runtime :rt :t => Proxy :rt * BoundedMpmcQueue :a -> :a))
   (define (dequeue!% rt-prx buffer)
     "Pop an element from BUFFER.
 
@@ -253,14 +253,14 @@ Concurrent:
 (coalton-toplevel
 
   (inline)
-  (declare new-ring-buffer (Threads :rt :t :m => UFix -> :m (RingBuffer :a)))
-  (define (new-ring-buffer capacity)
+  (declare new-bounded-mpmc-queue (Threads :rt :t :m => UFix -> :m (BoundedMpmcQueue :a)))
+  (define (new-bounded-mpmc-queue capacity)
     "Create a new ring buffer with the given capacity."
-    (wrap-io (new-ring-buffer% capacity)))
+    (wrap-io (new-bounded-mpmc-queue% capacity)))
 
   (inline)
   (declare enqueue (Threads :rt :t :m
-                    => :a * RingBuffer :a
+                    => :a * BoundedMpmcQueue :a
                     &key (:timeout TimeoutStrategy)
                     -> :m Unit))
   (define (enqueue elt buffer &key (timeout NoTimeout))
@@ -272,7 +272,7 @@ Concurrent:
     (inject-runtime-unit enqueue-with!% elt timeout buffer))
 
   (inline)
-  (declare try-enqueue (Threads :rt :t :m => :a * RingBuffer :a -> :m Boolean))
+  (declare try-enqueue (Threads :rt :t :m => :a * BoundedMpmcQueue :a -> :m Boolean))
   (define (try-enqueue elt buffer)
     "Attempt to add ELT to BUFFER. Returns True if equeue succeeded, False otherwise.
 
@@ -281,7 +281,7 @@ Concurrent: Can block acquiring lock on buffer."
 
   (inline)
   (declare dequeue (Threads :rt :t :m
-                    => RingBuffer :a
+                    => BoundedMpmcQueue :a
                     &key (:timeout TimeoutStrategy)
                     -> :m :a))
   (define (dequeue buffer &key (timeout NoTimeout))

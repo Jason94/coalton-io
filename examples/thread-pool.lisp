@@ -6,7 +6,7 @@
    #:io/monad-io
    #:io/simple-io
    #:io/thread
-   #:io/conc/ring-buffer
+   #:io/conc/scheduler
    #:io/conc/worker-pool)
   (:local-nicknames
    (:v #:coalton/vector))
@@ -114,7 +114,7 @@
      (let data = (new-data))
      
      ;;;; Setup the worker pool
-     (scheduler <- (new-ring-buffer-scheduler n-threads))
+     (scheduler <- (new-bounded-scheduler n-threads))
      (pool <- (new-worker-pool_ n-threads scheduler))
 
      ;;;; Send off the work

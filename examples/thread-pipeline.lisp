@@ -10,7 +10,8 @@
    #:io/exceptions
    #:io/random
    #:io/conc/future
-   #:io/conc/ring-buffer
+   #:io/conc/queues/unbounded-mpmc
+   #:io/conc/scheduler
    #:io/conc/worker-pool
    #:coalton-library/experimental/do-control-core)
   (:local-nicknames
@@ -98,20 +99,20 @@ number of lines, where each line is a random integer between `0` and `data-max`.
         (submit-line line))))
 
   ;; Pipeline Step 2: Parse raw strings from Step 1 and send them to Step 3.
-  (declare parser-job (mv:MChan (Optional Integer) * String -> IO Unit))
+  (declare parser-job (UnboundedMpmcQueue (Optional Integer) * String -> IO Unit))
   (define (parser-job mchan-sum str)
     (match (s:parse-int str)
       ((None)
        (raise (<> "Data file contained invalid string: " str)))
       ((Some x)
-       (mv:push-chan mchan-sum (Some x)))))
+       (enqueue (Some x) mchan-sum))))
 
   ;; Pipeline Step 3: Sum integers from step 2 and return the sum at the end.
-  (declare summer-thread (mv:MChan (Optional Integer) -> IO Integer))
+  (declare summer-thread (UnboundedMpmcQueue (Optional Integer) -> IO Integer))
   (define (summer-thread mchan-int)
     (do
      (sum <- (m:new-var 0))
-     (do-while-val-io (x (mv:pop-chan mchan-int))
+     (do-while-val-io (x (dequeue mchan-int))
        (m:modify sum (fn (val) (+ x val))))
      (m:read sum)))
 
@@ -125,14 +126,14 @@ number of lines, where each line is a random integer between `0` and `data-max`.
 
      ;; Because one line in a file will get sent as one job into the pool, we
      ;; create a scheduler with a larger capacity.
-     (scheduler <- (new-ring-buffer-scheduler (* 100 n-workers)))
+     (scheduler <- (new-bounded-scheduler (* 100 n-workers)))
      (pool <- (new-worker-pool_ n-workers scheduler))
      
      ;; Worker threads in the pool will pass the parsed lines to the summer thread
      ;; via this channel. We use an unbounded queue for this, instead of the
      ;; buffered queue used for the worker pool, to prevent the worker threads from
      ;; blocking on submitting to the summer thread.
-     (ints-chan <- mv:new-empty-chan)
+     (ints-chan <- new-unbounded-mpmc-queue)
 
      ;; The main thread won't submit work to the pool directly. The reader thread
      ;; will submit work to the pool, but we don't want it to have all of the implementation
@@ -159,7 +160,7 @@ number of lines, where each line is a random integer between `0` and `data-max`.
      (await pool) 
 
      (write-line "Parsing finished. Letting sum thread know parsing is done and waiting...")
-     (mv:push-chan ints-chan None)
+     (enqueue None ints-chan)
      (sum <- (await sum-fut))
     
      (write-line (<> "Calculated sum: " (into sum)))
