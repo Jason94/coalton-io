@@ -105,14 +105,14 @@ number of lines, where each line is a random integer between `0` and `data-max`.
       ((None)
        (raise (<> "Data file contained invalid string: " str)))
       ((Some x)
-       (push-chan mchan-sum (Some x)))))
+       (enqueue (Some x) mchan-sum))))
 
   ;; Pipeline Step 3: Sum integers from step 2 and return the sum at the end.
   (declare summer-thread (UnboundedMpmcQueue (Optional Integer) -> IO Integer))
   (define (summer-thread mchan-int)
     (do
      (sum <- (m:new-var 0))
-     (do-while-val-io (x (pop-chan mchan-int))
+     (do-while-val-io (x (dequeue mchan-int))
        (m:modify sum (fn (val) (+ x val))))
      (m:read sum)))
 
@@ -160,7 +160,7 @@ number of lines, where each line is a random integer between `0` and `data-max`.
      (await pool) 
 
      (write-line "Parsing finished. Letting sum thread know parsing is done and waiting...")
-     (push-chan ints-chan None)
+     (enqueue None ints-chan)
      (sum <- (await sum-fut))
     
      (write-line (<> "Calculated sum: " (into sum)))

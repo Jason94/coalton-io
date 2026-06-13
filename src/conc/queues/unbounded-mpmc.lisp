@@ -6,7 +6,7 @@
    ;; Re-exports from io/gen-impl/conc/queues/unbounded-mpmc
    #:UnboundedMpmcQueue
    #:new-unbounded-mpmc-queue
-   #:push-chan
-   #:pop-chan
-   #:try-pop-chan
+   #:enqueue
+   #:dequeue
+   #:try-dequeue
    ))
