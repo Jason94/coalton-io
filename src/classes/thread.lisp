@@ -291,29 +291,32 @@ continuing."
   (declare value-concurrent-prx (Concurrent :c :a => Proxy :a -> Proxy :c))
   (define (value-concurrent-prx _)
     Proxy)
+  )
 
-  (define-class ((MonadIo :m) (Runtime :rt :t) => Threads :rt :t :m (:m -> :rt))
-    "A MonadIo which can spawn :t's. Other :t's error
-separately. A spawned :t erroring will not cause the parent
-:t to fail. :t can be any 'thread-like' object, depending on the
-underlying implementation - system threads, software-managed green
-threads, etc."
+(coalton-toplevel
+
+  (define-class ((MonadIo :m) => HasRuntime :rt :m (:m -> :rt)))
+
+  (define-class (HasRuntime :rt :m => Threads :m)
+    "A MonadIo which can spawn :t's. Other :t's error separately. A spawned :t erroring
+will not cause the parent :t to fail. :t can be any 'thread-like' object, depending on the
+underlying implementation - system threads, software-managed green threads, etc."
     )
 
   (inline)
-  (declare runtime-for (Threads :rt :t :m => Proxy (:m :a) -> Proxy :rt))
+  (declare runtime-for ((HasRuntime :rt :m) (Threads :m) => Proxy (:m :a) -> Proxy :rt))
   (define (runtime-for _)
     "Get the Runtime type for a Threads type."
     Proxy)
 
   (inline)
-  (declare as-runtime-prx (Threads :rt :t :m => :m :a * Proxy :rt -> :m :a))
+  (declare as-runtime-prx ((HasRuntime :rt :m) (Threads :m) => :m :a * Proxy :rt -> :m :a))
   (define (as-runtime-prx op _rt-prx)
     "Get the Runtime type for a Threads operation."
     op)
 
   (inline)
-  (declare get-runtime-for (Threads :rt :t :m => :m :a -> Proxy :rt))
+  (declare get-runtime-for ((HasRuntime :rt :m) (Threads :m) => :m :a -> Proxy :rt))
   (define (get-runtime-for op)
     "Get the Runtime type for a Threads operation."
     (runtime-for (proxy-of op))))
