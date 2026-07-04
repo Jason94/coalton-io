@@ -40,6 +40,16 @@
            (try-all (read-mvar mv :timeout (Timeout 1)))))))
   (is (== None result)))
 
+(define-test test-read-timeout-then-put ()
+  (let result =
+    (run-io!
+     (do
+      (mv <- new-empty-mvar)
+      (try-all (read-mvar mv :timeout (Timeout 1)))
+      (put-mvar mv 100)
+      (take-mvar mv))))
+  (is (== 100 result)))
+
 (define-test test-mvar-subsequent-read ()
   (let result =
     (run-io!
@@ -66,6 +76,16 @@
            (mv <- new-empty-mvar)
            (try-all (take-mvar mv :timeout (Timeout 1)))))))
   (is (== None result)))
+
+(define-test test-take-timeout-then-put ()
+  (let result =
+    (run-io!
+     (do
+      (mv <- new-empty-mvar)
+      (try-all (take-mvar mv :timeout (Timeout 1)))
+      (put-mvar mv 100)
+      (take-mvar mv))))
+  (is (== 100 result)))
 
 (define-test test-mvar-try-take-initial-value ()
   (let result =
@@ -102,6 +122,15 @@
       (mv <- (new-mvar False))
       (try-all (put-mvar mv True :timeout (Timeout 1))))))
   (is (== None result)))
+
+(define-test test-put-timeout-then-take ()
+  (let result =
+    (run-io!
+     (do
+      (mv <- (new-mvar 100))
+      (try-all (put-mvar mv 200 :timeout (Timeout 1)))
+      (take-mvar mv))))
+  (is (== 100 result)))
 
 (define-test test-mvar-try-put-full ()
   (let result =
