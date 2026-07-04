@@ -37,6 +37,37 @@
   (run-io! (await thread))
   (is (== False (c:read thread-finished?))))
 
+(define-test test-threads-dont-outlive-failed-run-io ()
+  (let thread-finished? = (c:new False))
+  (let (Tuple started-gate continue-gate) =
+    (run-io!
+     (do
+      (started-gate <- s-new)
+      (continue-gate <- s-new)
+      (pure (Tuple started-gate continue-gate)))))
+
+  (catch
+      ;; This run-io! should cleanup the forked thread before re-throwing the error
+      (run-io!
+       (do
+        (do-fork-thread_ :scope Detached
+          (s-signal started-gate)
+          ;; continue-gate won't be signaled until after the current outermost run-io!
+          ;; has finished and the error been thrown
+          (s-await continue-gate)
+          (wrap-io (c:write! thread-finished? True)))
+        (s-await started-gate)
+        (wrap-io
+         (error "Test error"))))
+    (_ Unit))
+
+  (run-io!
+   (do
+    (s-signal continue-gate)
+    (sleep 5)))
+
+  (is (== False (c:read thread-finished?))))
+
 (define-test test-detached-thread-outlives-parent ()
   (let result =
     (run-io!

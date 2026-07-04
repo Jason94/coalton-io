@@ -153,13 +153,18 @@ as the global thread for structured concurrency, and exits any child threads on 
                  (stop-and-join-children!% (current-thread!%)))
                result))
     (lisp (-> :a) (f)
-      ;; Only bind dynamic variables if at the top level
+      ;; Only bind dynamic variables and set up catching if at the top level
       (cl:if *global-thread*
              (call-coalton-function f False)
              (cl:let* ((current-thread (call-coalton-function construct-toplevel-current-thread))
                        (*current-thread* current-thread)
                        (*global-thread* current-thread))
-               (call-coalton-function f True)))))
+               (cl:handler-case
+                   (call-coalton-function f True)
+                 (cl:error (e)
+                   (coalton
+                    (stop-and-join-children!% (current-thread!%)))
+                   (cl:error e)))))))
 
   (define-instance (Functor IO)
     (inline)
