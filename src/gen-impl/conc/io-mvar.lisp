@@ -111,7 +111,8 @@ deadlocks and other race conditions."
                     (.lock mvar)
                     (fn ()
                       (bt:notify (.notify-full mvar))
-                      (values)))
+                      (values))
+                    :release-on-timeout True)
                     (lp))))))
       (lp)))
 
@@ -200,7 +201,8 @@ Concurrent:
                       lock
                       (fn ()
                         (bt:notify (.notify-empty mvar))
-                        (values)))
+                        (values))
+                      :release-on-timeout True)
                      (lp))))))
         (lp))))
 

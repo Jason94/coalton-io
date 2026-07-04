@@ -55,22 +55,27 @@
                              " milliseconds.")))))
        (values))))
 
-  (declare cv-await-with (bt:ConditionVariable * bt:Lock * TimeoutStrategy -> Void))
-  (define (cv-await-with cv lock strategy)
+  (declare cv-await-with (bt:ConditionVariable * bt:Lock * TimeoutStrategy
+                          &key (:release-on-timeout Boolean)
+                          -> Void))
+  (define (cv-await-with cv lock strategy &key (release-on-timeout False))
     "Await CV while holding LOCK, optionally using a timeout."
     (match strategy
       ((NoTimeout)
        (bt:await cv lock)
        (values))
       ((Timeout timeout-time)
-       (lisp (-> Unit) (cv lock timeout-time)
+       (lisp (-> Unit) (cv lock timeout-time release-on-timeout)
          (cl:if (bt2:condition-wait cv lock :timeout (cl:/ timeout-time 1000.0d0))
                 Unit
-                (coalton
-                 (raise-timeout-exception
-                  (build-str "Timed out waiting on condition variable after "
-                             (lisp (-> Double-Float) () timeout-time)
-                             " milliseconds.")))))
+                (cl:progn
+                  (cl:when release-on-timeout
+                    (bt2:release-lock lock))
+                  (coalton
+                   (raise-timeout-exception
+                    (build-str "Timed out waiting on condition variable after "
+                               (lisp (-> Double-Float) () timeout-time)
+                               " milliseconds."))))))
        (values))))
 
   ;; TODO: Standardize usage of 'finally' throughout the library.
@@ -99,14 +104,15 @@ is run AFTER the lock is released, and only if the thread is stopped!!"
                                                   * bt:ConditionVariable
                                                   * bt:Lock
                                                   * (Void -> Void)
+                                                  &key (:release-on-timeout Boolean)
                                                   -> Void))
-  (define (unmask-and-await-safely-finally-with% rt-prx strategy cv lock finally)
+  (define (unmask-and-await-safely-finally-with% rt-prx strategy cv lock finally &key (release-on-timeout False))
     "Unmask the thread. Finally, either await (still running) the CV
 or just release the LOCK. Masks after resuming post-await. FINALLY
 is run AFTER the lock is released, and only if the thread is stopped!!"
     (catch (progn
              (unmask! rt-prx (current-thread! rt-prx))
-             (cv-await-with cv lock strategy)
+             (cv-await-with cv lock strategy :release-on-timeout release-on-timeout)
              (mask-current! rt-prx))
       ((InterruptCurrentThread msg)
        (bt:release lock)
