@@ -77,7 +77,7 @@
   (inline)
   (declare new-bounded-mpmc-queue% (UFix -> BoundedMpmcQueue :a))
   (define (new-bounded-mpmc-queue% capacity)
-    "Create a new ring buffer with the given capacity."
+    "Create a new bounded MPMC queue with the given capacity."
     (BoundedMpmcQueue
      capacity
      (lisp (-> Vector :a) (capacity)
@@ -255,7 +255,7 @@ Concurrent:
   (inline)
   (declare new-bounded-mpmc-queue (Threads :rt :t :m => UFix -> :m (BoundedMpmcQueue :a)))
   (define (new-bounded-mpmc-queue capacity)
-    "Create a new ring buffer with the given capacity."
+    "Create a new bounded MPMC queue with the given capacity."
     (wrap-io (new-bounded-mpmc-queue% capacity)))
 
   (inline)

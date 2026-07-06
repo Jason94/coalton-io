@@ -225,7 +225,7 @@ TRUE if the swap succeeded, FALSE otherwise. Does not repeat."
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;           Atomic Queue            ;;;
+;;;           Atomic Stack            ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (coalton-toplevel
@@ -235,8 +235,8 @@ TRUE if the swap succeeded, FALSE otherwise. Does not repeat."
     (next? (Optional (AtomicStackEntry :a))))
 
   (define-struct (AtomicStack :a)
-    "The AtomicStack is a LinkedList queue of atomic references
-to a data cell and the next item in the queue. The queue can be
+    "The AtomicStack is a linked-list stack of atomic references
+to a data cell and the next item in the stack. The stack can be
 iterated, front-popped, and front-pushed without contention."
     (head? (Atomic (Optional (AtomicStackEntry :a)))))
 

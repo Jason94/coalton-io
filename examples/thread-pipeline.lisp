@@ -100,19 +100,19 @@ number of lines, where each line is a random integer between `0` and `data-max`.
 
   ;; Pipeline Step 2: Parse raw strings from Step 1 and send them to Step 3.
   (declare parser-job (UnboundedMpmcQueue (Optional Integer) * String -> IO Unit))
-  (define (parser-job mchan-sum str)
+  (define (parser-job sum-queue str)
     (match (s:parse-int str)
       ((None)
        (raise (<> "Data file contained invalid string: " str)))
       ((Some x)
-       (enqueue (Some x) mchan-sum))))
+       (enqueue (Some x) sum-queue))))
 
   ;; Pipeline Step 3: Sum integers from step 2 and return the sum at the end.
   (declare summer-thread (UnboundedMpmcQueue (Optional Integer) -> IO Integer))
-  (define (summer-thread mchan-int)
+  (define (summer-thread ints-queue)
     (do
      (sum <- (m:new-var 0))
-     (do-while-val-io (x (dequeue mchan-int))
+     (do-while-val-io (x (dequeue ints-queue))
        (m:modify sum (fn (val) (+ x val))))
      (m:read sum)))
 
@@ -130,10 +130,10 @@ number of lines, where each line is a random integer between `0` and `data-max`.
      (pool <- (new-worker-pool_ n-workers scheduler))
      
      ;; Worker threads in the pool will pass the parsed lines to the summer thread
-     ;; via this channel. We use an unbounded queue for this, instead of the
+     ;; via this queue. We use an unbounded queue for this, instead of the
      ;; buffered queue used for the worker pool, to prevent the worker threads from
      ;; blocking on submitting to the summer thread.
-     (ints-chan <- new-unbounded-mpmc-queue)
+     (ints-queue <- new-unbounded-mpmc-queue)
 
      ;; The main thread won't submit work to the pool directly. The reader thread
      ;; will submit work to the pool, but we don't want it to have all of the implementation
@@ -143,13 +143,13 @@ number of lines, where each line is a random integer between `0` and `data-max`.
      (let submit-line-job =
        (fn (line)
          (do-submit-job pool
-           (parser-job ints-chan line))))
+           (parser-job ints-queue line))))
 
      ;;;; Start the threads
      
      (write-line "Forking threads...")
      (reader-thread <- (fork-thread_ (reader-thread submit-line-job)))
-     (sum-fut <- (fork-future_ (summer-thread ints-chan)))
+     (sum-fut <- (fork-future_ (summer-thread ints-queue)))
 
      ;;;; Wait for finish, then cleanup
      (write-line "Waiting for reading to finish...")
@@ -160,7 +160,7 @@ number of lines, where each line is a random integer between `0` and `data-max`.
      (await pool) 
 
      (write-line "Parsing finished. Letting sum thread know parsing is done and waiting...")
-     (enqueue None ints-chan)
+     (enqueue None ints-queue)
      (sum <- (await sum-fut))
     
      (write-line (<> "Calculated sum: " (into sum)))
