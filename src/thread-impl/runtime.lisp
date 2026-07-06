@@ -126,7 +126,7 @@
   ;;   generation so that it can be used to later unpark the thread.
   ;;   internal CV is notified).
   ;;
-  ;; To unpark a thread, the waking thread must call (signal-unpark-thread! GEN THREAD).
+  ;; To unpark a thread, the waking thread must call (unpark-thread! RT GEN THREAD).
   ;; If the generation used to park == the generation used to signal, then the thread
   ;; will unpark.
   ;;
@@ -534,14 +534,16 @@ paths in THUNK cleanup whatever resource in a reasonable way. Ultimately that's 
 they should be doing anyway. Suppose a function calling this (or higher level bracket-io
 machinery, which will inherent this function's semantics) did something like this:
 
-(bracket-io (open-my-file)
-            (fn (mode)
-              (if (== Stopped mode)
-                 (cleanup-my-file)
-                 (write-line 'Actually Im good. Ill leave the file open, thank you.')))
-   (do-something-expensive-with-the-file))
+(bracket-lifecycle-masked-case
+  (open-my-file)
+  (fn (file exit-case)
+    (if (== Errored exit-case)
+        (cleanup-my-file file)
+        (write-line \"Actually Im good. Ill leave the file open, thank you.\")))
+  (fn (file)
+    (do-something-expensive-with-the-file file)))
 
-That function could get immediately killed as soon as that bracket-io finished, at which
+That function could get immediately killed as soon as that bracket operation finished, at which
 point the file would remain open and whatever subsequent code that was planning on using
 the file would not be run. A proper use of the Stopped/Running distinction is from
 the MVar implementation:

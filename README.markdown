@@ -39,10 +39,10 @@ A good place to start is the [Greeter Example](examples/greeter.lisp). There are
      (ints-chan <- new-unbounded-mpmc-queue)
      (sum-mvar <- mv:new-empty-mvar)
      (write-line "Forking threads...")
-     (fork (reader-thread input-chan))
+     (fork-thread_ (reader-thread input-chan))
      (do-loop-times (_ n-workers)
-       (fork (parser-thread input-chan ints-chan)))
-     (fork (summer-thread ints-chan sum-mvar))
+       (fork-thread_ (parser-thread input-chan ints-chan)))
+     (fork-thread_ (summer-thread ints-chan sum-mvar))
      (write-line "Waiting for sum...")
      (sum <- (mv:take-mvar sum-mvar))
      (write-line (<> "Calculated sum: " (into sum)))
@@ -89,16 +89,16 @@ _coalton-io_ has a several example programs:
   - _Demonstrates_: Networking, resource safety, terminal IO
 * [Threading: Worker Pools](examples/thread-pool.lisp) - Use a worker pool to run CPU calculations on multiple threads.
   - _Demonstrates_: How to use `coalton-io` to parallelize an existing Coalton program, thread pools.
-  
+
 #### Advanced Examples
 
 * [Hangman](examples/hangman.lisp) - Play a game of hangman in the terminal. Shows `IO` basics and terminal IO.
   - _Demonstrates_: Terminal IO, file IO, monad transformers, the common "ReaderT" pattern for structuring functional programs, how to use "capability class" style to make generic io functions
 * [Threading: Parallel Pipelines](examples/thread-pipeline.lisp) - Complex, multithreaded pipeline to process an input data file.
   - _Demonstrates_: Multithreading, file IO, combining different concurrency tools to build an optimized parallel processing pipeline.
-  
+
 #### Example Applications
-  
+
 * [Redis](examples/redis/) - A CLI client and multithreaded key/value server that implement a small portion of the RESP binary protocol.
   - _Demonstrates_: Resource handling, terminal IO, multithreading, networking, advanced STM use for synchronized data access and how to use the STM to implement lock-type data structures
 
@@ -145,31 +145,28 @@ Exceptions can be handled in several ways, including only handling exceptions of
 ```lisp
   (do
    (file-data <-
-     (handle-all (read-file-data "data.csv")
+     (handle-all (read-file-lines "data.csv")
                  (const (pure Nil))))
    (do-foreach-io (str file-data)
      (write-line str)))
 ```
 
-`wrap-io`, the main way to run normal Coalton functions in `IO`, automatically handles any errors thrown from Coalton or Lisp:
+File APIs also include helpers for reading an entire file into a string or vector:
 
 ```lisp
   (do
    (file-data <-
-     (handle-all (wrap-io
-                   (lisp (-> List String) ()
-                     (cl-read-file-data "data.csv")))
-                 (const (pure Nil))))
-   (do-foreach-io (str file-data)
-     (write-line str)))
+     (handle-all (read-file-to-string "data.csv")
+                 (const (pure ""))))
+   (write-line file-data))
 ```
 
 ### Resource Safety
 
-Use `bracket-io` to guarantee resources are released, even when exceptions are thrown. This wraps acquire, use, and cleanup in a single flow so files, connections, or locks never leak.
+Use the `io/resource` bracket APIs to guarantee resources are released, even when exceptions are thrown. These wrap acquire, use, and cleanup in a single flow so files, connections, or locks never leak. Choose `bracket-lifecycle-masked-case` when cleanup needs the `ExitCase`, or use simpler variants such as `bracket-masked` and `bracket-unmasked` when it does not.
 
 ```lisp
-  (bracket-io
+  (bracket-lifecycle-masked-case
     (open-data-source)
     (fn (source exit-case)
       (if (== Completed exit-case)
@@ -210,13 +207,13 @@ You can get, copy, and set the current random state. The `random` functions supp
 
 ### Threads
 
-The `fork` family of functions & macros spawn new threads that run an IO operation. 
+The `fork-thread` functions and `do-fork-thread` macros spawn new threads that run an IO operation.
 
 ```lisp
   (do
-   (do-fork
+   (do-fork-thread_
      (write-line "Hello from thread A"))
-   (do-fork
+   (do-fork-thread_
      (write-line "Hello from thread B"))
    (sleep 2)
    (write-line "Hello from main thread"))
@@ -227,14 +224,14 @@ Mutable variables can be shared across threads. Plain mutable variables from the
 ```lisp
   (do
    (msg <- (new-var ""))
-   (do-fork
+   (do-fork-thread_
      (write msg "Hello from thread A"))
    (sleep 1)
    (msg-str <- (read msg))
    (write-line msg-str)) ;; --> Hello from thread A (probably)
 ```
 
-The `fork` functions and macros return a handle to the thread object, which can be used to interact with the thread, such as stopping its execution.
+The `fork-thread` function and `do-fork-thread` macro return a handle to the thread object, which can be used to interact with the thread, such as stopping its execution.
 
 ```lisp
   (do
@@ -265,7 +262,7 @@ This (slightly longer) example program manages ticket sales with transactions. T
    (let customers = (make-list "A" "B" "C" "D" "E"))
    (bought-a-ticket <- (new-tvar Nil))
    (do-foreach-io (customer customers)
-     (do-fork
+     (do-fork-thread_
        (initial-balance <- (random_ 100.0))
        (balance <- (new-tvar initial-balance))
        (money-left <-
@@ -296,7 +293,7 @@ This (slightly longer) example program manages ticket sales with transactions. T
 
 The file structure of the source code is complex, but the project is organized consistently. How the files are laid out in `src/` is documented [here](src/README.md).
 
-Contributions to the concurrent codebase are welcome. However, because asynchronous exceptions are particularly tricky to develop around, please follow the standards for _Concurent Function Documentation_ given in [the runtime documentation](docs/runtime.md). 
+Contributions to the concurrent codebase are welcome. However, because asynchronous exceptions are particularly tricky to develop around, please follow the standards for _Concurrent Function Documentation_ given in [the runtime documentation](docs/runtime.md).
 
 ### Running the tests
 

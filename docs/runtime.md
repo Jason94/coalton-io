@@ -12,28 +12,32 @@ Most Common Lisp implementations _do_ support this feature, and it's thoroughly 
 
 ## The Runtime Class
 
-`Runtime` is defined in `src/classes/threads.lisp`. In the definition, `:r` is the runtime and `:t` is the underlying "thread." A runtime object (`:r`) is never actually created. It's simply a type that is passed around to tell the compiler which versions of the class's functions should be used.
+`Runtime` is defined in `src/classes/thread.lisp`. In the definition, `:r` is the runtime and `:t` is the underlying "thread." A runtime object (`:r`) is never actually created. It's simply a type that is passed around to tell the compiler which versions of the class's functions should be used.
 
 ```lisp
   (define-class (Runtime :r :t (:r -> :t))
     (current-thread!
      (Proxy :r -> :t))
     (sleep!
-     (Proxy :r -> UFix -> Unit))
+     (Proxy :r * UFix -> Void))
     (fork!
-     (Proxy :r -> (Void -> Result Dynamic :a) -> :t))
-    (fork-throw!
-     (Proxy :r -> (Void -> Result Dynamic :a) -> :t))
+     (Proxy :r * (ForkStrategy :t) * (Void -> Result Dynamic :a) -> :t))
     (join!
-     (Proxy :r -> :t -> Result Dynamic Unit))
+     (Proxy :r * :t -> Result Dynamic Unit))
     (stop!
-     (Proxy :r -> :t -> Unit))
+     (Proxy :r * :t -> Void))
     (mask!
-     (Proxy :r -> :t -> Unit))
+     (Proxy :r * :t -> Void))
     (unmask!
-     (Proxy :r -> :t -> Unit))
+     (Proxy :r * :t -> Void))
     (unmask-finally!
-      (Proxy :r -> :t -> (UnmaskFinallyMode -> :a) -> Unit)))
+     (Proxy :r * :t * (UnmaskFinallyMode -> Void) -> Void))
+    (park-current-thread-if!
+     (Proxy :r * (Generation -> Void) * (Void -> Boolean)
+      &key (:timeout TimeoutStrategy)
+      -> Void))
+    (unpark-thread!
+     (Proxy :r * Generation * :t -> Void)))
 ```
 
 Unlike the runtime type, an instance of the underlying thread type is created whenever any of the `fork!` functions are called. Because of the functional dependency in the class definition (the `:r -> :t`), you can only ever have _one_ underlying thread type for a given Runtime. For example, the `IoRuntime` is defined like this:
@@ -59,9 +63,7 @@ The `IoRuntime` uses system threads, as provided by the underlying Common Lisp i
 
 ### Forking a Thread
 
-`fork!` guarantees that the forked function will eventually be run, per above. Second, `fork!` guarantees that if the forked thread raises an unhandled exception, that the thread will (1) log the exception to `cl:*error-output*` and (2) immediately stop itself. It will not re-raise the exception, and it will not stop the entire program because that thread failed. Threads start unmasked.
-
-`fork-throw!` has identical behavior to `fork!`, except in how it handles raised exceptions. If a thread forked with `forked-throw!` raises an unhandled exception, it will be re-raised to the Common Lisp environment. Exactly what impact that has on other threads and the program is determined by the underlying Common Lisp implementation and the execution environment.
+`fork!` guarantees that the forked function will eventually be run, per above. The supplied `ForkStrategy` controls the fork scope and the `UnhandledExceptionStrategy`. With `LogAndSwallow`, an unhandled exception is logged to `cl:*error-output*`, stored for `join!`, and swallowed by the child thread. Other strategies may re-raise to the Common Lisp environment; exactly what impact that has on other threads and the program is determined by the underlying Common Lisp implementation and execution environment. Threads start unmasked. `LogAndSwallow` is the default strategy used by `fork-thread`.
 
 ### Joining a Thread
 
@@ -73,9 +75,9 @@ The `IoRuntime` uses system threads, as provided by the underlying Common Lisp i
 
 All threads run within a specific scope. When a thread's scope ends, the thread is automatically stopped. A scope can either be (1) a parent thread, or (2) the global scope.
 
-`fork-thread` and `fork-thread-with` both use the structured concurrency system. `fork-thread-with` takes a `ForkStrategy` parameter that specifies the scope used (among other customizations). `fork-thread` automatically uses the `Structured` scope.
+`fork-thread` uses the structured concurrency system. It accepts keyword options including `:unhandled`, an `UnhandledExceptionStrategy`, and `:scope`, a `ForkScope`. By default, it uses `:unhandled LogAndSwallow` and `:scope Structured`.
 
-There are three scopes that can be passed to `fork-thread-with`:
+There are three scopes that can be passed with `:scope`:
 
 * `Detached`     - Attaches to the global scope.
 * `StructuredIn` - Takes a thread handle as an argument, and forks as a child of that thread.
@@ -129,7 +131,7 @@ This code is unsafe because the `unmask!` call on line four could stop the threa
 
 The parking mechanism solves the opposite problem as condition variables. Condition variables allow multiple threads to all wait on one condition. But, each waiting thread can only wait on one condition. Parking allows one thread to safely wait on multiple conditions.
 
-Parking Mechanism - Threads use a generational scheme to park/unpark. When a function wants to park a thread, it calls (park-current-thread-if! WITH-GEN SHOULD-PARK? THREAD)
+Parking Mechanism - Threads use a generational scheme to park/unpark. When a function wants to park the current thread, it calls `(park-current-thread-if! RUNTIME WITH-GEN SHOULD-PARK? :timeout TIMEOUT)`, where `:timeout` is a `TimeoutStrategy` keyword option
 This:
 - Increments the generation of the thread
 - Calls WITH-GEN with the new generation. WITH-GEN is responsible for saving the generation so that it can be used to later unpark the thread. 
@@ -137,7 +139,7 @@ This:
 - Checks that the current generation has not been signaled, and aborts if it has
 - Parks
 
-To unpark a thread, the waking thread must call (signal-unpark-thread! GEN THREAD). If the generation used to park == the generation used to signal, then the thread will unpark and store that the current generation has been signaled.
+To unpark a thread, the waking thread must call `(unpark-thread! RUNTIME GEN THREAD)`. If the generation used to park == the generation used to signal, then the thread will unpark and store that the current generation has been signaled.
 
 The purpose of the parking mechanism is to support waiting on multiple conditions. If a thread wants to wait on conditions A, B, and C, and it is woken by the process concerning condition A, then it would need to unsubscribe from conditions B & C. Sometimes unsubscribing can be less efficient than letting the B & C processes hold on to a stale reference to the thread in a waiting queue, and then fail to unpark the thread when the B & C processes signal their waiting queue. Failure to accomodate this scenario can lead to a situation where the thread parks, subscribed to conditions D & E, but then process B or C erroneously unparks the thread that is expecting to be unparked by only D or E.
 
@@ -167,20 +169,20 @@ Here is an example of a comprehensive `Concurrent:` docstring from the MVar impl
 
 ```lisp
   (inline)
-  (declare take-mvar-masked (Threads :rt :t :m => MVar :a -> :m :a))
-  (define (take-mvar-masked mvar)
+  (declare take-mvar-masked (Threads :rt :t :m => MVar :a &key (:timeout TimeoutStrategy) -> :m :a))
+  (define (take-mvar-masked mvar &key (timeout NoTimeout))
     "Take a value from an MVar, blocking until one is available.
 
 Concurrent:
   - WARNING: Leaves the thread masked when returns to protect caller's critical regions
-    based on consuming and restoring MVar to a valid state. See MChan for an example.
+    based on consuming and restoring MVar to a valid state. This is useful when building higher-level concurrent resources from an MVar.
   - Blocks while the MVar is empty
   - Read-consumers (including `take-mvar-masked`) are woken individual on succesfull puts,
     in order of acquisition
   - On succesful take, one blocking writer is woken in order of acquisition"
     ;; CONCURRENT: Inherits CONCURRENT semantics from take-mvar-masked-inner%
     (wrap-io-with-runtime (rt-prx)
-      (take-mvar-masked-inner% mvar rt-prx)))
+      (take-mvar-masked-inner% timeout mvar rt-prx)))
 ```
 
 ### Internal Documentation
@@ -190,8 +192,8 @@ Any concurrent function should have a top-level, internal `CONCURRENT:` comment 
 Here is an example of a comprehensive `CONCURRENT:` comment from the MVar implementation:
 
 ```lisp
-  (declare take-mvar-masked-inner% (Runtime :rt :t => MVar :a -> Proxy :rt -> :a))
-  (define (take-mvar-masked-inner% mvar rt-prx)
+  (declare take-mvar-masked-inner% (Runtime :rt :t => TimeoutStrategy * MVar :a * Proxy :rt -> :a))
+  (define (take-mvar-masked-inner% strategy mvar rt-prx)
     "Concurrent: Leaves the thread masked once."
     ;; CONCURRENT: Masks before entering the critical region.
     ;; unmask-and-await-safely% unmasks and awaits, then wakes and re-masks in a

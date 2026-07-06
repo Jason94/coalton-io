@@ -125,7 +125,7 @@ deadlocks and other race conditions."
 
 Concurrent:
   - WARNING: Leaves the thread masked when returns to protect caller's critical regions
-    based on consuming and restoring MVar to a valid state. See MChan for an example.
+    based on consuming and restoring MVar to a valid state. This is useful when building higher-level concurrent resources from an MVar.
   - Blocks while the MVar is empty
   - Read-consumers (including `take-mvar-masked`) are woken individual on succesfull puts,
     in order of acquisition
@@ -262,7 +262,7 @@ Concurrent:
 
 Concurrent:
   - WARNING: Leaves the thread masked when returns to protect caller's critical regions
-    based on consuming and restoring MVar to a valid state. See MChan for an example.
+    based on consuming and restoring MVar to a valid state. This is useful when building higher-level concurrent resources from an MVar.
   - Can briefly block while waiting to empty the MVar, if contended
   - On succesful take, one blocking writer is woken in order of acquisition"
     ;; CONCURRENT: Inherits CONCURRENT semantics from try-take-mvar-masked-inner%
@@ -387,7 +387,7 @@ Concurrent:
 
 (coalton-toplevel
   ;; NOTE: It would be preferable to restore the initial value of the MVar on a fail.
-  ;; However, this would violate the requirement that bracket-io cleanup not block
+  ;; However, this would violate the requirement that resource cleanup not block
   ;; and would leave the thread unstoppable.
   ;; TODO: Possibly check and restore if it's a non-thread stop exception? But is the
   ;; inconsistent behavior worth it? Probably not?
