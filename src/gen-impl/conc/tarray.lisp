@@ -8,12 +8,16 @@
    )
   (:local-nicknames
    (:lp #:coalton/experimental/loops)
+   (:m-lp #:coalton/experimental/do-control-loops)
    (:la #:coalton/lisparray)
+   (:t #:coalton/types)
    )
   (:export
    ;; Library Public
    #:TArray
    #:new-tarray
+   #:new-tarray-apply
+   #:to-arr
    #:at
    #:at#
    #:set
@@ -44,6 +48,31 @@
      (lp:dotimes (i length)
        (la:set! arr i (new-tvar% init-elem)))
      (TArray% arr)))
+
+  (declare new-tarray-apply (MonadIo :m => UFix * (UFix -> :m :a) -> :m (TArray :a)))
+  (define (new-tarray-apply length factory)
+    "Create a new `TArray` with size `length` and all values populated by applying
+`factory` with the index."
+    (do
+     (let arr = (la:make-uninitialized length))
+     (m-lp:do-loop-times (i length)
+       (val <- (factory i))
+       (wrap-io
+        (la:set! arr i (new-tvar% val))
+        Unit))
+     (pure (TArray% arr))))
+
+  (declare to-arr (t:RuntimeRepr :a => TArray :a -> STM (la:LispArray :a)))
+  (define (to-arr tarr)
+    "Extract synchronized values in `tarr` into a `LispArray`."
+    (STM%
+     (fn (tx-data)
+       (let length = (la:length (tarr% tarr)))
+       (let output = (la:make-uninitialized length))
+       (lp:dotimes (i length)
+         (la:set! output i (inner-read-tvar% (la:aref (tarr% tarr) i)
+                                             tx-data)))
+       output)))
 
   (inline)
   (declare at (TArray :a * UFix -> STM (Optional :a)))
