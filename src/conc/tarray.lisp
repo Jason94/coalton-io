@@ -10,6 +10,8 @@
    #:to-arr
    #:at
    #:at#
+   #:tvar-at
+   #:tvar-at#
    #:set
    #:modify
    #:modify-swap

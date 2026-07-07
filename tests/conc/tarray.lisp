@@ -47,6 +47,32 @@
         (at# tarr 0)))))
   (is (== 100 result)))
 
+(define-test test-tarray-tvar-at ()
+  (let result =
+    (run-io!
+     (do
+      (tarr <- (new-tarray 1 0))
+      (let tvar? = (tvar-at tarr 0))
+      (do-run-tx
+        (match tvar?
+          ((Some tvar)
+           (write-tvar tvar 100))
+          ((None)
+           (pure Unit)))
+        (at# tarr 0)))))
+  (is (== 100 result)))
+
+(define-test test-tarray-tvar-at# ()
+  (let result =
+    (run-io!
+     (do
+      (tarr <- (new-tarray 1 0))
+      (let tvar = (tvar-at# tarr 0))
+      (do-run-tx
+        (write-tvar tvar 100)
+        (at# tarr 0)))))
+  (is (== 100 result)))
+
 (define-test test-tarray-new-tarray-apply ()
   (let (Tuple3 a b c) =
     (run-io!

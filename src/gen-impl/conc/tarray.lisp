@@ -20,6 +20,8 @@
    #:to-arr
    #:at
    #:at#
+   #:tvar-at
+   #:tvar-at#
    #:set
    #:modify
    #:modify-swap
@@ -91,6 +93,20 @@
   (define (at# tarr i)
     "Read the value in `tarr` at index `i`. Errors if out of bounds."
     (read-tvar (la:aref (tarr% tarr) i)))
+
+  (inline)
+  (declare tvar-at (TArray :a * UFix -> Optional (TVar :a)))
+  (define (tvar-at tarr i)
+    "Get the synchronized variable at `i` in `tarr`."
+    (if (< i (la:length (tarr% tarr)))
+        (Some (la:aref (tarr% tarr) i))
+        None))
+
+  (inline)
+  (declare tvar-at# (TArray :a * UFix -> TVar :a))
+  (define (tvar-at# tarr i)
+    "Get the synchronized variable at `i` in `tarr`. Errors if out of bounds."
+    (la:aref (tarr% tarr) i))
 
   (inline)
   (declare set (TArray :a * UFix * :a -> STM Unit))
