@@ -410,15 +410,15 @@ For safety, disconnects the transactions when done."
     (at:read-at-int global-lock))
 
   (inline)
-  (declare broadcast-write-tx!% (TxData% -> Void))
-  (define (broadcast-write-tx!% tx-data)
+  (declare broadcast-write-tx!% (Runtime :rt :t => TxData% * Proxy :rt -> Void))
+  (define (broadcast-write-tx!% tx-data rt-prx)
     ;; CONCURRENT:
     ;;   - WARNING: Should be run in a masked region to ensure writes aren't committed
     ;;     without unparking the corresponding psets
     ;;   - Because assuming masked, no need to mask to ensure consistent unparks in
     ;;     the presence of an asynchronous stop
     (foreach (pset (logged-write-psets% (.write-log tx-data)))
-      (unpark-set% pset)))
+      (unpark-set% pset rt-prx)))
 
   (inline)
   (declare tx-begin% (Void -> TxData%))
@@ -590,7 +590,7 @@ value."
           (when (c:read result)
             (commit-logged-writes (.write-log tx-data))
             (at:atomic-inc1 global-lock)
-            (broadcast-write-tx!% tx-data)
+            (broadcast-write-tx!% tx-data rt-prx)
             Unit)
           (unmask-current! rt-prx)
           (c:read result))))
