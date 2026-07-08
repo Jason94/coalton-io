@@ -147,3 +147,83 @@
       (try-all
        (park-in-sets-if_ (pure True) (make-list p-set) :timeout (Timeout 1))))))
   (is (== None result)))
+
+(define-test test-park-in-set ()
+  (let result =
+    (run-io!
+     (do
+      (p-set <- new-parking-set)
+      (started-gate <- s-new)
+      (finished-gate <- s-new)
+      (finished? <- (new-var False)) 
+      (thread <-
+      (do-fork-thread_
+        (s-signal started-gate)
+        (park-in-set p-set)
+        (write finished? True)
+        (s-signal finished-gate)))
+      ;; Wait for the thread to start and sleep 2ms to allow it to park
+      (s-await started-gate)
+      (do-loop-while
+        (sleep 2)
+        (num-parked <- (num-waiters p-set))
+        (pure (zero? num-parked)))
+      ;; Unpark the set and wait for the finish
+      (unpark-set p-set)
+      (s-await finished-gate)
+      (read finished?))))
+  (is (== True result)))
+
+(define-test test-park-in-sets ()
+  (let result =
+    (run-io!
+     (do
+      (p-set-1 <- new-parking-set)
+      (p-set-2 <- new-parking-set)
+      (started-gate <- s-new)
+      (finished-gate <- s-new)
+      (finished? <- (new-var False))
+      (thread <-
+       (do-fork-thread_
+         (s-signal started-gate)
+         (park-in-sets (make-list p-set-1 p-set-2))
+         (write finished? True)
+         (s-signal finished-gate)))
+      ;; Wait for the thread to start and sleep 2ms to allow it to park
+      (s-await started-gate)
+      (sleep 2)
+      ;; Unpark the second set and wait for the thread finish
+      (unpark-set p-set-2)
+      (s-await finished-gate)
+      (read finished?))))
+  (is (== True result)))
+       
+(define-test test-unpark-one ()
+  (let result =
+    (run-io!
+     (do
+      (p-set <- new-parking-set)
+      (started-gate <- s-new)
+      (count <- (new-var 0))
+      (thread <-
+       (do-fork-thread_
+         (s-signal started-gate)
+         (park-in-set p-set)
+         (modify count 1+)))
+      (s-await started-gate)
+      (thread <-
+       (do-fork-thread_
+         (s-signal started-gate)
+         (park-in-set p-set)
+         (modify count 1+)))
+      (s-await started-gate)
+      ;; Wait to guarantee threads are parked
+      (do-loop-while
+        (sleep 1)
+        (num-parked <- (num-waiters p-set))
+        (pure (< num-parked 2)))
+      ;; Unpark the set and wait 5s to see if both threads unpark
+      (unpark-one p-set)
+      (sleep 5)
+      (read count))))
+  (is (== 1 result)))

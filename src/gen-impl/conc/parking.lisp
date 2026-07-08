@@ -3,12 +3,13 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:coalton-library/types
+   #:coalton/types
    #:io/utils
    #:io/classes/monad-io
    #:io/classes/thread
    )
   (:local-nicknames
+   (:l #:coalton/list)
    (:at #:io/threads-impl/atomics)
    )
   (:export
@@ -16,8 +17,11 @@
    #:ParkingSet
    #:new-parking-set
    #:park-in-sets-if
+   #:park-in-sets
    #:park-in-set-if
+   #:park-in-set
    #:unpark-set
+   #:unpark-one
 
    ;; Library Private
    #:new-parking-set%
@@ -131,8 +135,7 @@ park, *not* if it should resume. Can specify a timeout.
 
 Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
-    state.
-  - Can briefly block while trying to park the thread, if contended."
+    state."
     (park-current-thread-if
      (fn (gen)
        (wrap-io-with-runtime (rt-prx)
@@ -147,6 +150,25 @@ Concurrent:
      :timeout timeout))
 
   (inline)
+  (declare park-in-sets (Threads :rt :t :m => List ParkingSet &key (:timeout TimeoutStrategy)
+                                 -> :m Unit))
+  (define (park-in-sets psets &key (timeout NoTimeout))
+    "Parks the current thread in `psets`. Will park the thread until woken by an unpark
+from another thread. Can specify a timeout."
+    (wrap-io-with-runtime (rt-prx)
+      (park-current-thread-if!
+       rt-prx
+       (fn (gen)
+         (let parked-thread = (current-thread! rt-prx))
+         (let unpark-action = (fn ()
+                                (unpark-thread! rt-prx gen parked-thread)))
+         (foreach (pset psets)
+           (at:atomic-push (get-set% pset) unpark-action)))
+       ƒ.True
+       :timeout timeout)
+      Unit))
+
+  (inline)
   (declare park-in-set-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
                            => :io Boolean * ParkingSet
                            &key (:timeout TimeoutStrategy)
@@ -159,8 +181,7 @@ park, *not* if it should resume. Can specify a timeout.
 
 Concurrent:
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
-    state.
-  - Can briefly block while trying to park the thread, if contended."
+    state."
     (park-current-thread-if
      (fn (gen)
        (wrap-io-with-runtime (rt-prx)
@@ -174,23 +195,76 @@ Concurrent:
      :timeout timeout))
 
   (inline)
-  (declare unpark-set% (ParkingSet -> Void))
-  (define (unpark-set% pset)
+  (declare park-in-set (Threads :rt :t :m => ParkingSet &key (:timeout TimeoutStrategy)
+                        -> :m Unit))
+  (define (park-in-set pset &key (timeout NoTimeout))
+    "Parks the current thread in `pset`. Will park the thread until woken by an unpark
+from another thread. Can specify a timeout."
+    (wrap-io-with-runtime (rt-prx)
+      (park-current-thread-if!
+       rt-prx
+       (fn (gen)
+         (let parked-thread = (current-thread! rt-prx))
+         (let unpark-action = (fn ()
+                                (unpark-thread! rt-prx gen parked-thread)))
+         (at:atomic-push (get-set% pset) unpark-action)
+         (values))
+       ƒ.True
+       :timeout timeout)
+      Unit))
+
+  (inline)
+  (declare unpark-set% (Runtime :rt :t => ParkingSet * Proxy :rt -> Void))
+  (define (unpark-set% pset rt-prx)
+    ;; CONCURRENT:
+    ;; - Masks before taking ownership of the existing pset.
+    ;; - Unmasks after dispatching actions.
+    (mask-current! rt-prx)
     (let parked-actions = (at:atomic-swap (get-set% pset) Nil))
     (foreach (action parked-actions)
       (action))
+    (unmask-current! rt-prx)
     (values))
 
   (inline)
-  (declare unpark-set (MonadIo :m => ParkingSet -> :m Unit))
+  (declare unpark-set (Threads :rt :t :m => ParkingSet -> :m Unit))
   (define (unpark-set pset)
-    "Atomically reset PSET, then attempt to unpark all threads parked on the set.
+    "Atomically reset PSET, then attempt to unpark all threads parked on the set."
+    (wrap-io-with-runtime (rt-prx)
+      (unpark-set% pset rt-prx)
+      Unit))
 
-Concurrent:
-  - Can briefly block while trying to reset the set or unpark a parked thread"
-    (wrap-io
-     (unpark-set% pset)
-     Unit))
+  (declare unpark-one% (Runtime :rt :t => ParkingSet * Boolean * Proxy :rt -> Void))
+  (define (unpark-one% pset fair rt-prx)
+    ;; CONCURRENT:
+    ;; - Masks before taking ownership of unparked action.
+    ;; - Unmasks after dispatching action.
+    (mask-current! rt-prx)
+    (let parked-actions = (at:atomic-update-swap (get-set% pset)
+                                                 (if fair
+                                                     l:init
+                                                     ƒl.(l:drop 1 l))))
+    (let parked-action? =
+      (if fair
+          (l:last parked-actions)
+          (l:head parked-actions)))
+    (match parked-action?
+      ((None)
+       (values))
+      ((Some parked-action)
+       (parked-action)))
+    (unmask-current! rt-prx))
+
+  (inline)
+  (declare unpark-one (Threads :rt :t :m => ParkingSet &key (:fair Boolean) -> :m Unit))
+  (define (unpark-one pset &key (fair False))
+    "Unpark one thread parked in `pset`. If no threads are parked, does nothing.
+
+If `fair` is `True`, unparks the thread which has been parked the longest. If `fair` is
+`False`, unparks an arbitrary parked thread."
+    (wrap-io-with-runtime (rt-prx)
+      (unpark-one% pset fair rt-prx)
+      Unit))
 
   (declare num-waiters (MonadIo :m => ParkingSet -> :m UFix))
   (define (num-waiters pset)
