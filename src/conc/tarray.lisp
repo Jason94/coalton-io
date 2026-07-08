@@ -6,6 +6,7 @@
    ;; Re-exports from io/gen-impl/conc/stm/tarray
    #:TArray
    #:new-tarray
+   #:new-tarray-tx
    #:new-tarray-apply
    #:to-arr
    #:at

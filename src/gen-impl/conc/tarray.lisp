@@ -16,6 +16,7 @@
    ;; Library Public
    #:TArray
    #:new-tarray
+   #:new-tarray-tx
    #:new-tarray-apply
    #:to-arr
    #:at
@@ -42,14 +43,23 @@
   (define (tarr% (TArray% tarr))
     tarr)
 
+  (inline)
+  (define (make-tarray% length init-elem)
+    (let arr = (la:make-uninitialized length))
+    (lp:dotimes (i length)
+      (la:set! arr i (new-tvar% init-elem)))
+    (TArray% arr))
+
   (declare new-tarray (MonadIo :m => UFix * :a -> :m (TArray :a)))
   (define (new-tarray length init-elem)
     "Create a new `TArray` with size `length` and all values set to `init-elem`."
-    (wrap-io
-     (let arr = (la:make-uninitialized length))
-     (lp:dotimes (i length)
-       (la:set! arr i (new-tvar% init-elem)))
-     (TArray% arr)))
+    (wrap-io (make-tarray% length init-elem)))
+
+  (declare new-tarray-tx (UFix * :a -> STM (TArray :a)))
+  (define (new-tarray-tx length init-elem)
+    "Create a new `TArray` with size `length` and all values set to `init-elem` inside of
+an atomic transaction."
+    (STM% ƒ_.(make-tarray% length init-elem))) 
 
   (declare new-tarray-apply (MonadIo :m => UFix * (UFix -> :m :a) -> :m (TArray :a)))
   (define (new-tarray-apply length factory)
