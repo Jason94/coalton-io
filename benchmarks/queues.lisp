@@ -47,6 +47,32 @@
        (b:stop (b:current-timer))
        (b:commit (b:current-timer))
        Unit))))
+
+  (declare benchmark-dequeue-x-threads (Queue :q => UFix * UFix * IO (:q Boolean) -> Unit))
+  (define (benchmark-dequeue-x-threads n-tasks n-threads make-queue)
+    (run-io!
+     (do
+      ;; Setup benchmark
+      (queue <- make-queue)
+      (do-repeat-io n-tasks
+        (enqueue True queue))
+      (let tasks-per-thread = (coalton/math:div n-tasks n-threads))
+      (start-gate <- new-empty-mvar)
+      (threads <-
+        (do-fork-n-threads (_ n-threads)
+          (read-mvar start-gate)
+          (do-repeat-io tasks-per-thread
+            (dequeue queue))))
+      ;; Run the benchmark
+      (sleep 2)
+      (wrap-io (b:start (b:current-timer)))
+      (put-mvar start-gate Unit)
+      (await threads)
+      ;; Cleanup
+      (wrap-io
+       (b:stop (b:current-timer))
+       (b:commit (b:current-timer))
+       Unit))))
   )
 
 (in-package #:benchmark-queues)
@@ -98,6 +124,46 @@
              6
              (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
 
+(define-benchmark bounded-dequeue-x-tasks-1-thread ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-dequeue-x-threads
+             *tasks*
+             1
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-dequeue-x-tasks-2-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-dequeue-x-threads
+             *tasks*
+             2
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-dequeue-x-tasks-4-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-dequeue-x-threads
+             *tasks*
+             4
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-dequeue-x-tasks-6-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-dequeue-x-threads
+             *tasks*
+             6
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
 (define-benchmark unbounded-enqueue-x-tasks-1-thread ()
   (declare (optimize speed))
   (loop :repeat *count*
@@ -134,6 +200,46 @@
         :do
            (c:coalton
             (benchmark-queues/native::benchmark-enqueue-x-threads
+             *tasks*
+             6
+             io/conc/queues/unbounded-mpmc:new-unbounded-mpmc-queue))))
+
+(define-benchmark unbounded-dequeue-x-tasks-1-thread ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-dequeue-x-threads
+             *tasks*
+             1
+             io/conc/queues/unbounded-mpmc:new-unbounded-mpmc-queue))))
+
+(define-benchmark unbounded-dequeue-x-tasks-2-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-dequeue-x-threads
+             *tasks*
+             2
+             io/conc/queues/unbounded-mpmc:new-unbounded-mpmc-queue))))
+
+(define-benchmark unbounded-dequeue-x-tasks-4-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-dequeue-x-threads
+             *tasks*
+             4
+             io/conc/queues/unbounded-mpmc:new-unbounded-mpmc-queue))))
+
+(define-benchmark unbounded-dequeue-x-tasks-6-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-dequeue-x-threads
              *tasks*
              6
              io/conc/queues/unbounded-mpmc:new-unbounded-mpmc-queue))))
