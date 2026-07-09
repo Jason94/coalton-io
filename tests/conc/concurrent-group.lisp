@@ -10,6 +10,7 @@
    #:io/conc/group
    #:io/mut)
   (:local-nicknames
+   (:v #:coalton/vector)
    (:tm #:io/term)
    (:at #:io/conc/atomic)))
 (in-package :coalton-io/tests/conc/group)
@@ -37,6 +38,21 @@
                                        (fork-future_ (pure 2)))))
       (await group))))
   (is (== (make-list 1 2) result)))
+
+(define-test test-await-fork-n-threads ()
+  (let result =
+    (run-io!
+     (do
+      (data <- (wrap-io (v:with-initial-element 2 0)))
+      (group <-
+        (do-fork-n-threads (i 2)
+          (sleep 2)
+          (wrap-io
+           (v:set! i i data)
+           Unit)))
+      (await group)
+      (pure data))))
+  (is (== [0 1] result)))
 
 (define-test test-stop ()
   (let result =

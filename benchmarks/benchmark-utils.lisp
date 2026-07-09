@@ -3,8 +3,10 @@
   (:use
    #:coalton
    #:coalton-prelude
+   #:io/monad-io
    )
   (:local-nicknames
+   (:bt #:io/utilities/bt-compat)
    (:b #:org.shirakumo.trivial-benchmark))
   (:export
    #:Timer
@@ -12,6 +14,9 @@
    #:start
    #:stop
    #:commit
+   #:s-new
+   #:s-signal
+   #:s-await
    ))
 (in-package :benchmark-utils)
 
@@ -44,4 +49,16 @@
     (lisp (-> :a) (timer)
       (b::commit timer))
     Unit)
+  )
+
+(coalton-toplevel
+  (declare s-new (MonadIo :m => :m bt:Semaphore))
+  (define s-new
+    (wrap-io (bt:new-sm)))
+
+  (define (s-signal s)
+    (wrap-io (bt:signal s 1)))
+
+  (define (s-await s)
+    (wrap-io (bt:await-sm s)))
   )

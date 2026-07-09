@@ -8,6 +8,8 @@
    #:ConcurrentGroup
    #:fork-group
    #:enclose-group
+   #:fork-n-threads
+   #:do-fork-n-threads
    ))
 
 (in-package :io/conc/group)
