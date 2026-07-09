@@ -690,11 +690,9 @@ retry, then the entire transaction retries."
           (merge-read-log-into-parent-tx% a-tx-data)
           (run-stm% tx-data tx-b))))))
 
-  ;; (declare run-tx ((Threads :rt :t :m) (Exceptions :m) => STM :m :a -> :m :a))
   (declare run-tx ((Threads :rt :t :m) => STM :a -> :m :a))
   (define (run-tx tx)
-     "Run an atomic transaction. If the transaction raises an exception, the transaction
-is aborted and the exception is re-raised.
+     "Run an atomic transaction.
 
 WARNING: The STM can abort and re-run the transaction repeatedly, until it completes with
 a consistent snapshot of the data. Therefore, TX must be pure."
@@ -724,8 +722,7 @@ a consistent snapshot of the data. Therefore, TX must be pure."
   )
 
 (defmacro do-run-tx (cl:&body body)
-  "Run an atomic transaction. If the transaction raises an exception, the transaction
-is aborted and the exception is re-raised.
+  "Run an atomic transaction.
 
 WARNING: The STM can abort and re-run the transaction repeatedly, until it completes with
 a consistent snapshot of the data. Therefore, TX must be pure."
