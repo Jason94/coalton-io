@@ -15,6 +15,9 @@
    #:io/conc/queues)
   (:local-nicknames
    (:b #:benchmark-utils)
+   (:c #:coalton/cell)
+   (:v #:coalton/vector)
+   (:l #:coalton/list)
    (:tm #:io/term)
    ))
 
@@ -23,6 +26,53 @@
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
 (coalton-toplevel
+
+  (declare benchmark-vector-cache (c:Cell (Optional (Vector Boolean))))
+  (define benchmark-vector-cache (c:new None))
+
+  (declare benchmark-vector-single-thread (UFix -> Void))
+  (define (benchmark-vector-single-thread n-tasks)
+    "This benchmark writes to a pre-allocated vector `n-tasks` times as a control measurement."
+    (run-io!
+     (do
+      ;; Setup benchmark
+      (buffer <- (wrap-io (v:with-capacity n-tasks)))
+      ;; Run the benchmark
+      (wrap-io (b:start (b:current-timer)))
+      (do-repeat-io n-tasks
+      (wrap-io (v:push! True buffer)))
+      ;; Cleanup
+      (wrap-io
+       (b:stop (b:current-timer))
+       (b:commit (b:current-timer))
+       ;; Write out the buffer to prevent SBCL from optimizing it away
+       (c:write! benchmark-vector-cache (Some buffer))
+       Unit)))
+    (values))
+
+  (declare benchmark-list-cache (c:Cell (Optional (List Boolean))))
+  (define benchmark-list-cache (c:new None))
+
+  (declare benchmark-list-single-thread (UFix -> Void))
+  (define (benchmark-list-single-thread n-tasks)
+    "This benchmark builds and reverses a list with `n-tasks` items as a control measurement."
+    (run-io!
+     (do
+      ;; Setup benchmark
+      (list <- (wrap-io (c:new Nil)))
+      ;; Run the benchmark
+      (wrap-io
+       (b:start (b:current-timer)))
+      (do-repeat-io n-tasks
+        (wrap-io (c:push! list True)))
+      ;; Cleanup
+      (wrap-io
+       (b:stop (b:current-timer))
+       (b:commit (b:current-timer))
+       ;; Write out the buffer to prevent SBCL from optimizing it away
+       (c:write! benchmark-list-cache (Some (l:reverse (c:read list))))
+       Unit)))
+    (values))
 
   (declare benchmark-enqueue-x-threads (Queue :q => UFix * UFix * IO (:q Boolean) -> Unit))
   (define (benchmark-enqueue-x-threads n-tasks n-threads make-queue)
@@ -114,6 +164,22 @@
 
 (c:coalton-toplevel
   (c:define *tasks* (c:the c:UFix 24000)))
+
+(define-benchmark control-vector-single-thread ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-vector-single-thread
+             *tasks*))))
+
+(define-benchmark control-list-single-thread ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-list-single-thread
+             *tasks*))))
 
 (define-benchmark bounded-enqueue-x-tasks-1-thread ()
   (declare (optimize speed))
