@@ -8,21 +8,17 @@
    #:io/classes/monad-io
    #:io/classes/thread
    #:io/classes/runtime-utils
+   #:io/gen-impl/conc/queues
    )
   (:local-nicknames
    (:opt #:coalton-library/optional)
    (:v #:coalton-library/vector)
    (:bt #:io/utilities/bt-compat)
-
    )
   (:export
    ;; Library Public
    #:BoundedMpmcQueue
-
    #:new-bounded-mpmc-queue
-   #:enqueue
-   #:try-enqueue
-   #:dequeue
 
    ;; Library Private
    #:new-bounded-mpmc-queue%
@@ -235,6 +231,34 @@ Concurrent:
             elt)
           )))
 
+  (declare try-dequeue!% (Runtime :rt :t => Proxy :rt * BoundedMpmcQueue :a -> Optional :a))
+  (define (try-dequeue!% rt-prx buffer)
+    (mask-current! rt-prx)
+    (bt:acquire (.lock buffer))
+    (if (empty?% buffer)
+        (progn
+          (bt:release (.lock buffer))
+          (unmask-current! rt-prx)
+          None)
+        (progn
+          (let should-notify = (full?% buffer))
+          (let read-i = (read (.read-ptr buffer)))
+          (let elt = (opt:from-some "BoundedMpmcQueue access error"
+                                    (v:index-unsafe read-i (.data buffer))))
+          ;; Allows stale data to be GC'd
+          (v:set! read-i
+                  None
+                  (.data buffer))
+          (update! 1- (.count buffer))
+          (update! (fn (n)
+                     (increment% buffer n))
+                   (.read-ptr buffer))
+          (bt:release (.lock buffer))
+          (when should-notify
+            (bt:broadcast (.notify-not-full buffer)))
+          (unmask-current! rt-prx)
+          (Some elt))))
+
   (inline)
   (declare dequeue!% (Runtime :rt :t => Proxy :rt * BoundedMpmcQueue :a -> :a))
   (define (dequeue!% rt-prx buffer)
@@ -258,38 +282,54 @@ Concurrent:
     "Create a new bounded MPMC queue with the given capacity."
     (wrap-io (new-bounded-mpmc-queue% capacity)))
 
-  (inline)
-  (declare enqueue (Threads :rt :t :m
-                    => :a * BoundedMpmcQueue :a
-                    &key (:timeout TimeoutStrategy)
-                    -> :m Unit))
-  (define (enqueue elt buffer &key (timeout NoTimeout))
-    "Add ELT to BUFFER. Can specify a timeout.
-
-Concurrent:
-  - Can block acquiring lock on buffer.
-  - If full, blocks until BUFFER is not full, possibly timing out based on TIMEOUT."
-    (inject-runtime-unit enqueue-with!% elt timeout buffer))
-
-  (inline)
-  (declare try-enqueue (Threads :rt :t :m => :a * BoundedMpmcQueue :a -> :m Boolean))
-  (define (try-enqueue elt buffer)
-    "Attempt to add ELT to BUFFER. Returns True if equeue succeeded, False otherwise.
-
-Concurrent: Can block acquiring lock on buffer."
-    (inject-runtime try-enqueue!% elt buffer))
-
-  (inline)
-  (declare dequeue (Threads :rt :t :m
-                    => BoundedMpmcQueue :a
-                    &key (:timeout TimeoutStrategy)
-                    -> :m :a))
-  (define (dequeue buffer &key (timeout NoTimeout))
-    "Pop an element from BUFFER. Can specify a timeout.
-
-Concurrent:
-  - Can block briefly while acquiring lock on buffer.
-  - If empty, blocks until BUFFER is not empty, possibly timing out based on TIMEOUT."
-    (inject-runtime dequeue-with!% timeout buffer))
-
+  (define-instance (Queue BoundedMpmcQueue)
+    (inline)
+    (define (enqueue elt buffer &key (timeout NoTimeout))
+      (inject-runtime-unit enqueue-with!% elt timeout buffer))
+    (inline)
+    (define (try-enqueue elt buffer)
+      (inject-runtime try-enqueue!% elt buffer))
+    (inline)
+    (define (dequeue buffer &key (timeout NoTimeout))
+      (inject-runtime dequeue-with!% timeout buffer))
+    (inline)
+    (define (try-dequeue buffer)
+      (inject-runtime try-dequeue!% buffer)))
   )
+      
+    
+
+;;   (inline)
+;;   (declare enqueue (Threads :rt :t :m
+;;                     => :a * BoundedMpmcQueue :a
+;;                     &key (:timeout TimeoutStrategy)
+;;                     -> :m Unit))
+;;   (define (enqueue elt buffer &key (timeout NoTimeout))
+;;     "Add ELT to BUFFER. Can specify a timeout.
+
+;; Concurrent:
+;;   - Can block acquiring lock on buffer.
+;;   - If full, blocks until BUFFER is not full, possibly timing out based on TIMEOUT."
+;;     (inject-runtime-unit enqueue-with!% elt timeout buffer))
+
+;;   (inline)
+;;   (declare try-enqueue (Threads :rt :t :m => :a * BoundedMpmcQueue :a -> :m Boolean))
+;;   (define (try-enqueue elt buffer)
+;;     "Attempt to add ELT to BUFFER. Returns True if equeue succeeded, False otherwise.
+
+;; Concurrent: Can block acquiring lock on buffer."
+;;     (inject-runtime try-enqueue!% elt buffer))
+
+;;   (inline)
+;;   (declare dequeue (Threads :rt :t :m
+;;                     => BoundedMpmcQueue :a
+;;                     &key (:timeout TimeoutStrategy)
+;;                     -> :m :a))
+;;   (define (dequeue buffer &key (timeout NoTimeout))
+;;     "Pop an element from BUFFER. Can specify a timeout.
+
+;; Concurrent:
+;;   - Can block briefly while acquiring lock on buffer.
+;;   - If empty, blocks until BUFFER is not empty, possibly timing out based on TIMEOUT."
+;;     (inject-runtime dequeue-with!% timeout buffer))
+

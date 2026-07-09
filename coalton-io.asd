@@ -62,6 +62,7 @@
                                (:file "conc/concurrent-group")
                                (:file "conc/stm")
                                (:file "conc/worker-pool")
+                               (:file "conc/queues/queues")
                                (:file "conc/queues/bounded-mpmc")
                                (:file "conc/queues/unbounded-mpmc")
                                (:file "conc/bounded-scheduler")
@@ -102,6 +103,7 @@
                  (:module "conc"
                   :serial t
                   :components ((:file "parking")
+                               (:file "queues/queues")
                                (:file "queues/bounded-mpmc")
                                (:file "queues/unbounded-mpmc")
                                (:file "scheduler")
@@ -204,6 +206,7 @@ mutable variables, multithreading, and several data structures to safely share s
                 ((:file "benchmark-utils")
                  (:file "benchmarks")
                  (:file "simple-io")
+                 (:file "queues")
                  (:file "schedulers")
                  (:file "stm")
                  )))

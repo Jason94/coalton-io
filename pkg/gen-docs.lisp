@@ -33,6 +33,7 @@
                                  'io/conc/future
                                  'io/conc/atomic
                                  'io/conc/mvar
+                                 'io/conc/queues
                                  'io/conc/queues/bounded-mpmc
                                  'io/conc/queues/unbounded-mpmc
                                  'io/conc/stm

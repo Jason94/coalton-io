@@ -10,6 +10,7 @@
    #:io/exceptions
    #:io/random
    #:io/conc/future
+   #:io/conc/queues
    #:io/conc/queues/unbounded-mpmc
    #:io/conc/scheduler
    #:io/conc/worker-pool

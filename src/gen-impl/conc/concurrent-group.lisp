@@ -12,6 +12,7 @@
    #:io/resource
    )
   (:local-nicknames
+   (:l #:coalton/list)
    (:bt #:io/utilities/bt-compat))
   (:import-from #:coalton-library/experimental/do-control-loops
    #:collect
@@ -23,6 +24,8 @@
    #:ConcurrentGroup
    #:fork-group
    #:enclose-group
+   #:fork-n-threads
+   #:do-fork-n-threads
    ))
 (in-package :io/gen-impl/conc/group)
 
@@ -65,6 +68,18 @@ Concurrent:
   (declare value-prx (ConcurrentGroup :c :a -> Proxy :a))
   (define (value-prx _)
     Proxy)
+
+  (declare fork-n-threads ((UnliftIo :r :m) (Threads :rt :t :r)
+                           => UFix * (UFix -> :r :a) -> :r (ConcurrentGroup :t :a)))
+  (define (fork-n-threads n-threads op)
+    "Fork `n-threads` running `op` in a `ConcurrentGroup`. Passes a thread index,
+from [0, `n-threads`) to `op`."
+    (do
+     (threads <- 
+      (do-collect (i (l:range 0 (1- n-threads)))
+        (fork-thread
+         (op i))))
+     (pure (ConcurrentGroup threads (bt:new-lk)))))
 
   (declare fork-group ((Threads :rt :t :m) (Concurrent :c :a)
                        => List (:m :c) -> :m (ConcurrentGroup :c :a)))
@@ -164,3 +179,9 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
     (define unmask unmask%)
     (define unmask-finally unmask-finally%))
   )
+
+(defmacro do-fork-n-threads ((sym n-threads) cl:&body body)
+  `(fork-n-threads ,n-threads
+    (fn (,sym)
+      (do
+       ,@body))))

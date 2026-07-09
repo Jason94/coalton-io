@@ -4,6 +4,7 @@
    #:io/simple-io
    #:io/thread
    #:io/exceptions
+   #:io/conc/queues
    #:io/conc/queues/bounded-mpmc
    )
   )
