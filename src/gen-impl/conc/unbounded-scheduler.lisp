@@ -6,6 +6,7 @@
    #:io/classes/monad-io
    #:io/classes/thread
    #:io/classes/conc/scheduler
+   #:io/gen-impl/conc/queues
    #:io/gen-impl/conc/queues/unbounded-mpmc
    )
   (:export

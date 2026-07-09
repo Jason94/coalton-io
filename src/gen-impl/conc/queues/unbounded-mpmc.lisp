@@ -6,6 +6,7 @@
    #:coalton-library/experimental/do-control-core
    #:io/classes/thread
    #:io/gen-impl/conc/mvar
+   #:io/gen-impl/conc/queues
    )
   (:local-nicknames
    )
@@ -13,9 +14,6 @@
    ;; Library Public
    #:UnboundedMpmcQueue
    #:new-unbounded-mpmc-queue
-   #:enqueue
-   #:dequeue
-   #:try-dequeue
    ))
 (in-package :io/gen-impl/conc/queues/unbounded-mpmc)
 
@@ -41,8 +39,8 @@
       (tail-var <- (new-mvar cell))
       (pure (UnboundedMpmcQueue head-var tail-var))))
 
-  (declare enqueue (Threads :rt :t :m => :a * UnboundedMpmcQueue :a -> :m Unit))
-  (define (enqueue val queue)
+  (declare enqueue% (Threads :rt :t :m => :a * UnboundedMpmcQueue :a -> :m Unit))
+  (define (enqueue% val queue)
     "Add VAL to QUEUE."
     (do
      (new-tail-var <- new-empty-mvar)
@@ -51,10 +49,10 @@
      (put-mvar (.tail-var queue) new-tail-var)
      unmask-current-thread)) ;; Cleanup after take-mvar-masked
 
-  (declare dequeue (Threads :rt :t :m
+  (declare dequeue% (Threads :rt :t :m
                     => UnboundedMpmcQueue :a &key (:timeout TimeoutStrategy)
                     -> :m :a))
-  (define (dequeue queue &key (timeout NoTimeout))
+  (define (dequeue% queue &key (timeout NoTimeout))
     "Pop the front value in QUEUE. Blocks while QUEUE is empty. Can specify a timeout."
     (do
      (old-head-var <- (take-mvar-masked (.head-var queue))) ;; Masks the thread after this returns
@@ -63,8 +61,8 @@
      unmask-current-thread ;; Cleanup after take-mvar-masked
      (pure val)))
 
-  (declare try-dequeue (Threads :rt :t :m => UnboundedMpmcQueue :a -> :m (Optional :a)))
-  (define (try-dequeue queue)
+  (declare try-dequeue% (Threads :rt :t :m => UnboundedMpmcQueue :a -> :m (Optional :a)))
+  (define (try-dequeue% queue)
     "Attempt to pop the front value in QUEUE. Does not block."
     (do-matchM (try-take-mvar-masked (.head-var queue)) ;; Masks the thread after this returns
       ((None)
@@ -76,3 +74,16 @@
        (pure (Some val)))))
 
   )
+
+(coalton-toplevel
+  (define-instance (Queue UnboundedMpmcQueue)
+    (inline)
+    (define (enqueue elt queue &key (timeout NoTimeout))
+      (enqueue% elt queue))
+    (inline)
+    (define (try-enqueue elt queue)
+      (do
+       (enqueue% elt queue)
+       (pure True)))
+    (define dequeue dequeue%)
+    (define try-dequeue try-dequeue%)))
