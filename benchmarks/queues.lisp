@@ -82,7 +82,7 @@
 (defparameter *count* 60)
 
 (c:coalton-toplevel
-  (c:define *tasks* (c:the c:UFix 24000)))
+  (c:define *tasks* (c:the c:UFix 48000)))
 
 (define-benchmark bounded-enqueue-x-tasks-1-thread ()
   (declare (optimize speed))
