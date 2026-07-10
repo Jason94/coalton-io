@@ -16,7 +16,6 @@
 
    #:try
    #:try-all
-   #:try-result
    #:raise-result
    #:raise-result-dynamic
    #:wrap-error_
