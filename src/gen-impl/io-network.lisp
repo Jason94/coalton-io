@@ -330,14 +330,16 @@ and close the socket before you intend. For multithreaded uses, use
 socket-accept-fork-with."
   `(socket-accept-with ,server-socket
      (fn (,socket-sym)
-      ,@body)))
+       (do
+        ,@body))))
 
 (defmacro do-socket-accept-fork-with ((socket-sym (server-socket)) cl:&body body)
   "Accept a connection with a new client and run operation OP on a new thread.
 Guarantees that the socket will close on cleanup. Returns a handle to the forked thread."
   `(socket-accept-fork-with ,server-socket
      (fn (,socket-sym)
-       ,@body)))
+       (do
+        ,@body))))
 
 (defmacro do-byte-socket-listen-with ((socket-sym (hostname port)) cl:&body body)
   "Run operation OP with a new byte-stream server socket, listening on HOSTNAME and PORT. Guarantees
