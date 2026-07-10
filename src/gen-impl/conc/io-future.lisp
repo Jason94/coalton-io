@@ -36,6 +36,7 @@ Concurrent:
   - Future's `(Concurrent Future :a)` instance defers to the underlying thread, so it takes
     on masking semantics of the underyling thread's `Concurrent` instance."
     (value-mvar (MVar (Result Dynamic :a)))
+    (join-inner-callback (Void -> Result Dynamic Unit))
     (stop-callback (Void -> Void))
     (mask-callback (Void -> Void))
     (unmask-callback (Void -> Void))
@@ -64,6 +65,8 @@ the produced :m is run."
          (put-mvar value-var result)))
       (pure (Future value-var
                     (fn ()
+                      (join! rt-prx thread))
+                    (fn ()
                       (stop! rt-prx thread))
                     (fn ()
                       (mask! rt-prx thread))
@@ -76,11 +79,19 @@ the produced :m is run."
   (inline)
   (declare await% ((Threads :rt :t :m) (Exceptions :m) => Future :a -> :m :a))
   (define (await% future)
-    (matchM (read-mvar (.value-mvar future))
-      ((Ok a)
-       (pure a))
+    (matchM (wrap-io ((.join-inner-callback future)))
       ((Err dyn-e)
-       (raise-dynamic dyn-e))))
+       (raise-dynamic dyn-e))
+      ((Ok _)
+       (matchM (try-read-mvar (.value-mvar future))
+         ((None)
+          (raise (JoinedFailedThread (to-dynamic "Attempted to await a stopped future."))))
+         ((Some val?)
+          (match val?
+            ((Ok a)
+             (pure a))
+            ((Err dyn-e)
+             (raise-dynamic dyn-e))))))))
 
   (inline)
   (declare try-read-future ((Threads :rt :t :m) (Exceptions :m)
