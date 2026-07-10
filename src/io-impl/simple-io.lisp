@@ -136,6 +136,8 @@ completion. Used for internal testing only."
   (define (run-io! io-op)
     "Top-level run-io! that raises any unhandled exceptions. Also sets the current thread
 as the global thread for structured concurrency, and exits any child threads on exit."
+    ;; CONCURRENT:
+    ;;   - Masks around stop-and-join-children!%
     (let f = (fn (toplevel?)
                (let result =
                  (match (run-io-handled!% io-op)
@@ -150,7 +152,9 @@ as the global thread for structured concurrency, and exits any child threads on 
                        (err-thunk)
                        (error "Malformed HandledError err-thunk"))))))
                (when toplevel?
-                 (stop-and-join-children!% (current-thread!%)))
+                 (mask-current-thread!%)
+                 (stop-and-join-children!% (current-thread!%))
+                 (unmask-current-thread!%))
                result))
     (lisp (-> :a) (f)
       ;; Only bind dynamic variables and set up catching if at the top level
@@ -163,7 +167,9 @@ as the global thread for structured concurrency, and exits any child threads on 
                    (call-coalton-function f True)
                  (cl:error (e)
                    (coalton
-                    (stop-and-join-children!% (current-thread!%)))
+                    (mask-current-thread!%)
+                    (stop-and-join-children!% (current-thread!%))
+                    (unmask-current-thread!%))
                    (cl:error e)))))))
 
   (define-instance (Functor IO)
