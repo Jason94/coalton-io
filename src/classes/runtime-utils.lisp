@@ -90,12 +90,14 @@
                                              * bt:ConditionVariable
                                              * bt:Lock
                                              * (Void -> Void)
+                                             &key (:release-on-timeout Boolean)
                                              -> Void))
-  (define (unmask-and-await-safely-finally% rt-prx cv lock finally)
+  (define (unmask-and-await-safely-finally% rt-prx cv lock finally &key (release-on-timeout False))
     "Unmask the thread. Finally, either await (still running) the CV
 or just release the LOCK. Masks after resuming post-await. FINALLY
 is run AFTER the lock is released, and only if the thread is stopped!!"
-    (unmask-and-await-safely-finally-with% rt-prx NoTimeout cv lock finally))
+    (unmask-and-await-safely-finally-with% rt-prx NoTimeout cv lock finally
+                                           :release-on-timeout release-on-timeout))
 
   (inline)
   (declare unmask-and-await-safely-finally-with% (Runtime :rt :t
@@ -122,11 +124,15 @@ is run AFTER the lock is released, and only if the thread is stopped!!"
   ;; TODO: Remove lambda when this is fixed:
   ;; https://github.com/coalton-lang/coalton/issues/1719
   (inline)
-  (declare unmask-and-await-safely% (Runtime :rt :t => Proxy :rt * bt:ConditionVariable * bt:Lock -> Void))
-  (define (unmask-and-await-safely% rt-prx cv lock)
+  (declare unmask-and-await-safely% (Runtime :rt :t
+                                     => Proxy :rt * bt:ConditionVariable * bt:Lock
+                                     &key (:release-on-timeout Boolean)
+                                     -> Void))
+  (define (unmask-and-await-safely% rt-prx cv lock &key (release-on-timeout False))
     "Unmask the thread. Finally, either await (still running) the CV
 or just release the LOCK. Masks after resuming post-await."
-    (unmask-and-await-safely-with% rt-prx NoTimeout cv lock))
+    (unmask-and-await-safely-with% rt-prx NoTimeout cv lock
+                                   :release-on-timeout release-on-timeout))
 
   ;; TODO: Remove lambda when this is fixed:
   ;; https://github.com/coalton-lang/coalton/issues/1719
@@ -135,13 +141,14 @@ or just release the LOCK. Masks after resuming post-await."
                                           * TimeoutStrategy
                                           * bt:ConditionVariable
                                           * bt:Lock
+                                          &key (:release-on-timeout Boolean)
                                           -> Void))
-  (define (unmask-and-await-safely-with% rt-prx strategy cv lock)
+  (define (unmask-and-await-safely-with% rt-prx strategy cv lock &key (release-on-timeout False))
     "Unmask the thread. Finally, either await (still running) the CV
 or just release the LOCK. Masks after resuming post-await."
     (catch (progn
              (unmask! rt-prx (current-thread! rt-prx))
-             (cv-await-with cv lock strategy)
+             (cv-await-with cv lock strategy :release-on-timeout release-on-timeout)
              (mask-current! rt-prx))
       ((InterruptCurrentThread msg)
        (bt:release lock)

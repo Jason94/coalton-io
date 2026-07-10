@@ -3,6 +3,8 @@
    #:coalton
    #:coalton-prelude
    #:io/monad-io
+   #:io/threads-exceptions
+   #:io/exceptions
    )
   (:local-nicknames
    (:bt #:io/utilities/bt-compat)
@@ -11,6 +13,7 @@
    #:s-new
    #:s-signal
    #:s-await
+   #:catch-timeout
    ))
 (in-package :io/tests/utils)
 
@@ -27,3 +30,17 @@
   (define (s-await s)
     (wrap-io (bt:await-sm s)))
   )
+
+
+(coalton-toplevel
+  (declare catch-timeout (Exceptions :m => :m :a -> :m Unit))
+  (define (catch-timeout op)
+    (do
+     (res <- (try op))
+     (match res
+       ((Err (TimeoutException _))
+        (pure Unit))
+       ((Err e)
+        (raise e))
+       ((Ok _)
+        (pure Unit))))))

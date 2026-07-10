@@ -1,19 +1,26 @@
 (defpackage :coalton-io/tests/conc/queues/bounded-mpmc
   (:use #:coalton #:coalton-prelude #:coalton-testing
+   #:coalton/optional
    #:coalton-library/types
    #:io/simple-io
    #:io/thread
    #:io/exceptions
    #:io/conc/queues
    #:io/conc/queues/bounded-mpmc
-   )
-  )
+   ))
 (in-package :coalton-io/tests/conc/queues/bounded-mpmc)
 
 (named-readtables:in-readtable coalton:coalton)
 
 (fiasco:define-test-package #:coalton-io/tests/conc/bounded-mpmc-queue-fiasco)
 (coalton-fiasco-init #:coalton-io/tests/conc/bounded-mpmc-queue-fiasco)
+
+(define-test test-cannot-create-empty-queue ()
+  (let result =
+    (run-io!
+     (try-all
+      (new-bounded-mpmc-queue 0))))
+  (is (none? result)))
 
 (define-test test-enqueue-dequeue-once ()
   (let result =
@@ -52,6 +59,16 @@
        (enqueue 100 buffer :timeout (Timeout 1))))))
   (is (== None result)))
 
+(define-test test-enqueue-timeout-leaves-in-valid-state ()
+  (let result =
+    (run-io!
+     (do
+      (buffer <- (new-bounded-mpmc-queue 1))
+      (enqueue 1 buffer)
+      (try-all
+       (enqueue 2 buffer :timeout (Timeout 1)))
+      (try-all (dequeue buffer :timeout (Timeout 10))))))
+  (is (== (Some 1) result)))
 
 (define-test test-dequeue-timeout ()
   (let result =
@@ -62,3 +79,18 @@
       (try-all
        (dequeue buffer :timeout (Timeout 1))))))
   (is (== None result)))
+
+(define-test test-dequeue-timeout-leaves-in-valid-state ()
+  (let result =
+    (run-io!
+     (do
+      (buffer <- (new-bounded-mpmc-queue 1))
+      (try-all
+       (dequeue buffer :timeout (Timeout 1)))
+      (enqueue-result <-
+       (try-all (enqueue 1 buffer :timeout (Timeout 10))))
+      (dequeue-result <-
+       (try-all (dequeue buffer :timeout (Timeout 10))))
+      (pure (Tuple enqueue-result dequeue-result)))))
+  (is (== (Tuple (Some Unit) (Some 1)) result)))
+

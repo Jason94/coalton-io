@@ -683,7 +683,8 @@ just be limited to implementing only solutions #2 or #3.
                  rt-prx
                  strategy
                  (.park-cv thread)
-                 (.park-lock thread))
+                 (.park-lock thread)
+                 :release-on-timeout True)
                 ;; If we've been woken up, unmask, release, and return
                 (if (>= (bt:read (.fired-gen thread)) new-gen)
                     (progn

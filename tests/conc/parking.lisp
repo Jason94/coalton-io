@@ -7,6 +7,7 @@
    #:io/exceptions
    #:io/mut
    #:io/thread
+   #:io/conc/mvar
    #:io/conc/parking
    #:io/tests/utils
    )
@@ -139,6 +140,24 @@
        (park-in-set-if_ (pure True) p-set :timeout (Timeout 1))))))
   (is (== None result)))
 
+(define-test test-park-timeout-leaves-in-valid-state ()
+  (let result =
+    (run-io!
+     (do
+      (p-set-1 <- new-parking-set)
+      (p-set-2 <- new-parking-set)
+      (done <- new-empty-mvar)
+       
+      (t <-
+       (do-fork-thread_       
+         (catch-timeout (park-in-set p-set-1 :timeout (Timeout 1)))
+         (catch-timeout (park-in-set p-set-2 :timeout (Timeout 2)))
+         (put-mvar done True)))
+       
+      (join-thread t)
+      (try-take-mvar done))))
+  (is (== (Some True) result)))
+       
 (define-test test-park-in-sets-if-timeout ()
   (let result =
     (run-io!
