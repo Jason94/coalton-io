@@ -9,6 +9,7 @@
    #:WorkerPool
    #:new-worker-pool
    #:submit-job
+   #:submit-job-with
    #:request-shutdown
    #:do-submit-job
    #:do-submit-job-with
@@ -20,6 +21,7 @@
    ;; Re-exports from io/io-impl/conc/worker-pool
    #:new-worker-pool_
    #:submit-job_
+   #:submit-job-with_
    #:do-submit-job_
    #:do-submit-job-with_
    #:submit-indexed-chunks_
