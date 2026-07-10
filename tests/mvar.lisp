@@ -188,6 +188,16 @@
            (try-all (swap-mvar mv False :timeout (Timeout 1)))))))
   (is (== None result)))
 
+(define-test test-swap-timeout-leaves-valid ()
+  (let result =
+    (run-io!
+     (do
+      (mv <- new-empty-mvar)
+      (catch-timeout (swap-mvar mv 10 :timeout (Timeout 1)))
+      (put-mvar mv 20)
+      (take-mvar mv))))
+  (is (== 20 result)))
+  
 (define-test test-with-mvar ()
   (let result =
     (run-io!

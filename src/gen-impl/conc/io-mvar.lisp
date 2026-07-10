@@ -373,7 +373,8 @@ Concurrent:
                       (.lock mvar)
                       (fn ()
                         (bt:notify (.notify-full mvar))
-                        (values)))
+                        (values))
+                      :release-on-timeout True)
                      (lp))))))
         (lp))))
 

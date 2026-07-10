@@ -4,7 +4,6 @@
    #:io/utils
    #:io/monad-io
    #:io/simple-io
-   #:io/threads-exceptions 
    #:io/exceptions
    #:io/mut
    #:io/thread
@@ -140,19 +139,6 @@
       (try-all
        (park-in-set-if_ (pure True) p-set :timeout (Timeout 1))))))
   (is (== None result)))
-
-(coalton-toplevel
-  (declare catch-timeout (Exceptions :m => :m :a -> :m Unit))
-  (define (catch-timeout op)
-    (do
-     (res <- (try op))
-     (match res
-       ((Err (TimeoutException _))
-        (pure Unit))
-       ((Err e)
-        (raise e))
-       ((Ok _)
-        (pure Unit))))))
 
 (define-test test-park-timeout-leaves-in-valid-state ()
   (let result =
