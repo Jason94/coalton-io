@@ -7,6 +7,7 @@
    #:coalton-library/types
    #:io/classes/monad-io
    #:io/classes/thread
+   #:io/classes/exceptions
    #:io/classes/runtime-utils
    #:io/gen-impl/conc/queues
    )
@@ -280,10 +281,12 @@ Concurrent:
 (coalton-toplevel
 
   (inline)
-  (declare new-bounded-mpmc-queue (Threads :rt :t :m => UFix -> :m (BoundedMpmcQueue :a)))
+  (declare new-bounded-mpmc-queue ((Threads :rt :t :m) (Exceptions :m) => UFix -> :m (BoundedMpmcQueue :a)))
   (define (new-bounded-mpmc-queue capacity)
     "Create a new bounded MPMC queue with the given capacity."
-    (wrap-io (new-bounded-mpmc-queue% capacity)))
+    (if (zero? capacity)
+        (raise "Cannot create a bounded queue with no capacity.")
+        (wrap-io (new-bounded-mpmc-queue% capacity))))
 
   (define-instance (Queue BoundedMpmcQueue)
     (inline)

@@ -1,19 +1,26 @@
 (defpackage :coalton-io/tests/conc/queues/bounded-mpmc
   (:use #:coalton #:coalton-prelude #:coalton-testing
+   #:coalton/optional
    #:coalton-library/types
    #:io/simple-io
    #:io/thread
    #:io/exceptions
    #:io/conc/queues
    #:io/conc/queues/bounded-mpmc
-   )
-  )
+   ))
 (in-package :coalton-io/tests/conc/queues/bounded-mpmc)
 
 (named-readtables:in-readtable coalton:coalton)
 
 (fiasco:define-test-package #:coalton-io/tests/conc/bounded-mpmc-queue-fiasco)
 (coalton-fiasco-init #:coalton-io/tests/conc/bounded-mpmc-queue-fiasco)
+
+(define-test test-cannot-create-empty-queue ()
+  (let result =
+    (run-io!
+     (try-all
+      (new-bounded-mpmc-queue 0))))
+  (is (none? result)))
 
 (define-test test-enqueue-dequeue-once ()
   (let result =
