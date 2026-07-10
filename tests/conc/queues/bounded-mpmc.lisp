@@ -52,6 +52,16 @@
        (enqueue 100 buffer :timeout (Timeout 1))))))
   (is (== None result)))
 
+(define-test test-enqueue-timeout-leaves-in-valid-state ()
+  (let result =
+    (run-io!
+     (do
+      (buffer <- (new-bounded-mpmc-queue 1))
+      (enqueue 1 buffer)
+      (try-all
+       (enqueue 2 buffer :timeout (Timeout 1)))
+      (try-all (dequeue buffer :timeout (Timeout 10))))))
+  (is (== (Some 1) result)))
 
 (define-test test-dequeue-timeout ()
   (let result =
@@ -62,3 +72,18 @@
       (try-all
        (dequeue buffer :timeout (Timeout 1))))))
   (is (== None result)))
+
+(define-test test-dequeue-timeout-leaves-in-valid-state ()
+  (let result =
+    (run-io!
+     (do
+      (buffer <- (new-bounded-mpmc-queue 1))
+      (try-all
+       (dequeue buffer :timeout (Timeout 1)))
+      (enqueue-result <-
+       (try-all (enqueue 1 buffer :timeout (Timeout 10))))
+      (dequeue-result <-
+       (try-all (dequeue buffer :timeout (Timeout 10))))
+      (pure (Tuple enqueue-result dequeue-result)))))
+  (is (== (Tuple (Some Unit) (Some 1)) result)))
+
