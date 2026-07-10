@@ -16,6 +16,7 @@
   (:export
    #:new-worker-pool_
    #:submit-job_
+   #:submit-job-with_
    #:do-submit-job_
    #:do-submit-job-with_
    #:submit-indexed-chunks_
