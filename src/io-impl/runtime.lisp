@@ -22,6 +22,8 @@
     (define (current-thread! _)
       (current-thread!%))
     (inline)
+    (define (is-thread? _ obj)
+      (is-thread?% obj))
     (define (sleep! _ n)
       (sleep!% n))
     (inline)

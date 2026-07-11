@@ -1,14 +1,17 @@
 (defpackage :coalton-io/tests/io-impl/thread
   (:use #:coalton #:coalton-prelude #:coalton-testing
-        #:io/utils
-        #:io/monad-io
-        #:io/simple-io
-        #:io/exceptions
-        #:io/thread
-        #:io/mut
-        #:io/conc/mvar
-        #:io/tests/utils
-        )
+   #:coalton/types
+   #:io/utils
+   #:io/monad-io
+   #:io/simple-io
+   #:io/exceptions
+   #:io/thread
+   #:io/mut
+   #:io/conc/mvar
+   #:io/tests/utils
+   )
+  (:import-from #:io/classes/thread
+   #:wrap-io-with-runtime)
   )
 (in-package :coalton-io/tests/io-impl/thread)
 
@@ -17,6 +20,30 @@
 (fiasco:define-test-package #:coalton-io/tests/io-impl/thread-fiasco)
 (coalton-fiasco-init #:coalton-io/tests/io-impl/thread-fiasco)
 
+;;;
+;;; Runtime tests
+;;; 
+
+(define-test test-is-thread-on-thread ()
+  (let result =
+    (run-io!
+     (do
+      (t <- current-thread)
+      (wrap-io-with-runtime (rt-prx)
+       (is-thread? rt-prx
+                   (to-anything t))))))
+  (is result))
+
+(define-test test-is-thread-on-not-thread ()
+  (let result =
+    (run-io!
+     (do
+      (let obj = (Some 10))
+      (wrap-io-with-runtime (rt-prx)
+       (is-thread? rt-prx
+                   (to-anything obj))))))
+  (is (not result)))
+  
 ;;;
 ;;; Tests for the IoThread Concurrent instance
 ;;;

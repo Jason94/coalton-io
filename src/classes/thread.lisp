@@ -40,6 +40,7 @@
 
    #:Runtime
    #:current-thread!
+   #:is-thread?
    #:sleep!
    #:fork!
    #:join!
@@ -168,6 +169,9 @@ over the underlying thread type."
     (current-thread!
      "Get a handle for the current thread."
      (Proxy :r -> :t))
+    (is-thread?
+     "Check if a Common Lisp object is a thread."
+     (Proxy :r * Anything -> Boolean))
     (sleep!
      "Sleep the current thread for MSECS milliseconds."
      (Proxy :r * UFix -> Void))
@@ -228,11 +232,12 @@ Concurrent:
     (unpark-thread!
      "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread
-has unparked and re-parked since the initial park.
+has unparked and re-parked since the initial park. Returns `True` if unparked, `False` if
+parking was stale.
 
 Concurrent:
   - Can briefly block while trying to unpark the thread, if contended."
-     (Proxy :r * Generation * :t -> Void))
+     (Proxy :r * Generation * :t -> Boolean))
      )
 
   (inline)
@@ -550,15 +555,17 @@ Concurrent:
       Unit))
 
   (inline)
-  (declare unpark-thread (Threads :rt :t :m => Generation * :t -> :m Unit))
+  (declare unpark-thread (Threads :rt :t :m => Generation * :t -> :m Boolean))
   (define (unpark-thread gen thread)
     "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread
-has unparked and re-parked since the initial park.
+has unparked and re-parked since the initial park. Returns `True` if unparked, `False` if
+the parking was stale.
 
 Concurrent:
   - Can briefly block while trying to unpark the thread, if contended."
-    (inject-runtime-unit unpark-thread! gen thread))
+    (wrap-io-with-runtime (rt-prx)
+      (unpark-thread! rt-prx gen thread)))
   )
 
 (cl:defun parse-fork-keywords% (forms)

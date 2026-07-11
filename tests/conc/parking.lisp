@@ -224,17 +224,15 @@
       (p-set <- new-parking-set)
       (started-gate <- s-new)
       (count <- (new-var 0))
-      (thread <-
-       (do-fork-thread_
-         (s-signal started-gate)
-         (park-in-set p-set)
-         (modify count 1+)))
+      (do-fork-thread_
+        (s-signal started-gate)
+        (park-in-set p-set)
+        (modify count 1+))
       (s-await started-gate)
-      (thread <-
-       (do-fork-thread_
-         (s-signal started-gate)
-         (park-in-set p-set)
-         (modify count 1+)))
+      (do-fork-thread_
+        (s-signal started-gate)
+        (park-in-set p-set)
+        (modify count 1+))
       (s-await started-gate)
       ;; Wait to guarantee threads are parked
       (do-loop-while
@@ -246,3 +244,47 @@
       (sleep 5)
       (read count))))
   (is (== 1 result)))
+
+(define-test test-unpark-one-doesnt-unpark-stale ()
+  (let result =
+    (run-io!
+     (do
+      (p-set-main <- new-parking-set)
+      (p-set-make-stale <- new-parking-set)
+      (started-gate <- s-new)
+      (finished-gate-0 <- s-new)
+      (finished-gate-1 <- s-new)
+      (finished-gate-2 <- s-new)
+      (output <- (new-var 0))
+      ;; Set up threads and wait for them all to park
+      (do-fork-thread_
+        (s-signal started-gate)
+        (park-in-sets [p-set-main p-set-make-stale])
+        (write output 0)
+        (s-signal finished-gate-0))
+      (s-await started-gate)
+      (sleep 2)
+      (do-fork-thread_
+        (s-signal started-gate)
+        (park-in-set p-set-main)
+        (write output 1)
+        (s-signal finished-gate-1))
+      (s-await started-gate)
+      (sleep 2)
+      (do-fork-thread_
+        (s-signal started-gate)
+        (park-in-sets [p-set-main p-set-make-stale])
+        (write output 2)
+        (s-signal finished-gate-2))
+      (s-await started-gate)
+      (sleep 2)
+      ;; Wake the threads to make them stale
+      (unpark-set p-set-make-stale)
+      (s-await finished-gate-0)
+      (s-await finished-gate-2)
+      ;; Unpark one from the main set
+      (unpark-one p-set-main)
+      (s-await finished-gate-1 :timeout (Some 1))
+      (read output))))
+  (is (== 1 result)))
+

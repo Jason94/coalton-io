@@ -26,6 +26,7 @@
 
    ;; Library Private
    #:current-thread!%
+   #:is-thread?%
    #:construct-toplevel-current-thread
    #:sleep!%
    #:fork!%
@@ -106,10 +107,6 @@
     ThreadRunning
     ThreadStopping
     ThreadStopped)
-
-  ;; TODO: Like in STM, currently using the coalton-threads AtomicInteger instead of
-  ;; my Atomics package. Not sure if there is a performance benefit or not to that.
-  ;; Should test and - possibly - update my atomics package to match.
 
   ;; Flags - Not a traditional bit flag. First bit stores a pending kill. To support
   ;; nested masks, the remaining bits (as an integer) are the number of applied masks.
@@ -299,6 +296,12 @@ Concurrent:
   (define (current-thread!%)
     (lisp (-> IoThread) ()
       *current-thread*))
+
+  (inline)
+  (declare is-thread?% (Anything -> Boolean))
+  (define (is-thread?% obj)
+    (lisp (-> Boolean) (obj)
+      (cl:typep obj 'IoThread/IoThread)))
 
   (inline)
   (declare global-thread!% (Void -> IoThread))
@@ -705,8 +708,9 @@ just be limited to implementing only solutions #2 or #3.
   (define (park-current-thread-if!% rt-prx with-gen should-park?)
     (park-current-thread-if-with!% rt-prx with-gen should-park? NoTimeout))
 
-  (declare unpark-thread!% (Generation * IoThread -> Void))
+  (declare unpark-thread!% (Generation * IoThread -> Boolean))
   (define (unpark-thread!% gen thread)
+    "Attempt to unpark. Returns `True` if unparked, `False` if stale."
     ;; CONCURRENT:
     ;; - Masks around the critical region
     ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
@@ -714,18 +718,22 @@ just be limited to implementing only solutions #2 or #3.
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
 
     ;; Only unpark if the targeted gen is more recent than the last fired gen
-    (when (> gen (Generation (bt:read (.fired-gen thread))))
-      (mask-current-thread!%)
-      (bt:acquire (.park-lock thread))
-      (if (> gen (Generation (bt:read (.fired-gen thread))))
-          (progn
-            (atomic-set-generation%! gen (.fired-gen thread))
-            (bt:release (.park-lock thread))
-            (bt:notify (.park-cv thread))
-            (unmask-current-thread!%))
-          (progn
-            (bt:release (.park-lock thread))
-            (unmask-current-thread!%)))))
+    (if (> gen (Generation (bt:read (.fired-gen thread))))
+        (progn
+          (mask-current-thread!%)
+          (bt:acquire (.park-lock thread))
+          (if (> gen (Generation (bt:read (.fired-gen thread))))
+              (progn
+                (atomic-set-generation%! gen (.fired-gen thread))
+                (bt:release (.park-lock thread))
+                (bt:notify (.park-cv thread))
+                (unmask-current-thread!%)
+                True)
+              (progn
+                (bt:release (.park-lock thread))
+                (unmask-current-thread!%)
+                False)))
+        False))
   )
 
 ;;;

@@ -32,6 +32,7 @@
                    #:coalton-io/tests/conc/stm-fiasco
                    #:coalton-io/tests/conc/worker-pool-fiasco
                    #:coalton-io/tests/conc/bounded-mpmc-queue-fiasco
+                   #:coalton-io/tests/conc/unbounded-mpmc-queue-fiasco
                    #:coalton-io/tests/conc/stm/tarray-fiasco
                    )
        :interactive cl:nil)

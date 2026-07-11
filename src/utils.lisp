@@ -27,6 +27,8 @@
    #:Anything
    #:to-anything
    #:from-anything
+   #:cl-nil
+   #:anything-nil?
    #:from-anything-opt
    #:anything-eq
    #:Dynamic
@@ -120,6 +122,17 @@
   (define (from-anything a)
     (lisp (-> :a) (a)
       a))
+
+  (declare cl-nil Anything)
+  (define cl-nil
+    (lisp (-> Anything) ()
+      cl:nil))
+
+  (inline)
+  (declare anything-nil? (Anything -> Boolean))
+  (define (anything-nil? a)
+    (lisp (-> Boolean) (a)
+      (cl:null a)))
 
   (inline)
   (declare from-anything-opt (Anything -> Optional :a))
