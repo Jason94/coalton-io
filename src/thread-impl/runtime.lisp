@@ -107,10 +107,6 @@
     ThreadStopping
     ThreadStopped)
 
-  ;; TODO: Like in STM, currently using the coalton-threads AtomicInteger instead of
-  ;; my Atomics package. Not sure if there is a performance benefit or not to that.
-  ;; Should test and - possibly - update my atomics package to match.
-
   ;; Flags - Not a traditional bit flag. First bit stores a pending kill. To support
   ;; nested masks, the remaining bits (as an integer) are the number of applied masks.
   ;; As such, masking/unmasking *once* is equivalent to +/- 2, and checking if we're

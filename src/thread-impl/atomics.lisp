@@ -4,6 +4,7 @@
    #:coalton-prelude
    #:io/utils)
   (:local-nicknames
+   (:b #:coalton-library/bits)
    (:itr #:coalton-library/iterator)
    (:c #:coalton-library/cell)
    (#:at #:atomics))
@@ -25,9 +26,12 @@
    #:int-cas
    #:atomic-inc
    #:atomic-inc1
+   #:atomic-inc-old
+   #:atomic-inc1-old
    #:atomic-dec
    #:atomic-dec1
    #:atomic-int-write
+   #:atomic-fetch-or
 
    #:AtomicStack
    #:new-atomic-stack
@@ -126,6 +130,7 @@ Returns the new list, with the element included."
                              (lp)))))
         (lp))))
 
+  (inline)
   (declare atomic-update (Atomic :a * (:a -> :a) -> :a))
   (define (atomic-update atm f)
     "Atomically update the value in `atm` by applying F until it succeedes.
@@ -135,6 +140,7 @@ Returns the new value stored in `atm` after applying F."
                             (call-coalton-function f x))))
         (at:atomic-update (atomic-internal-inner atm) update-fn))))
 
+  (inline)
   (declare atomic-update-swap (Atomic :a * (:a -> :a) -> :a))
   (define (atomic-update-swap atm f)
     "Atomically update the value in `atm` by applying F until it succeedes.
@@ -151,7 +157,7 @@ Returns the old value stored in `atm` after applying F."
   (declare atomic-write (Atomic :a * :a -> Unit))
   (define (atomic-write atm val)
     "Atomically set the value in `atm` to `val`."
-    (atomic-update atm (fn (_) val))
+    (atomic-swap atm val)
     Unit)
   )
 
@@ -159,6 +165,7 @@ Returns the old value stored in `atm` after applying F."
 ;;;          Atomic Integers          ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; TODO: Unify this with redundant AtomicInteger definition in src/utilities/bt-compat
 (coalton-toplevel
 
   (repr :native bt2:atomic-integer)
@@ -192,11 +199,38 @@ TRUE if the swap succeeded, FALSE otherwise. Does not repeat."
       (bt2:atomic-integer-incf atm n)))
 
   (inline)
+  (declare atomic-inc-old (AtomicInteger * Word -> Word))
+  (define (atomic-inc-old atm n)
+    "Atomically increment `atm` by `n`. Returns the old value."
+    (lisp (-> Word) (atm n)
+      #+sbcl
+      (sb-ext:atomic-incf
+          (bt2::atomic-integer-cell atm)
+          n)
+      #+ccl
+      (cl:let ((new-value
+                 (ccl::atomic-incf-decf
+                  (cl:svref (bt2::atomic-integer-cell atm) 0)
+                  1)))
+        (cl:ldb (cl:byte #+32-bit 32
+                         #+64-bit 64
+                         0)
+                (cl:- new-value n)))
+      #-(or sbcl ccl)
+      (cl:error "Only supported by SBCL and CCL.")))
+
+  (inline)
   (declare atomic-inc1 (AtomicInteger -> Word))
   (define (atomic-inc1 atm)
     "Atomically increment `atm` by 1. Returns the new value."
     (lisp (-> :a) (atm)
       (bt2:atomic-integer-incf atm)))
+
+  (inline)
+  (declare atomic-inc1-old (AtomicInteger -> Word))
+  (define (atomic-inc1-old atm)
+    "Atomically increment `atm` by 1. Returns the old value."
+    (atomic-inc-old atm 1))
 
   (inline)
   (declare atomic-dec (AtomicInteger * Word -> Word))
@@ -221,6 +255,16 @@ TRUE if the swap succeeded, FALSE otherwise. Does not repeat."
       (cl:if (bt2:atomic-integer-compare-and-swap atm old new)
              old
              (call-coalton-function atomic-int-write atm new))))
+
+  (inline)
+  (declare atomic-fetch-or (AtomicInteger * Word -> Word))
+  (define (atomic-fetch-or atm word)
+    "Atomically set `atm` to the bitwise OR of `atm` and `word`. Returns the new value."
+    (let old = (read-at-int atm))
+    (let new = (b:or old word))
+    (if (int-cas atm old new)
+        new
+        (atomic-fetch-or atm word)))
 
   )
 
