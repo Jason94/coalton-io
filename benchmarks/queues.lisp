@@ -223,7 +223,7 @@
 (defparameter *count* 60)
 
 (c:coalton-toplevel
-  (c:define *tasks* (c:the c:UFix 72)));000)))
+  (c:define *tasks* (c:the c:UFix 24000)))
 
 (define-benchmark control-vector-single-thread ()
   (declare (optimize speed))

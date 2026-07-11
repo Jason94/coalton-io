@@ -30,6 +30,7 @@
    #:atomic-inc1-old
    #:atomic-dec
    #:atomic-dec1
+   #:atomic-max
    #:atomic-int-write
    #:atomic-fetch-or
 
@@ -245,6 +246,18 @@ TRUE if the swap succeeded, FALSE otherwise. Does not repeat."
     "Atomically decrement `atm` by 1. Returns the new value."
     (lisp (-> :a) (atm)
       (bt2:atomic-integer-decf atm)))
+
+  (inline)
+  (declare atomic-max (AtomicInteger * Word -> Word))
+  (define (atomic-max atm n)
+    "Atomically advance `atm` to its current value or `n`, whichever is greater. Returns
+the new value."
+    (let value = (read-at-int atm))
+    (if (>= value n)
+        value
+        (if (int-cas atm value n)
+            n
+            (atomic-max atm n))))
 
   (inline)
   (declare atomic-int-write (AtomicInteger * Word -> Word))

@@ -187,9 +187,12 @@ must be a power of 2 so the compiler can optimize the integer div operations."
 
 
 (coalton-toplevel
+  ;; Prevent a livelock situation where consumers outrace producers.
+  ;; See "Theorem 4.3. PRQ is obstruction-free." from the paper.
+  (define +PRQ-MAX-ENQUEUE-ATTEMPTS+ (the UFix 32))
   
-  (declare enqueue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a * :a -> Boolean))
-  (define (enqueue-prq% rt-prx prq val)
+  (declare enqueue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a * :a &key (:attempts UFix) -> Boolean))
+  (define (enqueue-prq% rt-prx prq val &key (attempts 1))
     ;; CONCURRENT: Masking handled by top-level call on LPRQ
     (let t = (at:atomic-inc1-old (.tail prq)))
 
@@ -224,12 +227,13 @@ must be a power of 2 so the compiler can optimize the integer div operations."
 
     ;; Check overflow
     (let h = (at:read-at-int (.head prq)))
-    (if (and (>= t h)
-             (>= (- t h) +PRQ-LENGTH+)) ;; is the queue full?
+    (if (or (and (>= t h)
+                 (>= (- t h) +PRQ-LENGTH+))           ;; is the queue full?
+            (== attempts +PRQ-MAX-ENQUEUE-ATTEMPTS+)) ;; defensive closure against livelock
         (progn
           (at:atomic-write (.closed prq) True)
           False)
-        (enqueue-prq% rt-prx prq val)))
+        (enqueue-prq% rt-prx prq val :attempts (1+ attempts))))
   )
 
 (coalton-toplevel
@@ -284,7 +288,12 @@ must be a power of 2 so the compiler can optimize the integer div operations."
     ;; Is the queue empty?
     (let t = (at:read-at-int (.tail prq)))
     (if (<= t (1+ h))
-        None
+        ;; monotonically advance tail to the current head before returning
+        ;; See footnote #2 on page 18 of the paper. Prevents pathological
+        ;; behavior in the consumer >>> producer livelock case.
+        (progn
+          (at:atomic-max (.tail prq) (at:read-at-int (.head prq)))
+          None)
         (try-dequeue-prq% rt-prx prq))
     )
   )
@@ -338,6 +347,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
           (progn
             (at:compare-and-swap (.tail lprq) prq new-tail)
             (notify-parker rt-prx lprq)
+            (unmask-current! rt-prx)
             (values))
           (progn
             (let next = (at:read (.next prq)))
