@@ -22,6 +22,7 @@
    #:park-in-set
    #:unpark-set
    #:unpark-one
+   #:parking-set-empty?
 
    ;; Library Private
    #:new-parking-set%
@@ -32,8 +33,11 @@
    #:unpark-set%
    #:unpark-one%
    #:num-waiters
+   #:parking-set-empty?%
    ))
 (in-package :io/gen-impl/conc/parking)
+
+;; TODO: Reorganize this file to cleanly separate the private and public APIs
 
 (named-readtables:in-readtable coalton:coalton)
 
@@ -273,6 +277,7 @@ If `fair` is `True`, unparks the thread which has been parked the longest. If `f
       (unpark-one% pset rt-prx :fair fair)
       Unit))
 
+  (inline)
   (declare num-waiters (MonadIo :m => ParkingSet -> :m UFix))
   (define (num-waiters pset)
     "Get the number of waiters in PSET."
@@ -280,4 +285,21 @@ If `fair` is `True`, unparks the thread which has been parked the longest. If `f
      (let (ParkingSet% at-waiters) = pset)
      (let waiters = (at:read at-waiters))
      (length waiters)))
+
+  (inline)
+  (declare parking-set-empty?% (ParkingSet -> Boolean))
+  (define (parking-set-empty?% pset)
+    "Check if `pset` is empty."
+    (let (ParkingSet% at-waiters) = pset)
+    (let waiters = (at:read at-waiters))
+    (match waiters
+      ((Nil) True)
+      (_ False)))
+
+  (inline)
+  (declare parking-set-empty? (MonadIo :m => ParkingSet -> :m Boolean))
+  (define (parking-set-empty? pset)
+    "Check if `pset` is empty."
+    (wrap-io
+     (parking-set-empty?% pset)))
  )

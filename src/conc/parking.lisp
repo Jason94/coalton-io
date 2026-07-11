@@ -14,6 +14,7 @@
    #:park-in-set
    #:unpark-set
    #:unpark-one
+   #:parking-set-empty?
 
    ;; Re-exports from io/io-impl/conc/parking
    #:park-in-sets-if_

@@ -10,6 +10,7 @@
    #:io/classes/thread
    #:io/gen-impl/conc/mvar
    #:io/gen-impl/conc/queues
+   #:io/gen-impl/conc/parking
    )
   (:import-from #:coalton/experimental/loops
    #:dotimes)
@@ -292,7 +293,8 @@ must be a power of 2 so the compiler can optimize the integer div operations."
 
   (define-struct (LPRQ :a)
     (head (at:Atomic (PRQ :a)))
-    (tail (at:Atomic (PRQ :a))))
+    (tail (at:Atomic (PRQ :a)))
+    (parkers ParkingSet))
 
   (inline)
   (declare new-lprq (Void -> LPRQ :a))
@@ -300,7 +302,15 @@ must be a power of 2 so the compiler can optimize the integer div operations."
     (let initial-prq = (new-prq))
     (LPRQ
      (at:new initial-prq)
-     (at:new initial-prq)))
+     (at:new initial-prq)
+     (new-parking-set%)))
+
+  (inline)
+  (declare notify-parker (Runtime :rt :t => Proxy :rt * LPRQ :a -> Void))
+  (define (notify-parker rt-prx lprq)
+    "Notify parkers if necessary."
+    (when (not (parking-set-empty?% (.parkers lprq)))
+      (unpark-one% (.parkers lprq) rt-prx))) 
 
   (inline)
   (declare enqueue% (Runtime :rt :t => Proxy :rt * LPRQ :a * :a -> Void))
@@ -309,6 +319,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
 
     ;; fast-path: add to the current PRQ
     (when (enqueue-prq% rt-prx prq elt)
+      (notify-parker rt-prx lprq)
       (return))
 
     ;; slow-path: Tail is full, add new PRQ
@@ -317,6 +328,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
     (if (at:compare-and-swap (.next prq) None (Some new-tail))
         (progn
           (at:compare-and-swap (.tail lprq) prq new-tail)
+          (notify-parker rt-prx lprq)
           (values))
         (progn
           (let next = (at:read (.next prq)))
@@ -351,7 +363,34 @@ must be a power of 2 so the compiler can optimize the integer div operations."
              ;; prq is empty. Update head and restart.
              (at:compare-and-swap (.head lprq) prq next)
              (try-dequeue% rt-prx lprq))))))))
-    )
+
+  (declare dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> :a))
+  (define (dequeue% rt-prx lprq)
+    (match (try-dequeue% rt-prx lprq)
+      ((Some val)
+       (return val))
+      ((None)
+       Unit))
+
+    (let result = (c:new None))
+
+    (park-in-set-if%
+     rt-prx
+     (fn ()
+       (match (try-dequeue% rt-prx lprq)
+         ((Some val)
+          (c:write! result (Some val))
+          False)
+         ((None)
+          True)))
+     (.parkers lprq))
+
+    (match (c:read result)
+      ((Some val)
+       val)
+      ((None)
+       (dequeue% rt-prx lprq))))
+  )
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -388,8 +427,9 @@ must be a power of 2 so the compiler can optimize the integer div operations."
         (enqueue% rt-prx (lprq% queue) elt)
         True))
     (inline)
-    (define (dequeue _ &key (timeout NoTimeout))
-      (error "dequeue not implemented"))
+    (define (dequeue queue &key (timeout NoTimeout))
+      (wrap-io-with-runtime (rt-prx)
+        (dequeue% rt-prx (lprq% queue))))
     (inline)
     (define (try-dequeue queue)
       (wrap-io-with-runtime (rt-prx)

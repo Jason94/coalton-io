@@ -6,9 +6,11 @@
    #:io/simple-io
    #:io/simple-io/loops
    #:io/thread
+   #:io/mut
    #:io/exceptions
    #:io/conc/queues
    #:io/conc/queues/unbounded-mpmc
+   #:io/tests/utils
    ))
 (in-package :coalton-io/tests/conc/queues/unbounded-mpmc)
 
@@ -48,3 +50,41 @@
       (try-dequeue buffer))))
   (is (== (Some 10) result)))
 
+(define-test test-enqueue-dequeue-once ()
+  (let result =
+    (run-io!
+     (do
+      (buffer <- new-unbounded-mpmc-queue)
+      (enqueue 10 buffer)
+      (dequeue buffer))))
+  (is (== 10 result)))
+
+(define-test test-enqueue-dequeue-many ()
+  (let result =
+    (run-io!
+     (do
+      (buffer <- new-unbounded-mpmc-queue)
+      (do-repeat-io 2048
+        (enqueue 0 buffer))
+      (enqueue 10 buffer)
+      (do-repeat-io 2048
+        (dequeue buffer))
+      (dequeue buffer))))
+  (is (== 10 result)))
+
+(define-test test-dequeue-block-then-enqueue ()
+  (let result =
+    (run-io!
+     (do
+      (buffer <- new-unbounded-mpmc-queue)
+      (result <- (new-var None))
+      (finished-gate <- s-new)
+      (do-fork-thread_
+        (val <- (dequeue buffer))
+        (write result (Some val))
+        (s-signal finished-gate))
+      (sleep 2)
+      (enqueue 10 buffer)
+      (s-await finished-gate) 
+      (read result))))
+  (is (== (Some 10) result)))
