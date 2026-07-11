@@ -108,6 +108,13 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
   (define-type SlotMetadata
     (SlotMetadata% Word))
 
+  (define-instance (Eq SlotMetadata)
+    (inline)
+    (define (== a b)
+      (lisp (-> Boolean) (a b)
+        (cl:eq a b)))))
+
+(coalton-toplevel
   (inline)
   (declare bits (SlotMetadata -> Word))
   (define (bits (SlotMetadata% bits))
@@ -219,7 +226,15 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
   (declare slot-cas-value (Slot :a * Anything * Anything -> Boolean))
   (define (slot-cas-value slot old new)
     (lisp (-> Boolean) (slot old new)
-      (at:cas (slot%-value slot) old new))))      
+      (at:cas (slot%-value slot) old new))))
+
+(coalton-toplevel
+  (inline)
+  (declare slot-set-value (Slot :a * Anything -> Void))
+  (define (slot-set-value slot val)
+    (lisp (-> :a) (slot val)
+      (cl:setf (slot%-value slot) val))
+    (values)))
 
 (coalton-toplevel
   (inline)
@@ -271,6 +286,13 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
 (coalton-toplevel
   (inline)
+  (declare prq-tail (PRQ :a -> Word))
+  (define (prq-tail prq)
+    (lisp (-> Word) (prq)
+      (prq%-tail prq))))
+
+(coalton-toplevel
+  (inline)
   (declare prq-closed? (PRQ :a -> Boolean))
   (define (prq-closed? prq)
     (lisp (-> Boolean) (prq)
@@ -315,6 +337,15 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
     (lisp (-> Word) (prq)
       (atc:atomic-incf-old (prq%-head prq)))))
 
+(coalton-toplevel
+  (inline)
+  (declare atm-catchup-tail (PRQ :a -> Void))
+  (define (atm-catchup-tail prq)
+    "Atomically catch `tail` up to `head` for `prq`."
+    (lisp (-> :a) (prq)
+      (atc:atomic-max (prq%-tail prq) (prq%-head prq)))
+    (values)))
+
 ;;;
 ;;; Enqueue and Dequeue algorithms
 ;;; 
@@ -329,6 +360,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 (coalton-toplevel
   (declare enqueue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a * :a &key (:attempts UFix) -> Boolean))
   (define (enqueue-prq% rt-prx prq val &key (attempts 1))
+    ;; CONCURRENT: Masking handled by top-level call on LPRQ
     (let t = (atm-inc-tail prq))
 
     (when (prq-closed? prq)
@@ -365,116 +397,72 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
                  (>= (- t h) (prq-len-word)))           ;; Is the queue full?
             (== attempts (+PRQ-MAX-ENQUEUE-ATTEMPTS+))) ;; defensive closure against livelock
         (progn
+          ;; TODO: Does this have to be a CAS? It's not in the paper
           (prq-cas-close prq)
           False)
-        (enqueue-prq% rt-prx prq val)))
+        (enqueue-prq% rt-prx prq val :attempts (1+ attempts))))
   )
 
-;; (cl:disassemble enqueue-prq%)
-;;     ;; CONCURRENT: Masking handled by top-level call on LPRQ
-;;     (let t = (at:atomic-inc1-old (.tail prq)))
+(coalton-toplevel
+  (declare try-dequeue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a -> Optional :a))
+  (define (try-dequeue-prq% rt-prx prq)
+    ;; CONCURRENT: Masking handled by top-level call on LPRQ
+    (let h = (atm-inc-head prq))
+    (let cycle = (i:div h (prq-len-word)))
 
-;;     (when (at:read (.closed prq))
-;;       (return False))
+    ;; Try to update the slot state
+    (for ()
+      (let slot = (prq-slot prq h))
+      (let metadata = (slot-metadata slot))
+      (let safe? = (safe? metadata))
+      (let epoch = (epoch metadata))
+      (let value = (slot-value slot))
 
-;;     (let (values cycle i) = (i:divmod t +PRQ-LENGTH+))
-;;     (let slot = (la:aref (.slots prq) (w->uf i)))
-;;     (let old-metadata = (read-metadata (.metadata slot)))
-;;     (let (values safe? epoch) = (unpack old-metadata))
-;;     (let old-value = (at:read (.value slot)))
-;;     (let h = (at:read-at-int (.head prq)))
+      (when (/= metadata (slot-metadata slot))
+        ;; Inconsistent view of the slot
+        (continue))
 
-;;     (when (and (or (is-empty? old-value)          ;; the slot is empty
-;;                    (is-thread? rt-prx old-value))
-;;                (< epoch cycle)                    ;; and enqueue is not overtaken
-;;                (or safe? (<= h t)))
-;;       (let ownership-token = (to-anything (current-thread! rt-prx)))
-;;       (when ;; Lock the cell with the ownership token
-;;             (at:compare-and-swap (.value slot) old-value ownership-token)
-;;         ;; Advance the epoch
-;;         (if (not (at:int-cas (atm% (.metadata slot))
-;;                              old-metadata 
-;;                              (pack True cycle)))
-;;             ;; Another thread enqueued, so clean up and try again
-;;             (progn
-;;               (at:compare-and-swap (.value slot) ownership-token empty-token)
-;;               (values))
-;;             ;; Publish item
-;;             (when (at:compare-and-swap (.value slot) ownership-token (to-anything val))
-;;               (return True)))))
+      (let val-empty? = (is-empty? value))
+      (let val-is-token? = (is-thread? rt-prx value))
 
-;;     ;; Check overflow
-;;     (let h = (at:read-at-int (.head prq)))
-;;     (if (or (and (>= t h)
-;;                  (>= (- t h) +PRQ-LENGTH+))           ;; is the queue full?
-;;             (== attempts +PRQ-MAX-ENQUEUE-ATTEMPTS+)) ;; defensive closure against livelock
-;;         (progn
-;;           (at:atomic-write (.closed prq) True)
-;;           False)
-;;         (enqueue-prq% rt-prx prq val :attempts (1+ attempts))))
-;;   )
-
-;; (coalton-toplevel
-;;   (declare try-dequeue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a -> Optional :a))
-;;   (define (try-dequeue-prq% rt-prx prq)
-;;     ;; CONCURRENT: Masking handled by top-level call on LPRQ
-;;     (let h = (at:atomic-inc1-old (.head prq)))
-;;     (let (values cycle i) = (i:divmod h +PRQ-LENGTH+))
-
-;;     ;; Try to update the slot state
-;;     (for ()
-;;       (let slot = (la:aref (.slots prq) (w->uf i)))
-;;       (let metadata = (read-metadata (.metadata slot)))
-;;       (let (values safe? epoch) = (unpack metadata))
-;;       (let value = (at:read (.value slot)))
-
-;;       (when (/= metadata (read-metadata (.metadata slot)))
-;;         ;; Inconsistent view of the slot
-;;         (continue))
-
-;;       (let val-empty? = (is-empty? value))
-;;       (let val-is-token? = (is-thread? rt-prx value))
-
-;;       (cond
-;;         ((and (== epoch cycle)
-;;               (not val-empty?)
-;;               (not val-is-token?))
-;;          ;; slot has not been overwritten and value is legitimate - dequeue transition
-;;          (at:atomic-write (.value slot) empty-token) 
-;;          (return (Some (from-anything value))))
-;;         ((and (<= epoch cycle)
-;;               (or val-empty?
-;;                   val-is-token?))
-;;          ;; empty transition
-;;          ;; unlock the cell
-;;          (when (and val-is-token?
-;;                     (not (at:compare-and-swap (.value slot) value empty-token)))
-;;            (continue))
-;;          ;; advance the epoch
-;;          (when (at:int-cas (atm% (.metadata slot)) metadata (pack safe? cycle))
-;;            (break)))
-;;         ((and (< epoch cycle)
-;;               (not val-empty?)
-;;               (not val-is-token?))
-;;          ;; unsafe transition
-;;          (when (at:int-cas (atm% (.metadata slot)) metadata (pack False epoch))
-;;            (break)))
-;;         (True
-;;          ;; epoch > cycle
-;;          (break)))) ;; deq is qvertaken
-
-;;     ;; Is the queue empty?
-;;     (let t = (at:read-at-int (.tail prq)))
-;;     (if (<= t (1+ h))
-;;         ;; monotonically advance tail to the current head before returning
-;;         ;; See footnote #2 on page 18 of the paper. Prevents pathological
-;;         ;; behavior in the consumer >>> producer livelock case.
-;;         (progn
-;;           (at:atomic-max (.tail prq) (at:read-at-int (.head prq)))
-;;           None)
-;;         (try-dequeue-prq% rt-prx prq))
-;;     )
-;;   )
+      (cond
+        ((and (== epoch cycle)
+              (not val-empty?)
+              (not val-is-token?))
+         ;; slot has not been overwritten and value is legitimate - dequeue transition
+         (slot-set-value slot empty-token)
+         (return (Some (from-anything value))))
+        ((and (<= epoch cycle)
+              (or val-empty?
+                  val-is-token?))
+         ;; empty transition - unlock the cell
+         (when (and val-is-token?
+                    (not (slot-cas-value slot value empty-token)))
+           (continue))
+         ;; advance the epoch
+         (when (slot-cas-metadata slot metadata (pack safe? cycle))
+           (break)))
+        ((and (< epoch cycle)
+              (not val-empty?)
+              (not val-is-token?))
+         ;; unsafe transition
+         (when (slot-cas-metadata slot metadata (pack False epoch))
+           (break)))
+        (True
+         ;; epoch > cycle
+         (break)))) ;; deq is overtaken
+    
+    ;; Is the queue empty?
+    (let t = (prq-tail prq))
+    (if (<= t (1+ h))
+        ;; monotonically advance tail to the current head before returning
+        ;; See footnote #2 of the paper. Prevents pathological behavior in
+        ;; consumer >>> producer livelock case.
+        (progn
+          (atm-catchup-tail prq)
+          None)
+        (try-dequeue-prq% rt-prx prq)))
+  )
 
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;;        LPRQ Implementation        ;;;
