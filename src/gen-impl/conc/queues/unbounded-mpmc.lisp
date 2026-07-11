@@ -190,11 +190,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
   
   (declare enqueue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a * :a -> Boolean))
   (define (enqueue-prq% rt-prx prq val)
-    ;; CONCURRENT: Only needs to mask while the thread has ownership over the slot.
-    ;; This happens when it CASes the thread token into the (.value) for the slot,
-    ;; so masking needs to occur immediately prior. Then, the thread can unmask
-    ;; either (A) right before returning or (B) it realizes it's been beaten to
-    ;; the slot.
+    ;; CONCURRENT: Masking handled by top-level call on LPRQ
     (let t = (at:atomic-inc1-old (.tail prq)))
 
     (when (at:read (.closed prq))
@@ -207,7 +203,6 @@ must be a power of 2 so the compiler can optimize the integer div operations."
     (let old-value = (at:read (.value slot)))
     (let h = (at:read-at-int (.head prq)))
 
-    (mask-current! rt-prx)
     (when (and (or (is-empty? old-value)          ;; the slot is empty
                    (is-thread? rt-prx old-value))
                (< epoch cycle)                    ;; and enqueue is not overtaken
@@ -225,9 +220,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
               (values))
             ;; Publish item
             (when (at:compare-and-swap (.value slot) ownership-token (to-anything val))
-              (unmask-current! rt-prx) ;; (A) about to return, unmask
               (return True)))))
-    (unmask-current! rt-prx) ;; (B) thread has been beaten to the slot, unmask
 
     ;; Check overflow
     (let h = (at:read-at-int (.head prq)))
@@ -242,6 +235,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
 (coalton-toplevel
   (declare try-dequeue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a -> Optional :a))
   (define (try-dequeue-prq% rt-prx prq)
+    ;; CONCURRENT: Masking handled by top-level call on LPRQ
     (let h = (at:atomic-inc1-old (.head prq)))
     (let (values cycle i) = (i:divmod h +PRQ-LENGTH+))
 
@@ -325,57 +319,74 @@ must be a power of 2 so the compiler can optimize the integer div operations."
   (inline)
   (declare enqueue% (Runtime :rt :t => Proxy :rt * LPRQ :a * :a -> Void))
   (define (enqueue% rt-prx lprq elt)
-    (let prq = (at:read (.tail lprq)))
+    ;; CONCURRENT:
+    ;; For simplicity, conservatively masks the entire run of the function.
+    (mask-current! rt-prx)
+    (rec % ()
+      (let prq = (at:read (.tail lprq)))
 
-    ;; fast-path: add to the current PRQ
-    (when (enqueue-prq% rt-prx prq elt)
-      (notify-parker rt-prx lprq)
-      (return))
+      ;; fast-path: add to the current PRQ
+      (when (enqueue-prq% rt-prx prq elt)
+        (notify-parker rt-prx lprq)
+        (unmask-current! rt-prx)
+        (return))
 
-    ;; slow-path: Tail is full, add new PRQ
-    (let new-tail = (new-prq))
-    (enqueue-prq% rt-prx new-tail elt)
-    (if (at:compare-and-swap (.next prq) None (Some new-tail))
-        (progn
-          (at:compare-and-swap (.tail lprq) prq new-tail)
-          (notify-parker rt-prx lprq)
-          (values))
-        (progn
-          (let next = (at:read (.next prq)))
-          (match next
-            ((Some next)
-             (at:compare-and-swap (.tail lprq) prq next))
-            (_
-             False))
-          (enqueue% rt-prx lprq elt))))
+      ;; slow-path: Tail is full, add new PRQ
+      (let new-tail = (new-prq))
+      (enqueue-prq% rt-prx new-tail elt)
+      (if (at:compare-and-swap (.next prq) None (Some new-tail))
+          (progn
+            (at:compare-and-swap (.tail lprq) prq new-tail)
+            (notify-parker rt-prx lprq)
+            (values))
+          (progn
+            (let next = (at:read (.next prq)))
+            (match next
+              ((Some next)
+               (at:compare-and-swap (.tail lprq) prq next))
+              (_
+               False))
+            (%)))))
 
   (inline)
   (declare try-dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> Optional :a))
   (define (try-dequeue% rt-prx lprq)
-    (let prq = (at:read (.head lprq)))
-    (let res = (try-dequeue-prq% rt-prx prq))
+    ;; CONCURRENT:
+    ;; For simplicity, conservatively masks the entire run of the function.
+    (mask-current! rt-prx)
 
-    (match res
-      ((Some _)
-       res)
-      ((None)
-       ;; failed, is this queue empty?
-       (match (at:read (.next prq))
-         ((None)
-          None)
-         ;; prq is closed but may store elements
-         ((Some next)
-          (let res = (try-dequeue-prq% rt-prx prq))
-          (match res
-            ((Some _)
-             res)
-            ((None)
-             ;; prq is empty. Update head and restart.
-             (at:compare-and-swap (.head lprq) prq next)
-             (try-dequeue% rt-prx lprq))))))))
+    (let result =
+      (rec % ()
+        (let prq = (at:read (.head lprq)))
+        (let res = (try-dequeue-prq% rt-prx prq))
+
+        (match res
+          ((Some _)
+           res)
+          ((None)
+           ;; failed, is this queue empty?
+           (match (at:read (.next prq))
+             ((None)
+              None)
+             ;; prq is closed but may store elements
+             ((Some next)
+              (let res = (try-dequeue-prq% rt-prx prq))
+              (match res
+                ((Some _)
+                 res)
+                ((None)
+                 ;; prq is empty. Update head and restart.
+                 (at:compare-and-swap (.head lprq) prq next)
+                 (%)))))))))
+
+    (unmask-current! rt-prx)
+
+    result)
 
   (declare dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> :a))
   (define (dequeue% rt-prx lprq)
+    ;; CONCURRENT:
+    ;; Doesn't need to mask because try-dequeue% properly masks around LPRQ operations.
     (match (try-dequeue% rt-prx lprq)
       ((Some val)
        (return val))
