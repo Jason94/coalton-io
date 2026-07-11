@@ -27,8 +27,9 @@
   (define (s-signal s)
     (wrap-io (bt:signal s 1)))
 
-  (define (s-await s)
-    (wrap-io (bt:await-sm s)))
+  (declare s-await (MonadIo :m => bt:Semaphore &key (:timeout (Optional F32)) -> :m Boolean)) 
+  (define (s-await s &key (timeout None))
+    (wrap-io (bt:await-sm s :timeout timeout)))
   )
 
 

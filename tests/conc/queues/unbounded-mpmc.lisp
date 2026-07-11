@@ -48,4 +48,3 @@
       (try-dequeue buffer))))
   (is (== (Some 10) result)))
 
-;; (test-enqueue-try-dequeue-many)

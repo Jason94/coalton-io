@@ -178,13 +178,17 @@ If there are threads awaiting this semaphore, then `count' of them are woken up.
       (bt2:signal-semaphore sem :count count)
       Unit))
 
-  (declare await-sm (Semaphore -> Unit))
-  (define (await-sm sem)
+  (declare await-sm (Semaphore &key (:timeout (Optional F32)) -> Boolean))
+  (define (await-sm sem &key (timeout None))
     "Decrement the count of `sem' by 1 if the count is larger than zero.
 If the count is zero, blocks until `sem' can be decremented."
-    (lisp (-> Unit) (sem)
-      (bt2:wait-on-semaphore sem)
-      Unit)))
+      (match timeout
+        ((Some timeout)
+         (lisp (-> Boolean) (sem timeout)
+           (bt2:wait-on-semaphore sem :timeout timeout)))
+        ((None)
+         (lisp (-> Boolean) (sem)
+           (bt2:wait-on-semaphore sem))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;              Condition Variables               ;;

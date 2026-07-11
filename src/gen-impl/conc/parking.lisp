@@ -28,7 +28,9 @@
    #:park-in-sets-if%
    #:park-in-sets-if-with%
    #:park-in-set-if%
+   #:park-in-set-if-with%
    #:unpark-set%
+   #:unpark-one%
    #:num-waiters
    ))
 (in-package :io/gen-impl/conc/parking)
@@ -49,7 +51,7 @@ if ParkingSet doesn't provide enough functionality for the algorithm.
 Concurrent:
   - ParkingSet's algorithms are lock free, but individual threads can block for a very
     short window if contention on the parking set is very high."
-    (ParkingSet% (at:Atomic (List (Void -> Void)))))
+    (ParkingSet% (at:Atomic (List (Void -> Boolean)))))
 
   (inline)
   (declare new-parking-set% (Void -> ParkingSet))
@@ -63,7 +65,7 @@ Concurrent:
     (wrap-io_ new-parking-set%))
 
   (inline)
-  (declare get-set% (ParkingSet -> at:Atomic (List (Void -> Void))))
+  (declare get-set% (ParkingSet -> at:Atomic (List (Void -> Boolean))))
   (define (get-set% (ParkingSet% atm))
     atm)
 
@@ -234,25 +236,30 @@ from another thread. Can specify a timeout."
       (unpark-set% pset rt-prx)
       Unit))
 
-  (declare unpark-one% (Runtime :rt :t => ParkingSet * Boolean * Proxy :rt -> Void))
-  (define (unpark-one% pset fair rt-prx)
+  (declare unpark-one% (Runtime :rt :t => ParkingSet * Proxy :rt &key (:fair Boolean) -> Void))
+  (define (unpark-one% pset rt-prx &key (fair False))
     ;; CONCURRENT:
     ;; - Masks before taking ownership of unparked action.
     ;; - Unmasks after dispatching action.
+    ;; - Could technically unmask before recursion in stale case, but that would be
+    ;;   inefficient because it would immediately remask.
     (mask-current! rt-prx)
-    (let parked-actions = (at:atomic-update-swap (get-set% pset)
-                                                 (if fair
-                                                     l:init
-                                                     ƒl.(l:drop 1 l))))
-    (let parked-action? =
-      (if fair
-          (l:last parked-actions)
-          (l:head parked-actions)))
-    (match parked-action?
-      ((None)
-       (values))
-      ((Some parked-action)
-       (parked-action)))
+    (rec % ()
+      (let parked-actions = (at:atomic-update-swap (get-set% pset)
+                                                   (if fair
+                                                       l:init
+                                                       ƒl.(l:drop 1 l))))
+      (let parked-action? =
+        (if fair
+            (l:last parked-actions)
+            (l:head parked-actions)))
+      (match parked-action?
+        ((None)
+         (values))
+        ((Some parked-action)
+         (if (parked-action)
+             (values)
+             (%)))))
     (unmask-current! rt-prx))
 
   (inline)
@@ -263,7 +270,7 @@ from another thread. Can specify a timeout."
 If `fair` is `True`, unparks the thread which has been parked the longest. If `fair` is
 `False`, unparks an arbitrary parked thread."
     (wrap-io-with-runtime (rt-prx)
-      (unpark-one% pset fair rt-prx)
+      (unpark-one% pset rt-prx :fair fair)
       Unit))
 
   (declare num-waiters (MonadIo :m => ParkingSet -> :m UFix))

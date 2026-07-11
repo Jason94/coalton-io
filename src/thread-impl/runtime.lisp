@@ -701,8 +701,9 @@ just be limited to implementing only solutions #2 or #3.
   (define (park-current-thread-if!% rt-prx with-gen should-park?)
     (park-current-thread-if-with!% rt-prx with-gen should-park? NoTimeout))
 
-  (declare unpark-thread!% (Generation * IoThread -> Void))
+  (declare unpark-thread!% (Generation * IoThread -> Boolean))
   (define (unpark-thread!% gen thread)
+    "Attempt to unpark. Returns `True` if unparked, `False` if stale."
     ;; CONCURRENT:
     ;; - Masks around the critical region
     ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
@@ -710,18 +711,22 @@ just be limited to implementing only solutions #2 or #3.
     ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
 
     ;; Only unpark if the targeted gen is more recent than the last fired gen
-    (when (> gen (Generation (bt:read (.fired-gen thread))))
-      (mask-current-thread!%)
-      (bt:acquire (.park-lock thread))
-      (if (> gen (Generation (bt:read (.fired-gen thread))))
-          (progn
-            (atomic-set-generation%! gen (.fired-gen thread))
-            (bt:release (.park-lock thread))
-            (bt:notify (.park-cv thread))
-            (unmask-current-thread!%))
-          (progn
-            (bt:release (.park-lock thread))
-            (unmask-current-thread!%)))))
+    (if (> gen (Generation (bt:read (.fired-gen thread))))
+        (progn
+          (mask-current-thread!%)
+          (bt:acquire (.park-lock thread))
+          (if (> gen (Generation (bt:read (.fired-gen thread))))
+              (progn
+                (atomic-set-generation%! gen (.fired-gen thread))
+                (bt:release (.park-lock thread))
+                (bt:notify (.park-cv thread))
+                (unmask-current-thread!%)
+                True)
+              (progn
+                (bt:release (.park-lock thread))
+                (unmask-current-thread!%)
+                False)))
+        False))
   )
 
 ;;;
