@@ -26,6 +26,7 @@
 
    ;; Library Private
    #:current-thread!%
+   #:is-thread?%
    #:construct-toplevel-current-thread
    #:sleep!%
    #:fork!%
@@ -295,6 +296,12 @@ Concurrent:
   (define (current-thread!%)
     (lisp (-> IoThread) ()
       *current-thread*))
+
+  (inline)
+  (declare is-thread?% (Anything -> Boolean))
+  (define (is-thread?% obj)
+    (lisp (-> Boolean) (obj)
+      (cl:typep obj 'IoThread/IoThread)))
 
   (inline)
   (declare global-thread!% (Void -> IoThread))

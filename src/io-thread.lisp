@@ -35,6 +35,7 @@
 
    #:Runtime
    #:current-thread!
+   #:is-thread?
    #:sleep!
    #:fork!
    #:join!

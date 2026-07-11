@@ -51,6 +51,10 @@
 ;; buffer cells without allocating new buffers, the LPRQ is much more memory efficient
 ;; than a naive unbounded MPMC queue backed by a synchronized linked-list where each
 ;; element is its own node (synchronized by atomics, mvars, or similar).
+;; 
+;; Warning: Because pointers to the current thread are used as metadata in the algorithm,
+;; the queue CANNOT be used to store the :t in (Threads :rt :t :m) directly. They must
+;; be boxed first, then they can be used safely.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;        PRQ Implementation         ;;;
@@ -169,31 +173,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
      slots
      (at:new None))))
 
-(cl:defstruct ownership-token)
-
 (coalton-toplevel
-
-  (define-type-alias SignedWord #+32-bit I32 #+64-bit I64
-    "A signed integer that fits in a CPU word.")
-
-  (inline)
-  (declare signed (Word -> SignedWord))
-  (define (signed x)
-    (lisp (-> SignedWord) (x)
-      x))
-
-  (repr :native ownership-token)
-  (define-type OwnershipToken)
-
-  (declare new-token (Void -> Anything))
-  (define (new-token)
-    (lisp (-> Anything) ()
-      (make-ownership-token)))
-
-  (declare is-token? (Anything -> Boolean))
-  (define (is-token? obj)
-    (lisp (-> Boolean) (obj)
-      (ownership-token-p obj)))
   
   (declare enqueue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a * :a -> Boolean))
   (define (enqueue-prq% rt-prx prq val)
@@ -218,7 +198,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
     (when (and (anything-nil? old-value)  ;; the slot is empty
                (< epoch cycle)            ;; and enqueue is not overtaken
                (or safe? (< h t)))
-      (let ownership-token = (new-token))
+      (let ownership-token = (to-anything (current-thread! rt-prx)))
       (when ;; Lock the cell with the ownership token
             (at:compare-and-swap (.value slot) old-value ownership-token)
         ;; Advance the epoch
@@ -237,7 +217,8 @@ must be a power of 2 so the compiler can optimize the integer div operations."
        
     ;; Check overflow
     (let h = (at:read-at-int (.head prq)))
-    (if (>= (- (signed t) (signed h)) (signed +PRQ-LENGTH+)) ;; is the queue full?
+    (if (and (>= t h)
+             (>= (- t h) +PRQ-LENGTH+)) ;; is the queue full?
         (progn
           (c:write! (.closed prq) True)
           False)
@@ -262,7 +243,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
         (continue))
 
       (let val-nil? = (anything-nil? value))
-      (let val-is-token? = (is-token? value))
+      (let val-is-token? = (is-thread? rt-prx value))
 
       (cond
         ((and (== epoch cycle)

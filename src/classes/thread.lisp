@@ -40,6 +40,7 @@
 
    #:Runtime
    #:current-thread!
+   #:is-thread?
    #:sleep!
    #:fork!
    #:join!
@@ -168,6 +169,9 @@ over the underlying thread type."
     (current-thread!
      "Get a handle for the current thread."
      (Proxy :r -> :t))
+    (is-thread?
+     "Check if a Common Lisp object is a thread."
+     (Proxy :r * Anything -> Boolean))
     (sleep!
      "Sleep the current thread for MSECS milliseconds."
      (Proxy :r * UFix -> Void))
