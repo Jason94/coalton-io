@@ -99,7 +99,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
   (inline)
   (declare new-metadata (Void -> SlotMetadata))
   (define (new-metadata)
-    (SlotMetadata% (at:new-at-int 0)))
+    (SlotMetadata% (at:new-at-int (pack True 0))))
 
   (inline)
   (declare atm% (SlotMetadata -> at:AtomicInteger))
@@ -150,7 +150,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
   (define (new-slot)
     (Slot
      (new-metadata)
-     (at:new (to-anything None))))
+     (at:new cl-nil)))
 
   (define-struct (PRQ :a)
     (head at:AtomicInteger)
@@ -229,8 +229,8 @@ must be a power of 2 so the compiler can optimize the integer div operations."
     (lisp (-> Boolean) (val)
       (bt2:threadp val)))
   
-  (declare try-dequeue-prq% (PRQ :a -> Optional :a))
-  (define (try-dequeue-prq% prq)
+  (declare try-dequeue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a -> Optional :a))
+  (define (try-dequeue-prq% rt-prx prq)
     (let h = (at:atomic-inc1-old (.head prq)))
     (let (values cycle i) = (i:divmod h +PRQ-LENGTH+))
 
@@ -280,7 +280,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
     (let t = (at:read-at-int (.tail prq)))
     (if (<= t (1+ h))
         None
-        (try-dequeue-prq% prq))
+        (try-dequeue-prq% rt-prx prq))
     )
   )
 
@@ -331,7 +331,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
   (declare try-dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> Optional :a))
   (define (try-dequeue% rt-prx lprq)
     (let prq = (at:read (.head lprq)))
-    (let res = (try-dequeue-prq% prq))
+    (let res = (try-dequeue-prq% rt-prx prq))
 
     (match res
       ((Some _)
@@ -343,7 +343,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
           None)
          ;; prq is closed but may store elements
          ((Some next)
-          (let res = (try-dequeue-prq% prq))
+          (let res = (try-dequeue-prq% rt-prx prq))
           (match res
             ((Some _)
              res)
