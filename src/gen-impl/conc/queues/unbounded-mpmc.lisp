@@ -51,10 +51,6 @@
 ;; buffer cells without allocating new buffers, the LPRQ is much more memory efficient
 ;; than a naive unbounded MPMC queue backed by a synchronized linked-list where each
 ;; element is its own node (synchronized by atomics, mvars, or similar).
-;;
-;; Warning: Because pointers to the current thread are used as metadata in the algorithm,
-;; the queue CANNOT be used to store the :t in (Threads :rt :t :m) directly. They must
-;; be boxed first, then they can be used safely.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;        PRQ Implementation         ;;;
@@ -173,7 +169,32 @@ must be a power of 2 so the compiler can optimize the integer div operations."
      slots
      (at:new None))))
 
+(cl:defstruct ownership-token)
+
 (coalton-toplevel
+
+  (define-type-alias SignedWord #+32-bit I32 #+64-bit I64
+    "A signed integer that fits in a CPU word.")
+
+  (inline)
+  (declare signed (Word -> SignedWord))
+  (define (signed x)
+    (lisp (-> SignedWord) (x)
+      x))
+
+  (repr :native ownership-token)
+  (define-type OwnershipToken)
+
+  (declare new-token (Void -> Anything))
+  (define (new-token)
+    (lisp (-> Anything) ()
+      (make-ownership-token)))
+
+  (declare is-token? (Anything -> Boolean))
+  (define (is-token? obj)
+    (lisp (-> Boolean) (obj)
+      (ownership-token-p obj)))
+  
   (declare enqueue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a * :a -> Boolean))
   (define (enqueue-prq% rt-prx prq val)
     ;; CONCURRENT: Only needs to mask while the thread has ownership over the slot.
@@ -193,29 +214,30 @@ must be a power of 2 so the compiler can optimize the integer div operations."
     (let old-value = (at:read (.value slot)))
     (let h = (at:read-at-int (.head prq)))
 
+    (mask-current! rt-prx)
     (when (and (anything-nil? old-value)  ;; the slot is empty
                (< epoch cycle)            ;; and enqueue is not overtaken
                (or safe? (< h t)))
-      (let thread-token = (to-anything (current-thread! rt-prx)))
-      (mask-current! rt-prx)
-      (when ;; Lock the cell with the current thread token
-            (at:compare-and-swap (.value slot) old-value thread-token)
+      (let ownership-token = (new-token))
+      (when ;; Lock the cell with the ownership token
+            (at:compare-and-swap (.value slot) old-value ownership-token)
         ;; Advance the epoch
         (if (not (at:int-cas (atm% (.metadata slot))
                              old-metadata 
                              (pack True cycle)))
             ;; Another thread enqueued, so clean up and try again
             (progn
-              (at:compare-and-swap (.value slot) thread-token cl-nil)
+              (at:compare-and-swap (.value slot) ownership-token cl-nil)
               (values))
             ;; Publish item
-            (when (at:compare-and-swap (.value slot) thread-token (to-anything val))
+            (when (at:compare-and-swap (.value slot) ownership-token (to-anything val))
               (unmask-current! rt-prx) ;; (A) about to return, unmask
               (return True)))))
     (unmask-current! rt-prx) ;; (B) thread has been beaten to the slot, unmask
        
     ;; Check overflow
-    (if (>= (- t h) +PRQ-LENGTH+) ;; is the queue full?
+    (let h = (at:read-at-int (.head prq)))
+    (if (>= (- (signed t) (signed h)) (signed +PRQ-LENGTH+)) ;; is the queue full?
         (progn
           (c:write! (.closed prq) True)
           False)
@@ -223,13 +245,6 @@ must be a power of 2 so the compiler can optimize the integer div operations."
   )
 
 (coalton-toplevel
-  (inline)
-  (declare thread-token? (Anything -> Boolean))
-  (define (thread-token? val)
-    "Check in a slot value is a thread token."
-    (lisp (-> Boolean) (val)
-      (bt2:threadp val)))
-  
   (declare try-dequeue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a -> Optional :a))
   (define (try-dequeue-prq% rt-prx prq)
     (let h = (at:atomic-inc1-old (.head prq)))
@@ -247,21 +262,21 @@ must be a power of 2 so the compiler can optimize the integer div operations."
         (continue))
 
       (let val-nil? = (anything-nil? value))
-      (let val-thread-token? = (thread-token? value))
+      (let val-is-token? = (is-token? value))
 
       (cond
         ((and (== epoch cycle)
               (not val-nil?)
-              (not val-thread-token?))
+              (not val-is-token?))
          ;; slot has not been overwritten and value is legitimate - dequeue transition
          (at:atomic-write (.value slot) cl-nil) 
          (return (Some (from-anything value))))
         ((and (<= epoch cycle)
               (or val-nil?
-                  val-thread-token?))
+                  val-is-token?))
          ;; empty transition
          ;; unlock the cell
-         (when (and val-thread-token?
+         (when (and val-is-token?
                     (at:compare-and-swap (.value slot) value cl-nil))
            (continue))
          ;; advance the epoch
@@ -269,7 +284,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
            (break)))
         ((and (< epoch cycle)
               (not val-nil?)
-              (not val-thread-token?))
+              (not val-is-token?))
          ;; unsafe transition
          (when (at:int-cas (atm% (.metadata slot)) metadata (pack False epoch))
            (break)))
