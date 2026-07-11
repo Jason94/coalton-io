@@ -19,6 +19,10 @@
 (fiasco:define-test-package #:coalton-io/tests/conc/unbounded-mpmc-queue-fiasco)
 (coalton-fiasco-init #:coalton-io/tests/conc/unbounded-mpmc-queue-fiasco)
 
+;;;
+;;; Test main queue functions
+;;; 
+
 (define-test test-try-dequeue-empty ()
   (let result =
     (the (Optional Unit)
@@ -36,7 +40,7 @@
       (enqueue 10 buffer)
       (try-dequeue buffer))))
   (is (== (Some 10) result)))
-  
+
 (define-test test-enqueue-try-dequeue-many ()
   (let result =
     (run-io!
@@ -88,3 +92,22 @@
       (s-await finished-gate) 
       (read result))))
   (is (== (Some 10) result)))
+
+;;;
+;;; Edge case tests
+;;; 
+
+(define-test test-stores-nil-values ()
+  (let result =
+    (run-io!
+     (do
+      (buffer <- new-unbounded-mpmc-queue)
+      (enqueue True buffer)
+      (enqueue False buffer)
+      (enqueue True buffer)
+      (a <- (dequeue buffer))
+      (b <- (dequeue buffer))
+      (c <- (dequeue buffer))
+      (pure [a b c]))))
+  (is (== (make-list True False True)
+          result)))

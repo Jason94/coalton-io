@@ -143,7 +143,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
 
   (define-struct (Slot :a)
     (metadata SlotMetadata)
-    ;; Can be cl:nil, the current thread token, or a value of type :a
+    ;; Can be the empty token, the current thread token, or a value of type :a
     (value (at:Atomic Anything)))
 
   (inline)
@@ -151,7 +151,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
   (define (new-slot)
     (Slot
      (new-metadata)
-     (at:new cl-nil)))
+     (at:new empty-token)))
 
   (define-struct (PRQ :a)
     (head at:AtomicInteger)
@@ -173,7 +173,17 @@ must be a power of 2 so the compiler can optimize the integer div operations."
      slots
      (at:new None))))
 
+(cl:defstruct empty-sentinel)
+
 (coalton-toplevel
+
+  (define empty-token
+    (lisp (-> Anything) ()
+      (make-empty-sentinel)))
+
+  (declare is-empty? (Anything -> Boolean))
+  (define (is-empty? obj)
+    (unsafe-pointer-eq? obj empty-token))
   
   (declare enqueue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a * :a -> Boolean))
   (define (enqueue-prq% rt-prx prq val)
@@ -195,7 +205,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
     (let h = (at:read-at-int (.head prq)))
 
     (mask-current! rt-prx)
-    (when (and (anything-nil? old-value)  ;; the slot is empty
+    (when (and (is-empty? old-value)  ;; the slot is empty
                (< epoch cycle)            ;; and enqueue is not overtaken
                (or safe? (< h t)))
       (let ownership-token = (to-anything (current-thread! rt-prx)))
@@ -207,7 +217,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
                              (pack True cycle)))
             ;; Another thread enqueued, so clean up and try again
             (progn
-              (at:compare-and-swap (.value slot) ownership-token cl-nil)
+              (at:compare-and-swap (.value slot) ownership-token empty-token)
               (values))
             ;; Publish item
             (when (at:compare-and-swap (.value slot) ownership-token (to-anything val))
@@ -242,29 +252,29 @@ must be a power of 2 so the compiler can optimize the integer div operations."
         ;; Inconsistent view of the slot
         (continue))
 
-      (let val-nil? = (anything-nil? value))
+      (let val-empty? = (is-empty? value))
       (let val-is-token? = (is-thread? rt-prx value))
 
       (cond
         ((and (== epoch cycle)
-              (not val-nil?)
+              (not val-empty?)
               (not val-is-token?))
          ;; slot has not been overwritten and value is legitimate - dequeue transition
-         (at:atomic-write (.value slot) cl-nil) 
+         (at:atomic-write (.value slot) empty-token) 
          (return (Some (from-anything value))))
         ((and (<= epoch cycle)
-              (or val-nil?
+              (or val-empty?
                   val-is-token?))
          ;; empty transition
          ;; unlock the cell
          (when (and val-is-token?
-                    (at:compare-and-swap (.value slot) value cl-nil))
+                    (at:compare-and-swap (.value slot) value empty-token))
            (continue))
          ;; advance the epoch
          (when (at:int-cas (atm% (.metadata slot)) metadata (pack safe? cycle))
            (break)))
         ((and (< epoch cycle)
-              (not val-nil?)
+              (not val-empty?)
               (not val-is-token?))
          ;; unsafe transition
          (when (at:int-cas (atm% (.metadata slot)) metadata (pack False epoch))
