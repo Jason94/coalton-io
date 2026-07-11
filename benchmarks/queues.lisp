@@ -223,7 +223,7 @@
 (defparameter *count* 60)
 
 (c:coalton-toplevel
-  (c:define *tasks* (c:the c:UFix 24000)))
+  (c:define *tasks* (c:the c:UFix 72)));000)))
 
 (define-benchmark control-vector-single-thread ()
   (declare (optimize speed))
@@ -698,6 +698,105 @@
              6
              io/conc/queues/unbounded-mpmc:new-unbounded-mpmc-queue))))
 
+(define-benchmark bounded-enqueue-try-dequeue-x-tasks-1-enqueue-thread-1-dequeue-thread ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-x-threads
+             *tasks*
+             1
+             1
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-enqueue-try-dequeue-x-tasks-1-enqueue-thread-3-dequeue-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-x-threads
+             *tasks*
+             1
+             3
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-enqueue-try-dequeue-x-tasks-1-enqueue-thread-6-dequeue-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-x-threads
+             *tasks*
+             1
+             6
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-enqueue-try-dequeue-x-tasks-3-enqueue-threads-1-dequeue-thread ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-x-threads
+             *tasks*
+             3
+             1
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-enqueue-try-dequeue-x-tasks-3-enqueue-threads-3-dequeue-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-x-threads
+             *tasks*
+             3
+             3
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-enqueue-try-dequeue-x-tasks-3-enqueue-threads-6-dequeue-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-x-threads
+             *tasks*
+             3
+             6
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-enqueue-try-dequeue-x-tasks-6-enqueue-threads-1-dequeue-thread ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-x-threads
+             *tasks*
+             6
+             1
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-enqueue-try-dequeue-x-tasks-6-enqueue-threads-3-dequeue-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-x-threads
+             *tasks*
+             6
+             3
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-enqueue-try-dequeue-x-tasks-6-enqueue-threads-6-dequeue-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-x-threads
+             *tasks*
+             6
+             6
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
 (define-benchmark unbounded-enqueue-try-dequeue-x-tasks-1-enqueue-thread-1-dequeue-thread ()
   (declare (optimize speed))
   (loop :repeat *count*
@@ -796,6 +895,46 @@
              6
              6
              io/conc/queues/unbounded-mpmc:new-unbounded-mpmc-queue))))
+
+(define-benchmark bounded-enqueue-try-dequeue-pairs-x-tasks-1-thread ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-pairs-x-threads
+             *tasks*
+             1
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-enqueue-try-dequeue-pairs-x-tasks-2-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-pairs-x-threads
+             *tasks*
+             2
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-enqueue-try-dequeue-pairs-x-tasks-4-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-pairs-x-threads
+             *tasks*
+             4
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
+(define-benchmark bounded-enqueue-try-dequeue-pairs-x-tasks-6-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-pairs-x-threads
+             *tasks*
+             6
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
 
 (define-benchmark unbounded-enqueue-try-dequeue-pairs-x-tasks-1-thread ()
   (declare (optimize speed))
