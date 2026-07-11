@@ -2,6 +2,7 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
    #:coalton/optional
    #:coalton-library/types
+   #:io/monad-io
    #:io/simple-io
    #:io/simple-io/loops
    #:io/thread
@@ -39,10 +40,10 @@
     (run-io!
      (do
       (buffer <- new-unbounded-mpmc-queue)
-      (do-repeat-io 2;048
+      (do-repeat-io 2048
         (enqueue 0 buffer))
       (enqueue 10 buffer)
-      (do-repeat-io 2;048
+      (do-repeat-io 2048
         (try-dequeue buffer))
       (try-dequeue buffer))))
   (is (== (Some 10) result)))

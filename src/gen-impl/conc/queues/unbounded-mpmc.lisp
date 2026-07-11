@@ -71,7 +71,7 @@
 must be a power of 2 so the compiler can optimize the integer div operations."
     (the Word 1024))
   (define +PRQ-LENGTH-UFIX+
-    (the UFix 1024)))
+    (the UFix (w->uf +PRQ-LENGTH+))))
 
 (coalton-toplevel
 
@@ -313,8 +313,8 @@ must be a power of 2 so the compiler can optimize the integer div operations."
 
     ;; slow-path: Tail is full, add new PRQ
     (let new-tail = (new-prq))
-    (enqueue-prq% rt-prx prq elt)
-    (if (at:compare-and-swap (.next prq) None (Some prq))
+    (enqueue-prq% rt-prx new-tail elt)
+    (if (at:compare-and-swap (.next prq) None (Some new-tail))
         (progn
           (at:compare-and-swap (.tail lprq) prq new-tail)
           (values))
