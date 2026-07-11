@@ -156,7 +156,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
   (define-struct (PRQ :a)
     (head at:AtomicInteger)
     (tail at:AtomicInteger)
-    (closed (c:Cell Boolean))
+    (closed (at:Atomic Boolean))
     (slots (la:LispArray (Slot :a)))
     (next (at:Atomic (Optional (PRQ :a)))))
 
@@ -169,7 +169,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
     (PRQ
      (at:new-at-int +PRQ-LENGTH+)
      (at:new-at-int +PRQ-LENGTH+)
-     (c:new False)
+     (at:new False)
      slots
      (at:new None))))
 
@@ -194,7 +194,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
     ;; the slot.
     (let t = (at:atomic-inc1-old (.tail prq)))
 
-    (when (c:read (.closed prq))
+    (when (at:read (.closed prq))
       (return False))
 
     (let (values cycle i) = (i:divmod t +PRQ-LENGTH+))
@@ -205,9 +205,10 @@ must be a power of 2 so the compiler can optimize the integer div operations."
     (let h = (at:read-at-int (.head prq)))
 
     (mask-current! rt-prx)
-    (when (and (is-empty? old-value)  ;; the slot is empty
-               (< epoch cycle)            ;; and enqueue is not overtaken
-               (or safe? (< h t)))
+    (when (and (or (is-empty? old-value)          ;; the slot is empty
+                   (is-thread? rt-prx old-value))
+               (< epoch cycle)                    ;; and enqueue is not overtaken
+               (or safe? (<= h t)))
       (let ownership-token = (to-anything (current-thread! rt-prx)))
       (when ;; Lock the cell with the ownership token
             (at:compare-and-swap (.value slot) old-value ownership-token)
@@ -230,7 +231,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
     (if (and (>= t h)
              (>= (- t h) +PRQ-LENGTH+)) ;; is the queue full?
         (progn
-          (c:write! (.closed prq) True)
+          (at:atomic-write (.closed prq) True)
           False)
         (enqueue-prq% rt-prx prq val)))
   )
