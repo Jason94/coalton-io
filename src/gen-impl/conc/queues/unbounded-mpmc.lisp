@@ -167,21 +167,19 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 ;;; Empty Sentinel
 ;;; 
 
-(cl:defstruct empty-sentinel)
+(cl:defconstant +empty-token+
+  '%empty-token%)
 
 (coalton-toplevel
   (inline)
   (define empty-token
     (lisp (-> Anything) ()
-      (make-empty-sentinel)))
+      +empty-token+))
 
   (inline)
   (declare is-empty? (Anything -> Boolean))
   (define (is-empty? obj)
     (unsafe-pointer-eq? obj empty-token)))
-
-(cl:defvar +empty-token+
-  (coalton empty-token))
   
 ;;;
 ;;; Slots
@@ -305,6 +303,28 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
     "Atomically close a PRQ."
     (lisp (-> Boolean) (prq)
       (at:cas (prq%-closed prq) cl:nil cl:t))))
+
+(coalton-toplevel
+  (inline)
+  (declare prq-next (PRQ :a -> Optional (PRQ :a)))
+  (define (prq-next prq)
+    (from-anything-opt
+     (lisp (-> Anything) (prq)
+       (prq%-next prq)))))
+
+(coalton-toplevel
+  (inline)
+  (declare prq-cas-next (PRQ :a * Optional (PRQ :a) * Optional (PRQ :a) -> Boolean))
+  (define (prq-cas-next prq old new)
+    (lisp (-> Boolean) (prq old new)
+      (at:cas (prq%-next prq) old new))))
+
+(coalton-toplevel
+  (inline)
+  (declare prq-cas-next-empty (PRQ :a * PRQ :a -> Boolean))
+  (define (prq-cas-next-empty prq new)
+    (lisp (-> Boolean) (prq new)
+      (at:cas (prq%-next prq) cl:nil new))))
 
 (coalton-toplevel
   (inline)
@@ -464,171 +484,210 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
         (try-dequeue-prq% rt-prx prq)))
   )
 
-;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ;;;        LPRQ Implementation        ;;;
-;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;        LPRQ Implementation        ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; (coalton-toplevel
+(cl:defstruct (lprq% (:constructor make-lprq% (head tail parkers)))
+  (head    (cl:error "must provide head"))
+  (tail    (cl:error "must provide tail"))
+  (parkers (cl:error "must provide parkers")))
 
-;;   (define-struct (LPRQ :a)
-;;     (head (at:Atomic (PRQ :a)))
-;;     (tail (at:Atomic (PRQ :a)))
-;;     (parkers ParkingSet))
+(coalton-toplevel
+  (repr :native lprq%)
+  (define-type (LPRQ :a))
 
-;;   (inline)
-;;   (declare new-lprq (Void -> LPRQ :a))
-;;   (define (new-lprq)
-;;     (let initial-prq = (new-prq))
-;;     (LPRQ
-;;      (at:new initial-prq)
-;;      (at:new initial-prq)
-;;      (new-parking-set%)))
+  (inline)
+  (declare new-lprq (Void -> LPRQ :a))
+  (define (new-lprq)
+    (let initial-prq = (new-prq))
+    (let parkers = (new-parking-set%))
+    (lisp (-> LPRQ :a) (initial-prq parkers)
+      (make-lprq% initial-prq initial-prq parkers))))
 
-;;   (inline)
-;;   (declare notify-parker (Runtime :rt :t => Proxy :rt * LPRQ :a -> Void))
-;;   (define (notify-parker rt-prx lprq)
-;;     "Notify parkers if necessary."
-;;     (when (not (parking-set-empty?% (.parkers lprq)))
-;;       (unpark-one% (.parkers lprq) rt-prx))) 
+(coalton-toplevel
+  (inline)
+  (declare lprq-head (LPRQ :a -> PRQ :a))
+  (define (lprq-head lprq)
+    (lisp (-> PRQ :a) (lprq)
+      (lprq%-head lprq))))
 
-;;   (inline)
-;;   (declare enqueue% (Runtime :rt :t => Proxy :rt * LPRQ :a * :a -> Void))
-;;   (define (enqueue% rt-prx lprq elt)
-;;     ;; CONCURRENT:
-;;     ;; For simplicity, conservatively masks the entire run of the function.
-;;     (mask-current! rt-prx)
-;;     (rec % ()
-;;       (let prq = (at:read (.tail lprq)))
+(coalton-toplevel
+  (inline)
+  (declare lprq-cas-head (LPRQ :a * PRQ :a * PRQ :a -> Boolean))
+  (define (lprq-cas-head lprq old new)
+    (lisp (-> Boolean) (lprq old new)
+      (at:cas (lprq%-head lprq) old new))))
 
-;;       ;; fast-path: add to the current PRQ
-;;       (when (enqueue-prq% rt-prx prq elt)
-;;         (notify-parker rt-prx lprq)
-;;         (unmask-current! rt-prx)
-;;         (return))
+(coalton-toplevel
+  (inline)
+  (declare lprq-tail (LPRQ :a -> PRQ :a))
+  (define (lprq-tail lprq)
+    (lisp (-> PRQ :a) (lprq)
+      (lprq%-tail lprq))))
 
-;;       ;; slow-path: Tail is full, add new PRQ
-;;       (let new-tail = (new-prq))
-;;       (enqueue-prq% rt-prx new-tail elt)
-;;       (if (at:compare-and-swap (.next prq) None (Some new-tail))
-;;           (progn
-;;             (at:compare-and-swap (.tail lprq) prq new-tail)
-;;             (notify-parker rt-prx lprq)
-;;             (unmask-current! rt-prx)
-;;             (values))
-;;           (progn
-;;             (let next = (at:read (.next prq)))
-;;             (match next
-;;               ((Some next)
-;;                (at:compare-and-swap (.tail lprq) prq next))
-;;               (_
-;;                False))
-;;             (%)))))
+(coalton-toplevel
+  (inline)
+  (declare lprq-cas-tail (LPRQ :a * PRQ :a * PRQ :a -> Boolean))
+  (define (lprq-cas-tail lprq old new)
+    (lisp (-> Boolean) (lprq old new)
+      (at:cas (lprq%-tail lprq) old new))))
 
-;;   (inline)
-;;   (declare try-dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> Optional :a))
-;;   (define (try-dequeue% rt-prx lprq)
-;;     ;; CONCURRENT:
-;;     ;; For simplicity, conservatively masks the entire run of the function.
-;;     (mask-current! rt-prx)
+(coalton-toplevel
+  (inline)
+  (declare lprq-parkers (LPRQ :a -> ParkingSet))
+  (define (lprq-parkers lprq)
+    (lisp (-> ParkingSet) (lprq)
+      (lprq%-parkers lprq))))
 
-;;     (let result =
-;;       (rec % ()
-;;         (let prq = (at:read (.head lprq)))
-;;         (let res = (try-dequeue-prq% rt-prx prq))
+(coalton-toplevel
+  (inline)
+  (declare notify-parker (Runtime :rt :t => Proxy :rt * LPRQ :a -> Void))
+  (define (notify-parker rt-prx lprq)
+    "Notify parkers if necessary."
+    (let parkers = (lprq-parkers lprq))
+    (when (not (parking-set-empty?% parkers))
+      (unpark-one% parkers rt-prx))))
 
-;;         (match res
-;;           ((Some _)
-;;            res)
-;;           ((None)
-;;            ;; failed, is this queue empty?
-;;            (match (at:read (.next prq))
-;;              ((None)
-;;               None)
-;;              ;; prq is closed but may store elements
-;;              ((Some next)
-;;               (let res = (try-dequeue-prq% rt-prx prq))
-;;               (match res
-;;                 ((Some _)
-;;                  res)
-;;                 ((None)
-;;                  ;; prq is empty. Update head and restart.
-;;                  (at:compare-and-swap (.head lprq) prq next)
-;;                  (%)))))))))
+(coalton-toplevel
+  (declare enqueue% (Runtime :rt :t => Proxy :rt * LPRQ :a * :a -> Void))
+  (define (enqueue% rt-prx lprq elt)
+    ;; CONCURRENT:
+    ;; For simplicity, conservatively masks the entire run of the function.
+    (mask-current! rt-prx)
+    (rec % ()
+      (let prq = (lprq-tail lprq))
 
-;;     (unmask-current! rt-prx)
+      ;; fast-path: add to the current PRQ
+      (when (enqueue-prq% rt-prx prq elt)
+        (notify-parker rt-prx lprq)
+        (unmask-current! rt-prx)
+        (return))
 
-;;     result)
+      ;; slow-path: Tail is full, add new PRQ
+      (let new-tail = (new-prq))
+      (enqueue-prq% rt-prx new-tail elt)
+      (if (prq-cas-next-empty prq new-tail)
+          (progn
+            (lprq-cas-tail lprq prq new-tail)
+            (notify-parker rt-prx lprq)
+            (unmask-current! rt-prx)
+            (values))
+          (progn
+            (let next = (prq-next prq))
+            (match next
+              ((Some next)
+               (lprq-cas-tail lprq prq next))
+              (_
+               False))
+            (%))))))
 
-;;   (declare dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> :a))
-;;   (define (dequeue% rt-prx lprq)
-;;     ;; CONCURRENT:
-;;     ;; Doesn't need to mask because try-dequeue% properly masks around LPRQ operations.
-;;     (match (try-dequeue% rt-prx lprq)
-;;       ((Some val)
-;;        (return val))
-;;       ((None)
-;;        Unit))
+(coalton-toplevel
+  (declare try-dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> Optional :a))
+  (define (try-dequeue% rt-prx lprq)
+    ;; CONCURRENT:
+    ;; For simplicity, conservatively masks the entire run of the function.
+    (mask-current! rt-prx)
 
-;;     (let result = (c:new None))
+    (let result =
+      (rec % ()
+        (let prq = (lprq-head lprq))
+        (let res = (try-dequeue-prq% rt-prx prq))
 
-;;     (park-in-set-if%
-;;      rt-prx
-;;      (fn ()
-;;        (match (try-dequeue% rt-prx lprq)
-;;          ((Some val)
-;;           (c:write! result (Some val))
-;;           False)
-;;          ((None)
-;;           True)))
-;;      (.parkers lprq))
+        (match res
+          ((Some _)
+           res)
+          ((None)
+           ;; failed, is this queue empty?
+           (match (prq-next prq)
+             ((None)
+              None)
+             ;; prq is closed but may store elements
+             ((Some next)
+              (let res = (try-dequeue-prq% rt-prx prq))
+              (match res
+                ((Some _)
+                 res)
+                ((None)
+                 ;; prq is empty. Update head and restart.
+                 (lprq-cas-head lprq prq next)
+                 (%)))))))))
 
-;;     (match (c:read result)
-;;       ((Some val)
-;;        val)
-;;       ((None)
-;;        (dequeue% rt-prx lprq))))
-;;   )
+    (unmask-current! rt-prx)
+
+    result))
+
+(coalton-toplevel
+  (declare dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> :a))
+  (define (dequeue% rt-prx lprq)
+    ;; CONCURRENT:
+    ;; Doesn't need to mask because try-dequeue% properly masks around LPRQ operations.
+    (match (try-dequeue% rt-prx lprq)
+      ((Some val)
+       (return val))
+      ((None)
+       Unit))
+
+    (let result = (c:new None))
+
+    (park-in-set-if%
+     rt-prx
+     (fn ()
+       (match (try-dequeue% rt-prx lprq)
+         ((Some val)
+          (c:write! result (Some val))
+          False)
+         ((None)
+          True)))
+     (lprq-parkers lprq))
+
+    (match (c:read result)
+      ((Some val)
+       val)
+      ((None)
+       (dequeue% rt-prx lprq))))
+  )
 
 
-;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ;;;            Public API             ;;;
-;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;            Public API             ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; (coalton-toplevel
-;;   (repr :transparent)
-;;   (define-type (UnboundedMpmcQueue :a)
-;;     "A synchronized FIFO queue to pass data between threads."
-;;     (UnboundedMpmcQueue% (LPRQ :a)))
+(coalton-toplevel
+  (repr :transparent)
+  (define-type (UnboundedMpmcQueue :a)
+    "A synchronized FIFO queue to pass data between threads."
+    (UnboundedMpmcQueue% (LPRQ :a)))
 
-;;   (inline)
-;;   (declare lprq% (UnboundedMpmcQueue :a -> LPRQ :a))
-;;   (define (lprq% (UnboundedMpmcQueue% lprq))
-;;     lprq)
+  (inline)
+  (declare lprq% (UnboundedMpmcQueue :a -> LPRQ :a))
+  (define (lprq% (UnboundedMpmcQueue% lprq))
+    lprq)
 
-;;   (inline)
-;;   (declare new-unbounded-mpmc-queue (Threads :rt :t :m => :m (UnboundedMpmcQueue :a)))
-;;   (define new-unbounded-mpmc-queue
-;;     (wrap-io
-;;      (UnboundedMpmcQueue%
-;;       (new-lprq))))
+  (inline)
+  (declare new-unbounded-mpmc-queue (Threads :rt :t :m => :m (UnboundedMpmcQueue :a)))
+  (define new-unbounded-mpmc-queue
+    (wrap-io
+     (UnboundedMpmcQueue%
+      (new-lprq))))
 
-;;   (define-instance (Queue UnboundedMpmcQueue)
-;;     (inline)
-;;     (define (enqueue elt queue &key (timeout NoTimeout))
-;;       (wrap-io-with-runtime (rt-prx)
-;;         (enqueue% rt-prx (lprq% queue) elt)
-;;         Unit))
-;;     (inline)
-;;     (define (try-enqueue elt queue)
-;;       (wrap-io-with-runtime (rt-prx)
-;;         (enqueue% rt-prx (lprq% queue) elt)
-;;         True))
-;;     (inline)
-;;     (define (dequeue queue &key (timeout NoTimeout))
-;;       (wrap-io-with-runtime (rt-prx)
-;;         (dequeue% rt-prx (lprq% queue))))
-;;     (inline)
-;;     (define (try-dequeue queue)
-;;       (wrap-io-with-runtime (rt-prx)
-;;         (try-dequeue% rt-prx (lprq% queue)))))
-;;   )
+  (define-instance (Queue UnboundedMpmcQueue)
+    (inline)
+    (define (enqueue elt queue &key (timeout NoTimeout))
+      (wrap-io-with-runtime (rt-prx)
+        (enqueue% rt-prx (lprq% queue) elt)
+        Unit))
+    (inline)
+    (define (try-enqueue elt queue)
+      (wrap-io-with-runtime (rt-prx)
+        (enqueue% rt-prx (lprq% queue) elt)
+        True))
+    (inline)
+    (define (dequeue queue &key (timeout NoTimeout))
+      (wrap-io-with-runtime (rt-prx)
+        (dequeue% rt-prx (lprq% queue))))
+    (inline)
+    (define (try-dequeue queue)
+      (wrap-io-with-runtime (rt-prx)
+        (try-dequeue% rt-prx (lprq% queue)))))
+  )
