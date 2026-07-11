@@ -135,11 +135,23 @@ must be a power of 2 so the compiler can optimize the integer div operations."
   (define (pack safe? epoch)
     "Pack `safe?` and `epoch` into metadata bits."
     (b:or (b:shift 1 epoch)
-          (if safe? 1 0)))
+          (if safe? 1 0))))
+
+(cl:defstruct empty-sentinel)
+
+(coalton-toplevel
 
   ;;;
   ;;; PRQ Structure
   ;;; 
+
+  (define empty-token
+    (lisp (-> Anything) ()
+      (make-empty-sentinel)))
+
+  (declare is-empty? (Anything -> Boolean))
+  (define (is-empty? obj)
+    (unsafe-pointer-eq? obj empty-token))
 
   (define-struct (Slot :a)
     (metadata SlotMetadata)
@@ -173,17 +185,8 @@ must be a power of 2 so the compiler can optimize the integer div operations."
      slots
      (at:new None))))
 
-(cl:defstruct empty-sentinel)
 
 (coalton-toplevel
-
-  (define empty-token
-    (lisp (-> Anything) ()
-      (make-empty-sentinel)))
-
-  (declare is-empty? (Anything -> Boolean))
-  (define (is-empty? obj)
-    (unsafe-pointer-eq? obj empty-token))
   
   (declare enqueue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a * :a -> Boolean))
   (define (enqueue-prq% rt-prx prq val)
@@ -225,7 +228,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
               (unmask-current! rt-prx) ;; (A) about to return, unmask
               (return True)))))
     (unmask-current! rt-prx) ;; (B) thread has been beaten to the slot, unmask
-       
+
     ;; Check overflow
     (let h = (at:read-at-int (.head prq)))
     (if (and (>= t h)
