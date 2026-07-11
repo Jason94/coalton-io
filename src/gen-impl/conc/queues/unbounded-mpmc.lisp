@@ -268,7 +268,7 @@ must be a power of 2 so the compiler can optimize the integer div operations."
          ;; empty transition
          ;; unlock the cell
          (when (and val-is-token?
-                    (at:compare-and-swap (.value slot) value empty-token))
+                    (not (at:compare-and-swap (.value slot) value empty-token)))
            (continue))
          ;; advance the epoch
          (when (at:int-cas (atm% (.metadata slot)) metadata (pack safe? cycle))
