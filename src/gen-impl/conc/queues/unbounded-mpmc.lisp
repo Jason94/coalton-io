@@ -150,19 +150,6 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
   (coalton 
    (pack True 0)))
 
-;;   (inline)
-;;   (declare increment-epoch! (SlotMetadata -> Word))
-;;   (define (increment-epoch! metadata)
-;;     "Increment the epoch in `metadata` and return the new epoch value."
-;;     (let new-metadata = (at:atomic-inc (atm% metadata) 2))
-;;     (b:shift -1 new-metadata))
-
-;;   (inline)
-;;   (declare read-metadata (SlotMetadata -> Word))
-;;   (define (read-metadata metadata)
-;;     "Atomically read the bits for `metadata`."
-;;     (at:read-at-int (atm% metadata)))
-
 ;;;
 ;;; Empty Sentinel
 ;;; 
@@ -378,6 +365,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
   )
 
 (coalton-toplevel
+  (inline)
   (declare enqueue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a * :a &key (:attempts UFix) -> Boolean))
   (define (enqueue-prq% rt-prx prq val &key (attempts 1))
     ;; CONCURRENT: Masking handled by top-level call on LPRQ
@@ -424,6 +412,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
   )
 
 (coalton-toplevel
+  (inline)
   (declare try-dequeue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a -> Optional :a))
   (define (try-dequeue-prq% rt-prx prq)
     ;; CONCURRENT: Masking handled by top-level call on LPRQ
