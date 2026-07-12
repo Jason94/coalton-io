@@ -220,10 +220,10 @@
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
-(defparameter *count* 60)
+(defparameter *count* 75)
 
 (c:coalton-toplevel
-  (c:define *tasks* (c:the c:UFix 24000)))
+  (c:define *tasks* (c:the c:UFix 48000)))
 
 (define-benchmark control-vector-single-thread ()
   (declare (optimize speed))
