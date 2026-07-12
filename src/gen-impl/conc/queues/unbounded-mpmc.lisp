@@ -33,8 +33,13 @@
 
 (named-readtables:in-readtable coalton:coalton)
 
+(cl:deftype ufixnum ()
+  `(cl:integer 0 ,cl:most-positive-fixnum))
+
 ;; This is an implementation of the LPRQ Queue algorithm, described:
 ;; https://nikitakoval.org/publications/ppopp23-lprq.pdf
+;; Research implementation:
+;; https://zenodo.org/records/7337237
 
 ;; An LPRQ is a Linked list of Portable Ring Queues. Each PRQ is a fully-functional,
 ;; bounded MPMC circular buffer in its own right. At start, an LPRQ is a linked list 
@@ -67,25 +72,6 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
 (cl:defconstant +prq-index-mask+ (cl:1- +prq-length+))
 
-(coalton-toplevel
-  (inline)
-  (declare prq-len (Void -> UFix))
-  (define (prq-len)
-    (lisp (-> UFix) ()
-      +prq-length+))
-
-  (inline)
-  (declare prq-len-word (Void -> Word))
-  (define (prq-len-word)
-    (lisp (-> Word) ()
-      +prq-length+))
-
-  (inline)
-  (declare prq-index-mask (Void -> UFix))
-  (define (prq-index-mask)
-    (lisp (-> UFix) ()
-      +prq-index-mask+)))
-
 ;;; --------------------------------- Slot Metadata --------------------------------- ;;;
 ;;; 
 ;;; The slot metadata contains two fields
@@ -103,52 +89,40 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 ;;; 
 ;;; --------------------------------------------------------------------------------- ;;;
 
-(coalton-toplevel
-  (repr :transparent)
-  (define-type SlotMetadata
-    (SlotMetadata% Word))
+(cl:deftype slot-metadata () 'cl-word)
 
-  (define-instance (Eq SlotMetadata)
-    (inline)
-    (define (== a b)
-      (lisp (-> Boolean) (a b)
-        (cl:eq a b)))))
+(cl:defconstant +cl-word-mask+
+  #+64-bit #xffffffffffffffff
+  #+32-bit #xffffffff
+  #-(or 32-bit 64-bit) -1)
 
-(coalton-toplevel
-  (inline)
-  (declare bits (SlotMetadata -> Word))
-  (define (bits (SlotMetadata% bits))
-    bits))
+(cl:declaim (cl:inline pack))
+(cl:defun pack (safe? epoch)
+  "Pack `safe?` and `epoch` into metadata bits."
+  (cl:declare (cl:type cl:boolean safe?)
+              (cl:type cl-word epoch)
+              (cl:values slot-metadata))
+  (cl:logior
+   (cl:logand (cl:ash epoch 1) +cl-word-mask+)
+   (cl:if safe? 1 0)))
 
-(coalton-toplevel
-  (inline)
-  (declare pack (Boolean * Word -> SlotMetadata))
-  (define (pack safe? epoch)
-    "Pack `safe?` and `epoch` into metadata bits."
-    (SlotMetadata%
-     (b:or (b:shift 1 epoch)
-           (if safe? 1 0)))))
+(cl:declaim (cl:inline safe?))
+(cl:defun safe? (metadata)
+  "Is `metadata` safe? set to `t`?"
+  (cl:declare (cl:type cl-word metadata)
+              (cl:values cl:boolean))
+  (cl:logbitp 0 metadata))
 
-(coalton-toplevel
-  (inline)
-  (declare safe? (SlotMetadata -> Boolean))
-  (define (safe? metadata)
-    "Is `metadata` safe? set to True?"
-    (let bits = (bits metadata))
-    (lisp (-> Boolean) (bits)
-      (cl:logbitp 0 bits))))
-
-(coalton-toplevel  
-  (inline)
-  (declare epoch (SlotMetadata -> Word))
-  (define (epoch metadata)
-    "Get the epoch value for `metadata`."
-    (let bits = (bits metadata))
-    (b:shift -1 bits)))
-
+(cl:declaim (cl:inline epoch))
+(cl:defun epoch (metadata)
+  "Get the epoch value for `metadata`."
+  (cl:declare (cl:type cl-word metadata)
+              (cl:values cl-word))
+  (cl:ash metadata -1))
+            
 (cl:defconstant +new-metadata+
-  (coalton 
-   (pack True 0)))
+  (cl:logior (cl:logand (cl:ash 0 1) +cl-word-mask+)
+             (cl:if cl:t 1 0)))
 
 ;;;
 ;;; Empty Sentinel
@@ -157,17 +131,11 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 (cl:defconstant +empty-token+
   '%empty-token%)
 
-(coalton-toplevel
-  (inline)
-  (define empty-token
-    (lisp (-> Anything) ()
-      +empty-token+))
+(cl:declaim (cl:inline empty-p))
+(cl:defun empty-p (obj)
+  (cl:declare (cl:values cl:boolean))
+  (cl:eq obj +empty-token+))
 
-  (inline)
-  (declare is-empty? (Anything -> Boolean))
-  (define (is-empty? obj)
-    (unsafe-pointer-eq? obj empty-token)))
-  
 ;;;
 ;;; Slots
 ;;; 
@@ -181,52 +149,28 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
  (cl:ftype (cl:function (cl-word cl:t) slot%)
            make-slot%))
 
-(coalton-toplevel
-  (repr :native slot%)
-  (define-type (Slot :a))
-  
-  (inline)
-  (declare new-slot (Void -> Slot :a))
-  (define (new-slot)
-    (lisp (-> (Slot :a)) ()
-      (make-slot% +new-metadata+ +empty-token+)))
-  )
+(cl:declaim (cl:inline new-slot))
+(cl:defun new-slot ()
+  (cl:declare (cl:values slot%))
+  (make-slot% +new-metadata+ +empty-token+))
 
-(coalton-toplevel
-  (inline)
-  (declare slot-metadata (Slot :a -> SlotMetadata))
-  (define (slot-metadata slot)
-    (lisp (-> SlotMetadata) (slot)
-      (slot%-metadata slot))))
+(cl:declaim (cl:inline slot-cas-value))
+(cl:defun slot-cas-value (slot old new)
+  (cl:declare (cl:type slot% slot)
+              (cl:values cl:boolean))
+  (at:cas (slot%-value slot) old new))
 
-(coalton-toplevel
-  (inline)
-  (declare slot-value (Slot :a -> Anything))
-  (define (slot-value slot)
-    (lisp (-> Anything) (slot)
-      (slot%-value slot))))
+(cl:declaim (cl:inline slot-set-value))
+(cl:defun slot-set-value (slot val)
+  (cl:declare (cl:type slot% slot))
+  (cl:setf (slot%-value slot) val)
+  (cl:values))
 
-(coalton-toplevel
-  (inline)
-  (declare slot-cas-value (Slot :a * Anything * Anything -> Boolean))
-  (define (slot-cas-value slot old new)
-    (lisp (-> Boolean) (slot old new)
-      (at:cas (slot%-value slot) old new))))
-
-(coalton-toplevel
-  (inline)
-  (declare slot-set-value (Slot :a * Anything -> Void))
-  (define (slot-set-value slot val)
-    (lisp (-> :a) (slot val)
-      (cl:setf (slot%-value slot) val))
-    (values)))
-
-(coalton-toplevel
-  (inline)
-  (declare slot-cas-metadata (Slot :a * SlotMetadata * SlotMetadata -> Boolean))
-  (define (slot-cas-metadata slot old new)
-    (lisp (-> Boolean) (slot old new)
-      (at:cas (slot%-metadata slot) old new))))      
+(cl:declaim (cl:inline slot-cas-metadata))
+(cl:defun slot-cas-metadata (slot old new)
+  (cl:declare (cl:type slot% slot)
+              (cl:values cl:boolean))
+  (at:cas (slot%-metadata slot) old new))
       
 ;;;
 ;;; PRQ Structure
@@ -247,231 +191,257 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
 (coalton-toplevel
   (repr :native prq%)
-  (define-type (PRQ :a))
+  (define-type (PRQ :a)))
 
-  (inline)
-  (declare new-prq (Void -> PRQ :a))
-  (define (new-prq)
-    (let slots = (la:make-uninitialized (prq-len)))
-    (dotimes (i (prq-len))
-      (la:set! slots i (new-slot)))
-    (lisp (-> PRQ :a) (slots)
-      (make-prq% +PRQ-LENGTH+
-                 +PRQ-LENGTH+
-                 cl:nil
-                 slots
-                 cl:nil))))
+(cl:declaim (cl:inline new-prq))
+(cl:defun new-prq ()
+  (cl:declare (cl:values prq%))
+  (cl:let ((slots (cl:make-array +prq-length+ :element-type 'slot%)))
+    (cl:declare (cl:type (cl:simple-array slot% (1024)) slots))
 
-(coalton-toplevel
-  (inline)
-  (declare prq-head (PRQ :a -> Word))
-  (define (prq-head prq)
-    (lisp (-> Word) (prq)
-      (prq%-head prq))))
+    (cl:dotimes (i +prq-length+)
+      (cl:setf (cl:aref slots i) (new-slot)))
 
-(coalton-toplevel
-  (inline)
-  (declare prq-tail (PRQ :a -> Word))
-  (define (prq-tail prq)
-    (lisp (-> Word) (prq)
-      (prq%-tail prq))))
+    (make-prq% +prq-length+
+               +prq-length+
+               cl:nil
+               slots
+               cl:nil)))
 
-(coalton-toplevel
-  (inline)
-  (declare prq-closed? (PRQ :a -> Boolean))
-  (define (prq-closed? prq)
-    (lisp (-> Boolean) (prq)
-      (prq%-closed prq))))
+(cl:declaim (cl:inline prq-cas-close))
+(cl:defun prq-cas-close (prq)
+  "Atomically close a PRQ."
+  (cl:declare (cl:type prq% prq)
+              (cl:values cl:boolean))
+  (at:cas (prq%-closed prq) cl:nil cl:t))
 
-(coalton-toplevel
-  (inline)
-  (declare prq-cas-close (PRQ :a -> Boolean))
-  (define (prq-cas-close prq)
-    "Atomically close a PRQ."
-    (lisp (-> Boolean) (prq)
-      (at:cas (prq%-closed prq) cl:nil cl:t))))
+(cl:declaim (cl:inline prq-cas-next))
+(cl:defun prq-cas-next (prq old new)
+  (cl:declare (cl:type prq% prq)
+              (cl:values cl:boolean))
+  (at:cas (prq%-next prq) old new))
 
-(coalton-toplevel
-  (inline)
-  (declare prq-next (PRQ :a -> Optional (PRQ :a)))
-  (define (prq-next prq)
-    (from-anything-opt
-     (lisp (-> Anything) (prq)
-       (prq%-next prq)))))
+(cl:declaim (cl:inline prq-cas-next-empty))
+(cl:defun prq-cas-next-empty (prq new)
+  "Atomically set an empty `next` to `new`."
+  (cl:declare (cl:type prq% prq)
+              (cl:values cl:boolean))
+  (at:cas (prq%-next prq) cl:nil new))
 
-(coalton-toplevel
-  (inline)
-  (declare prq-cas-next (PRQ :a * Optional (PRQ :a) * Optional (PRQ :a) -> Boolean))
-  (define (prq-cas-next prq old new)
-    (lisp (-> Boolean) (prq old new)
-      (at:cas (prq%-next prq) old new))))
+(cl:declaim (cl:inline wd->index))
+(cl:defun wd->index (wd)
+  "Calculate the slot-index for a machine word. Automatically does % +prq-length+."
+  (cl:declare (cl:type cl-word wd)
+              (cl:values ufixnum))
+  (cl:logand wd +prq-index-mask+))
 
-(coalton-toplevel
-  (inline)
-  (declare prq-cas-next-empty (PRQ :a * PRQ :a -> Boolean))
-  (define (prq-cas-next-empty prq new)
-    (lisp (-> Boolean) (prq new)
-      (at:cas (prq%-next prq) cl:nil new))))
+(cl:declaim (cl:inline prq-slot))
+(cl:defun prq-slot (prq i)
+  (cl:declare (cl:type prq% prq)
+              (cl:type cl-word i)
+              (cl:values slot%))
+  (cl:aref (prq%-slots prq) (wd->index i)))
 
-(coalton-toplevel
-  (inline)
-  (declare wd->index (Word -> UFix))
-  (define (wd->index wd)
-    "Calculate the slot-index for a machine word. Automatically does % +prq-length+."
-    (lisp (-> UFix) (wd)
-      (cl:logand wd +prq-index-mask+)))
+(cl:declaim (cl:inline atm-inc-tail))
+(cl:defun atm-inc-tail (prq)
+  "Atomically increment tail for `prq`. Return the old tail value."
+  (cl:declare (cl:type prq% prq)
+              (cl:values cl-word))
+  (atc:atomic-incf-old (prq%-tail prq)))
 
-  (inline)
-  (declare prq-slot (PRQ :a * Word -> Slot :a))
-  (define (prq-slot prq i)
-    (let i = (wd->index i))
-    (lisp (-> Slot :a) (prq i)
-      (cl:aref (prq%-slots prq) i))))
+(cl:declaim (cl:inline atm-inc-head))
+(cl:defun atm-inc-head (prq)
+  "Atomically increment head for `prq`. Return the old head value."
+  (cl:declare (cl:type prq% prq)
+              (cl:values cl-word))
+  (atc:atomic-incf-old (prq%-head prq)))
 
-(coalton-toplevel
-  (inline)
-  (declare atm-inc-tail (PRQ :a -> Word))
-  (define (atm-inc-tail prq)
-    "Atomically increment tail for `prq`. Return the old tail value."
-    (lisp (-> Word) (prq)
-      (atc:atomic-incf-old (prq%-tail prq)))))
-
-(coalton-toplevel
-  (inline)
-  (declare atm-inc-head (PRQ :a -> Word))
-  (define (atm-inc-head prq)
-    "Atomically increment head for `prq`. Return the old head value."
-    (lisp (-> Word) (prq)
-      (atc:atomic-incf-old (prq%-head prq)))))
-
-(coalton-toplevel
-  (inline)
-  (declare atm-catchup-tail (PRQ :a -> Void))
-  (define (atm-catchup-tail prq)
-    "Atomically catch `tail` up to `head` for `prq`."
-    (lisp (-> :a) (prq)
-      (atc:atomic-max (prq%-tail prq) (prq%-head prq)))
-    (values)))
+(cl:declaim (cl:inline atm-catch-tail))
+(cl:defun atm-catch-tail (prq)
+  "Atomically catch `tail` up to `head` for `prq`."
+  (cl:declare (cl:type prq% prq))
+  (atc:atomic-max (prq%-tail prq) (prq%-head prq))
+  (cl:values))
 
 ;;;
 ;;; Enqueue and Dequeue algorithms
 ;;; 
 
-(coalton-toplevel
-  ;; Prevent a livelock situation where consumers outrace producers.
-  ;; See "Theorem 4.3. PRQ is obstruction-free." from the paper.
-  (inline)
-  (define (+PRQ-MAX-ENQUEUE-ATTEMPTS+) (the UFix 32))
-  )
+;; Prevent a livelock situation where consumers outrace producers.
+;; See "Theorem 4.3. PRQ is obstruction-free." from the paper.
+(cl:defconstant +prq-max-enqueue-attempts+ 512)
+
+;; (cl:declaim (cl:inline try-close-segment))
+;; (cl:defun try-close-segment (tail_ force?)
+;;   (cl:declare (cl:type cl-word tail_)
+;;               (cl:type cl:boolean force?)
+;;               (cl:values cl:boolean))
+;;   ;; atomic FAA at start of enqueue-prq-inner% increments by one but returns old
+;;   (cl:let ((tmp-tail (1+ tail_)))
+;;     (cl:if force?
+           
+
+(cl:declaim (cl:inline enqueue-prq-inner%))
+(cl:defun enqueue-prq-inner% (rt-prx prq val current-thread-fn is-thread-fn)
+  (cl:declare (cl:type prq% prq)
+              (cl:type cl:function current-thread-fn is-thread-fn)
+              (cl:values cl:boolean))
+  ;; CONCURRENT: Masking handled by top-level call on LPRQ
+  (cl:let ((try-close 0))
+    (cl:declare (cl:type cl:fixnum try-close))
+    
+    (cl:loop
+      (cl:let ((tail_ (atm-inc-tail prq)))
+
+        (cl:when (prq%-closed prq)
+          (cl:return cl:nil))
+
+        (cl:let* ((cycle (cl:truncate tail_ +prq-length+))
+                  (slot (prq-slot prq tail_))
+                  (metadata (slot%-metadata slot))
+                  (is-safe? (safe? metadata))
+                  (epoch (epoch metadata))
+                  (value (slot%-value slot))
+                  (head_ (prq%-head prq)))
+
+          (cl:when (cl:and (cl:< epoch cycle)                    ;; enqueue is not overtaken
+                           (cl:or is-safe? (cl:<= head_ tail_))
+                           (cl:or (cl:eq +empty-token+ value)    ;; and the slot is empty
+                                  (cl:funcall is-thread-fn rt-prx value)))
+
+            (cl:let ((ownership-token (cl:funcall current-thread-fn rt-prx)))
+              (cl:when ;; Lock the slot with the ownership token
+                       (slot-cas-value slot value ownership-token)
+                ;; Advance the epoch
+                (cl:if (cl:not (slot-cas-metadata slot metadata (pack cl:t cycle)))
+                       ;; Another thread enqueued, so cleanup and try again
+                       (slot-cas-value slot ownership-token +empty-token+)
+                       ;; Publish item
+                       (cl:when (slot-cas-value slot ownership-token val)
+                         (cl:return cl:t))))))
+
+          ;; Check overflow
+          (cl:let* ((head_ (prq%-head prq))
+                    (head+len #+sbcl
+                              (sb-ext:truly-the cl-word
+                                                (cl:+ head_ +prq-length+))
+                              #-sbcl
+                              (cl:+ head_ +prq-length+)))
+            (cl:when (cl:or (cl:>= tail_ head+len)                          ;; Is the queue full?
+                            (cl:eql try-close +prq-max-enqueue-attempts+))  ;; defensive closure against livelock
+              ;; TODO: Does this have to CAS? It's not in the paper
+              (prq-cas-close prq)
+              (cl:return cl:nil)))
+
+          (cl:incf try-close)
+          )))))
 
 (coalton-toplevel
   (inline)
-  (declare enqueue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a * :a &key (:attempts UFix) -> Boolean))
-  (define (enqueue-prq% rt-prx prq val &key (attempts 1))
+  (declare enqueue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a * :a -> Boolean))
+  (define (enqueue-prq% rt-prx prq elt)
+    (lisp (-> Boolean) (rt-prx prq elt current-thread! is-thread?)
+      (enqueue-prq-inner% rt-prx prq elt current-thread! is-thread?))))
+
+(cl:declaim (cl:inline try-dequeue-prq-inner%))
+(cl:defun try-dequeue-prq-inner% (rt-prx prq is-thread-fn)
+  (cl:declare (cl:type prq% prq)
+              (cl:type cl:function is-thread-fn)
+              (cl:values (cl:or cl:null cl:t) cl:boolean))
+  (cl:loop
     ;; CONCURRENT: Masking handled by top-level call on LPRQ
-    (let t = (atm-inc-tail prq))
+    (cl:let* ((head_ (atm-inc-head prq))
+              (cycle (cl:truncate head_ +prq-length+))
+              (slot (prq-slot prq head_))
+              ;; Don't need to read initially because will be re-read with r & 255 == 0
+              ;; on the first iteration, if necessary
+              (closed? cl:nil)
+              (tail_ 0)
 
-    (when (prq-closed? prq)
-      (return False))
-    
-    (let cycle = (i:div t (prq-len-word)))
-    (let slot = (prq-slot prq t))
-    (let old-metadata = (slot-metadata slot))
-    (let is-safe? = (safe? old-metadata))
-    (let old-epoch = (epoch old-metadata))
-    (let old-value = (slot-value slot))
-    (let h = (prq-head prq))
+              (r 0))
+      (cl:declare (cl:type cl-word tail_)
+                  (cl:type cl:fixnum r))
 
-    (when (and (< old-epoch cycle)                ;; enqueue is not overtaken
-               (or is-safe? (<= h t))
-               (or (is-empty? old-value)          ;; and the slot is empty
-                   (is-thread? rt-prx old-value)))
-      (let ownership-token = (to-anything (current-thread! rt-prx)))
-      (when ;; Lock the slot with the ownership token
-            (slot-cas-value slot old-value ownership-token)
-        ;; Advance the epoch
-        (if (not (slot-cas-metadata slot old-metadata (pack True cycle)))
-            ;; Another thread enqueued, so clean up and try again
-            (progn
-              (slot-cas-value slot ownership-token empty-token)
-              (values))
-            ;; Publish item
-            (when (slot-cas-value slot ownership-token (to-anything val))
-              (return True)))))
-    
-    ;; Check overflow
-    (let h = (prq-head prq))
-    (if (or (and (>= t h)
-                 (>= (- t h) (prq-len-word)))           ;; Is the queue full?
-            (== attempts (+PRQ-MAX-ENQUEUE-ATTEMPTS+))) ;; defensive closure against livelock
-        (progn
-          ;; TODO: Does this have to be a CAS? It's not in the paper
-          (prq-cas-close prq)
-          False)
-        (enqueue-prq% rt-prx prq val :attempts (1+ attempts))))
-  )
+      ;; Try to update the slot state
+      (cl:loop
+        (cl:tagbody
+         start-iteration
+           (cl:let* ((metadata (slot%-metadata slot))
+                     (safe? (safe? metadata))
+                     (epoch (epoch metadata))
+                     (value (slot%-value slot)))
+
+             (cl:when (cl:/= metadata (slot%-metadata slot))
+               ;; Inconsistent view of slot
+               (cl:go next-iteration))
+
+             (cl:let* ((empty? (cl:eq value +empty-token+))
+                       (is-token? (cl:and (cl:not empty?)
+                                          (cl:funcall is-thread-fn rt-prx value))))
+
+               (cl:cond
+                 ((cl:and (cl:eq epoch cycle)
+                          (cl:not empty?)
+                          (cl:not is-token?))
+                  ;; slot has not been overwritten and value is legitimate - dequeue transition
+                  (slot-set-value slot +empty-token+)
+                  (cl:return-from try-dequeue-prq-inner%
+                    (cl:values value cl:t)))
+                 ((cl:and (cl:<= epoch cycle)
+                          (cl:or empty?
+                                 is-token?))
+                  ;; wait optimization - see reference implementation
+                  (cl:when (cl:zerop (cl:logand r 255))
+                    (cl:setf tail_ (prq%-tail prq)
+                             closed? (prq%-closed prq)))
+
+                  (cl:when (cl:or (cl:not safe?)
+                                  (cl:<= tail_ head_)
+                                  closed?
+                                  (cl:> r 4096))
+                    ;; empty transition - unlock the cell
+                    (cl:when (cl:and is-token?
+                                     (cl:not (slot-cas-value slot value +empty-token+)))
+                      (cl:go next-iteration))
+                    ;; advance the epoch
+                    (cl:when (slot-cas-metadata slot metadata (pack safe? cycle))
+                      (cl:return)))
+                  (cl:incf r)
+                  )
+                 ((cl:and (cl:< epoch cycle)
+                          (cl:not empty?)
+                          (cl:not is-token?))
+                  ;; unsafe transition
+                  (cl:when (slot-cas-metadata slot metadata (pack cl:nil epoch))
+                    (cl:return)))
+                 (cl:t
+                  ;; epoch > cycle
+                  (cl:return-from try-dequeue-prq-inner%
+                    (cl:values cl:nil cl:nil))))))
+           ;; deq is overtaken
+           next-iteration)) 
+
+      ;; Is the queue empty?
+      (cl:let ((head+1 #+sbcl (sb-ext:truly-the cl-word (cl:1+ head_))
+                       #-sbcl (cl:1+ head_)))
+        (cl:when (cl:<= (prq%-tail prq) head+1)
+          ;; monotonically advance tail to the current head before returning
+          ;; See footnote #2 of the paper. Prevents pathological behavior in
+          ;; consumer >>> producer livelock case.
+          (atm-catch-tail prq)
+          (cl:return cl:nil))))
+      ))
 
 (coalton-toplevel
   (inline)
   (declare try-dequeue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a -> Optional :a))
   (define (try-dequeue-prq% rt-prx prq)
-    ;; CONCURRENT: Masking handled by top-level call on LPRQ
-    (let h = (atm-inc-head prq))
-    (let cycle = (i:div h (prq-len-word)))
-
-    ;; Try to update the slot state
-    (for ()
-      (let slot = (prq-slot prq h))
-      (let metadata = (slot-metadata slot))
-      (let safe? = (safe? metadata))
-      (let epoch = (epoch metadata))
-      (let value = (slot-value slot))
-
-      (when (/= metadata (slot-metadata slot))
-        ;; Inconsistent view of the slot
-        (continue))
-
-      (let val-empty? = (is-empty? value))
-      (let val-is-token? = (is-thread? rt-prx value))
-
-      (cond
-        ((and (== epoch cycle)
-              (not val-empty?)
-              (not val-is-token?))
-         ;; slot has not been overwritten and value is legitimate - dequeue transition
-         (slot-set-value slot empty-token)
-         (return (Some (from-anything value))))
-        ((and (<= epoch cycle)
-              (or val-empty?
-                  val-is-token?))
-         ;; empty transition - unlock the cell
-         (when (and val-is-token?
-                    (not (slot-cas-value slot value empty-token)))
-           (continue))
-         ;; advance the epoch
-         (when (slot-cas-metadata slot metadata (pack safe? cycle))
-           (break)))
-        ((and (< epoch cycle)
-              (not val-empty?)
-              (not val-is-token?))
-         ;; unsafe transition
-         (when (slot-cas-metadata slot metadata (pack False epoch))
-           (break)))
-        (True
-         ;; epoch > cycle
-         (break)))) ;; deq is overtaken
-    
-    ;; Is the queue empty?
-    (let t = (prq-tail prq))
-    (if (<= t (1+ h))
-        ;; monotonically advance tail to the current head before returning
-        ;; See footnote #2 of the paper. Prevents pathological behavior in
-        ;; consumer >>> producer livelock case.
-        (progn
-          (atm-catchup-tail prq)
-          None)
-        (try-dequeue-prq% rt-prx prq)))
-  )
+    (let (values val found?) =
+      (lisp (-> Anything * Boolean) (rt-prx prq is-thread?)
+        (try-dequeue-prq-inner% rt-prx prq is-thread?)))
+    (if found?
+        (Some (from-anything val))
+        None)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;        LPRQ Implementation        ;;;
@@ -482,6 +452,8 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
   (tail    (cl:error "must provide tail"))
   (parkers (cl:error "must provide parkers")))
 
+(cl:declaim (cl:inline lprq%-head lprq%-tail lprq%-parkers))
+
 (coalton-toplevel
   (repr :native lprq%)
   (define-type (LPRQ :a))
@@ -489,38 +461,24 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
   (inline)
   (declare new-lprq (Void -> LPRQ :a))
   (define (new-lprq)
-    (let initial-prq = (new-prq))
+    (let initial-prq =
+      (lisp (-> PRQ :a) ()
+        (new-prq)))
     (let parkers = (new-parking-set%))
     (lisp (-> LPRQ :a) (initial-prq parkers)
       (make-lprq% initial-prq initial-prq parkers))))
 
-(coalton-toplevel
-  (inline)
-  (declare lprq-head (LPRQ :a -> PRQ :a))
-  (define (lprq-head lprq)
-    (lisp (-> PRQ :a) (lprq)
-      (lprq%-head lprq))))
+(cl:declaim (cl:inline lprq-cas-head))
+(cl:defun lprq-cas-head (lprq old new)
+  (cl:declare (cl:type lprq% lprq)
+              (cl:values cl:boolean))
+  (at:cas (lprq%-head lprq) old new))
 
-(coalton-toplevel
-  (inline)
-  (declare lprq-cas-head (LPRQ :a * PRQ :a * PRQ :a -> Boolean))
-  (define (lprq-cas-head lprq old new)
-    (lisp (-> Boolean) (lprq old new)
-      (at:cas (lprq%-head lprq) old new))))
-
-(coalton-toplevel
-  (inline)
-  (declare lprq-tail (LPRQ :a -> PRQ :a))
-  (define (lprq-tail lprq)
-    (lisp (-> PRQ :a) (lprq)
-      (lprq%-tail lprq))))
-
-(coalton-toplevel
-  (inline)
-  (declare lprq-cas-tail (LPRQ :a * PRQ :a * PRQ :a -> Boolean))
-  (define (lprq-cas-tail lprq old new)
-    (lisp (-> Boolean) (lprq old new)
-      (at:cas (lprq%-tail lprq) old new))))
+(cl:declaim (cl:inline lprq-cas-tail))
+(cl:defun lprq-cas-tail (lprq old new)
+  (cl:declare (cl:type lprq% lprq)
+              (cl:values cl:boolean))
+  (at:cas (lprq%-tail lprq) old new))
 
 (coalton-toplevel
   (inline)
@@ -538,73 +496,81 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
     (when (not (parking-set-empty?% parkers))
       (unpark-one% parkers rt-prx))))
 
+(cl:declaim (cl:inline enqueue-inner%))
+(cl:defun enqueue-inner% (rt-prx lprq elt notify-parker-fn current-thread-fn is-thread-fn)
+  (cl:declare (cl:type lprq% lprq)
+              (cl:type cl:t elt)
+              (cl:type cl:function notify-parker-fn current-thread-fn is-thread-fn))
+  ;; CONCURRENT: masking handled by Coalton wrapper
+  (cl:loop
+    (cl:let ((prq (lprq%-tail lprq)))
+
+      ;; fast-path: add to the current PRQ
+      (cl:when (enqueue-prq-inner% rt-prx prq elt current-thread-fn is-thread-fn)
+        (cl:funcall notify-parker-fn rt-prx lprq)
+        (cl:return-from enqueue-inner%))
+
+      ;; slow-path: Tail is full, add new PRQ
+      (cl:let ((new-tail (new-prq)))
+        (enqueue-prq-inner% rt-prx new-tail elt current-thread-fn is-thread-fn)
+
+        (cl:if (prq-cas-next-empty prq new-tail)
+          (cl:progn
+            (lprq-cas-tail lprq prq new-tail)
+            (cl:funcall notify-parker-fn rt-prx lprq)
+            (cl:return-from enqueue-inner%))
+          (cl:let ((next (prq%-next prq)))
+            (lprq-cas-tail lprq prq next)))))))
+
 (coalton-toplevel
   (declare enqueue% (Runtime :rt :t => Proxy :rt * LPRQ :a * :a -> Void))
   (define (enqueue% rt-prx lprq elt)
     ;; CONCURRENT:
     ;; For simplicity, conservatively masks the entire run of the function.
     (mask-current! rt-prx)
-    (rec % ()
-      (let prq = (lprq-tail lprq))
+    (lisp (-> :a) (rt-prx lprq elt notify-parker current-thread! is-thread?)
+      (enqueue-inner% rt-prx lprq elt notify-parker current-thread! is-thread?))
+    (unmask-current! rt-prx)))
 
-      ;; fast-path: add to the current PRQ
-      (when (enqueue-prq% rt-prx prq elt)
-        (notify-parker rt-prx lprq)
-        (unmask-current! rt-prx)
-        (return))
-
-      ;; slow-path: Tail is full, add new PRQ
-      (let new-tail = (new-prq))
-      (enqueue-prq% rt-prx new-tail elt)
-      (if (prq-cas-next-empty prq new-tail)
-          (progn
-            (lprq-cas-tail lprq prq new-tail)
-            (notify-parker rt-prx lprq)
-            (unmask-current! rt-prx)
-            (values))
-          (progn
-            (let next = (prq-next prq))
-            (match next
-              ((Some next)
-               (lprq-cas-tail lprq prq next))
-              (_
-               False))
-            (%))))))
+(cl:declaim (cl:inline try-dequeue-inner%))
+(cl:defun try-dequeue-inner% (rt-prx lprq is-thread-fn)
+  ;; CONCURRENT: masking handled by Coalton wrapper
+  (cl:declare (cl:type lprq% lprq)
+              (cl:type cl:function is-thread-fn)
+              (cl:values (cl:or cl:t cl:null) cl:boolean))
+  (cl:loop
+     (cl:let ((prq (lprq%-head lprq)))
+       (cl:multiple-value-bind (res found?)
+           (try-dequeue-prq-inner% rt-prx prq is-thread-fn)
+         (cl:if found?
+           (cl:return-from try-dequeue-inner% (cl:values res cl:t))
+           ;; failed, is this queue empty?     
+           (cl:let ((next (prq%-next prq)))
+             (cl:if next
+               ;; prq is closed but next may store elements
+               (cl:multiple-value-bind (res found?)
+                   (try-dequeue-prq-inner% rt-prx prq is-thread-fn)
+                 (cl:if found?
+                   (cl:return-from try-dequeue-inner% (cl:values res cl:t))
+                   ;; prq is empty. Update head and restart.
+                   (lprq-cas-head lprq prq next)))
+               ;; prq is empty and no next
+               (cl:return-from try-dequeue-inner% (cl:values cl:nil cl:nil)))))))))
 
 (coalton-toplevel
+  (inline)
   (declare try-dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> Optional :a))
   (define (try-dequeue% rt-prx lprq)
     ;; CONCURRENT:
     ;; For simplicity, conservatively masks the entire run of the function.
     (mask-current! rt-prx)
-
-    (let result =
-      (rec % ()
-        (let prq = (lprq-head lprq))
-        (let res = (try-dequeue-prq% rt-prx prq))
-
-        (match res
-          ((Some _)
-           res)
-          ((None)
-           ;; failed, is this queue empty?
-           (match (prq-next prq)
-             ((None)
-              None)
-             ;; prq is closed but may store elements
-             ((Some next)
-              (let res = (try-dequeue-prq% rt-prx prq))
-              (match res
-                ((Some _)
-                 res)
-                ((None)
-                 ;; prq is empty. Update head and restart.
-                 (lprq-cas-head lprq prq next)
-                 (%)))))))))
-
+    (let (values val found?) =
+      (lisp (-> Anything * Boolean) (rt-prx lprq is-thread?)
+        (try-dequeue-inner% rt-prx lprq is-thread?)))
     (unmask-current! rt-prx)
-
-    result))
+    (if found?
+        (Some (from-anything val))
+        None)))
 
 (coalton-toplevel
   (declare dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> :a))
@@ -636,7 +602,6 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
       ((None)
        (dequeue% rt-prx lprq))))
   )
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;            Public API             ;;;
