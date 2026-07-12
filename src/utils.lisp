@@ -13,6 +13,7 @@
    #:foreach
    #:while
    #:cl-maptree
+   #:cl-word
    #:Word
    #:build-str
    #:IoError
@@ -173,6 +174,11 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
     "Check whether dyn-val can cast to a type."
     (== dyn-repr (runtime-repr repr-prx)))
   )
+
+(cl:deftype cl-word ()
+  #+64-bit '(cl:unsigned-byte 64)
+  #+32-bit '(cl:unsigned-byte 32)
+  #-(or 32-bit 64-bit) 'cl:unsigned-byte)
 
 (coalton-toplevel
 

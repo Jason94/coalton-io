@@ -14,6 +14,7 @@
                  ;;;
                  (:file "utils")
                  (:file "utilities/bt-compat")
+                 (:file "utilities/atom-compat")
                  (:file "thread-exceptions")
                  ;; Load the two main "core classes" files first, before thread-impl/
                  (:file "classes/exceptions")
