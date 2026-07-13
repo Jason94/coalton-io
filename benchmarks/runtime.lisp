@@ -27,6 +27,14 @@
 
 (coalton-toplevel
 
+  (declare benchmark-vector-cache (c:Cell (Optional (Vector Boolean))))
+  (define benchmark-vector-cache (c:new None))
+
+  (declare benchmark-vectors-cache (c:Cell (Optional (Vector (Vector Boolean)))))
+  (define benchmark-vectors-cache (c:new None)))
+
+(coalton-toplevel
+
   (declare benchmark-mask-unmask-direct-single-thread (UFix -> Void))
   (define (benchmark-mask-unmask-direct-single-thread n-tasks)
     "This benchmark writes to a pre-allocated vector `n-tasks` times, directly masking and unmasking each iteration."
@@ -94,12 +102,6 @@
   )
 
 (coalton-toplevel
-
-  (declare benchmark-vector-cache (c:Cell (Optional (Vector Boolean))))
-  (define benchmark-vector-cache (c:new None))
-
-  (declare benchmark-vectors-cache (c:Cell (Optional (Vector (Vector Boolean)))))
-  (define benchmark-vectors-cache (c:new None))
 
   (declare benchmark-mask-unmask-single-thread (UFix -> Void))
   (define (benchmark-mask-unmask-single-thread n-tasks)
