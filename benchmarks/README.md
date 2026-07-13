@@ -3,6 +3,7 @@
 (io/benchmarks::run-benchmarks-ci)
 (io/benchmarks::run-benchmark-ci 'benchmark-schedulers)
 (io/benchmarks::run-benchmark-ci 'benchmark-simple-io)
+(io/benchmarks::run-benchmark-ci 'benchmark-runtime)
 (io/benchmarks::run-benchmark-ci 'benchmark-stm)
 (io/benchmarks::run-benchmark-ci 'benchmark-queues)
 ```

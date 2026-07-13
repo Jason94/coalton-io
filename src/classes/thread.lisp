@@ -449,8 +449,7 @@ thread's termination."
     (let runtime-prx = (runtime-for m-prx))
     (as-proxy-of
      (wrap-io
-       (let current-thread = (current-thread! runtime-prx))
-       (mask! runtime-prx current-thread)
+       (mask-current! runtime-prx)
        Unit)
      m-prx))
 
@@ -471,8 +470,7 @@ stopped after being unmasked N times."
     (let m-prx = Proxy)
     (as-proxy-of
      (wrap-io
-       (let current-thread = (current-thread! (runtime-for m-prx)))
-       (unmask! (runtime-for m-prx) current-thread)
+       (unmask-current! (runtime-for m-prx))
        Unit)
      m-prx))
 

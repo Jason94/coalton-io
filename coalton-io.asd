@@ -208,6 +208,7 @@ mutable variables, multithreading, and several data structures to safely share s
                 ((:file "benchmark-utils")
                  (:file "benchmarks")
                  (:file "simple-io")
+                 (:file "runtime")
                  (:file "queues")
                  (:file "schedulers")
                  (:file "stm")
