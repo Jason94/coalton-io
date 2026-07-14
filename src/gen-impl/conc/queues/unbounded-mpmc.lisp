@@ -89,7 +89,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 ;;; 
 ;;; --------------------------------------------------------------------------------- ;;;
 
-(cl:deftype slot-metadata () 'cl-word)
+(cl:deftype slot-metadata () 'cl:fixnum)
 
 (cl:defconstant +cl-word-mask+
   #+64-bit #xffffffffffffffff
@@ -109,15 +109,15 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 (cl:declaim (cl:inline safe?))
 (cl:defun safe? (metadata)
   "Is `metadata` safe? set to `t`?"
-  (cl:declare (cl:type cl-word metadata)
+  (cl:declare (cl:type slot-metadata metadata)
               (cl:values cl:boolean))
   (cl:logbitp 0 metadata))
 
 (cl:declaim (cl:inline epoch))
 (cl:defun epoch (metadata)
   "Get the epoch value for `metadata`."
-  (cl:declare (cl:type cl-word metadata)
-              (cl:values cl-word))
+  (cl:declare (cl:type slot-metadata metadata)
+              (cl:values slot-metadata))
   (cl:ash metadata -1))
             
 (cl:defconstant +new-metadata+
@@ -135,59 +135,65 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 (cl:defun empty-p (obj)
   (cl:declare (cl:values cl:boolean))
   (cl:eq obj +empty-token+))
-
-;;;
-;;; Slots
-;;; 
-
-(cl:defstruct (slot% (:constructor make-slot% (metadata value)))
-  (metadata 0      :type cl-word)
-  (value    cl:nil :type cl:t))
-
-(cl:declaim
- (cl:inline make-slot% slot%-metadata slot%-value)
- (cl:ftype (cl:function (cl-word cl:t) slot%)
-           make-slot%))
-
-(cl:declaim (cl:inline new-slot))
-(cl:defun new-slot ()
-  (cl:declare (cl:values slot%))
-  (make-slot% +new-metadata+ +empty-token+))
-
-(cl:declaim (cl:inline slot-cas-value))
-(cl:defun slot-cas-value (slot old new)
-  (cl:declare (cl:type slot% slot)
-              (cl:values cl:boolean))
-  (at:cas (slot%-value slot) old new))
-
-(cl:declaim (cl:inline slot-set-value))
-(cl:defun slot-set-value (slot val)
-  (cl:declare (cl:type slot% slot))
-  (cl:setf (slot%-value slot) val)
-  (cl:values))
-
-(cl:declaim (cl:inline slot-cas-metadata))
-(cl:defun slot-cas-metadata (slot old new)
-  (cl:declare (cl:type slot% slot)
-              (cl:values cl:boolean))
-  (at:cas (slot%-metadata slot) old new))
       
 ;;;
 ;;; PRQ Structure
 ;;; 
 
-(cl:defstruct (prq% (:constructor make-prq% (head tail closed slots next)))
-  (head   (cl:error "must provide head")   :type cl-word)
-  (tail   (cl:error "must provide tail")   :type cl-word)
-  (closed (cl:error "must provide closed") :type cl:boolean)
-  (slots  (cl:error "must provide slots")  :type (cl:simple-array slot% (1024)))
-  (next   (cl:error "must provide next")   :type (cl:or cl:null prq%)))
+;; Slot data is stored as adjacent pairs:
+;; [metadata_0 value_0 metadata_1 value_1 ... metadata_1024 value_1024]
+;; Types are
+;;   - value:    anything
+;;   - metadata: slot-metadata (fixnum)
+;; (Yes, this is just cl:t, but it serves a useful documentation purpose)
+(cl:deftype slot-data () '(cl:or slot-metadata cl:t))
+
+(cl:defstruct (prq% (:constructor make-prq% (head tail closed slot-data next)))
+  (head      (cl:error "must provide head")   :type cl-word)
+  (tail      (cl:error "must provide tail")   :type cl-word)
+  (closed    (cl:error "must provide closed") :type cl:boolean)
+  (slot-data (cl:error "must provide slots")  :type (cl:simple-array slot-data (2048)))
+  (next      (cl:error "must provide next")   :type (cl:or cl:null prq%)))
   
 (cl:declaim
- (cl:inline make-prq% prq%-head prq%-tail prq%-closed prq%-slots prq%-next)
- (cl:ftype (cl:function (cl-word cl-word cl:boolean (cl:simple-array slot% (1024)) (cl:or cl:null prq%))
+ (cl:inline make-prq% prq%-head prq%-tail prq%-closed prq%-slot-data prq%-next)
+ (cl:ftype (cl:function (cl-word cl-word cl:boolean (cl:simple-array slot-data (2048)) (cl:or cl:null prq%))
                         prq%)
            make-prq%))
+
+(cl:declaim (cl:inline to-slot-index))
+(cl:defun to-slot-index (i)
+  (cl:declare (cl:type cl:fixnum i)
+              (cl:values cl:fixnum))
+  (cl:* 2 (cl:mod i +prq-length+)))
+
+;; NOTE: The idiomatic solution would be to define separate accessor and setf variants for
+;; metadata and value. The problem is that, on SBCL, this *also* requires defining a
+;; separate sb-ext:cas variant. Even worse, CCL does not support custom CAS targets at all.
+;;
+;; Just having place macros makes it difficult to annotate the type and use it as a CAS
+;; target at the same time (the type annotation form confuses the CAS syntax).
+(cl:defmacro place--prq%-slot-metadata (prq i)
+  "Place for the metadata for the `i`th slot in `prq` (out of `+prq-length+`)."
+  `(cl:svref (prq%-slot-data ,prq) (to-slot-index ,i)))
+
+(cl:defmacro place--prq%-slot-value (prq i)
+  "Place for the value for the `i`th slot in `prq` (out of `+prq-length+`)."
+  `(cl:svref (prq%-slot-data ,prq) (cl:1+ (to-slot-index ,i))))
+
+(cl:declaim (cl:inline (prq%-slot-metadata)))
+(cl:defun prq%-slot-metadata (prq i)
+  (cl:declare (cl:type prq% prq)
+              (cl:type cl:fixnum i)
+              (cl:values slot-metadata))
+  (place--prq%-slot-metadata prq i))
+
+(cl:declaim (cl:inline (prq%-slot-value)))
+(cl:defun prq%-slot-value (prq i)
+  (cl:declare (cl:type prq% prq)
+              (cl:type cl:fixnum i)
+              (cl:values cl:t))
+  (place--prq%-slot-value prq i))
 
 (coalton-toplevel
   (repr :native prq%)
@@ -196,17 +202,41 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 (cl:declaim (cl:inline new-prq))
 (cl:defun new-prq ()
   (cl:declare (cl:values prq%))
-  (cl:let ((slots (cl:make-array +prq-length+ :element-type 'slot%)))
-    (cl:declare (cl:type (cl:simple-array slot% (1024)) slots))
+  ;; Start all slot-data values as the initial value, +empty-token+. Then loop back and fill in the metadata.
+  (cl:let ((slots (cl:make-array (cl:* 2 +prq-length+) :element-type 'slot-data :initial-element +empty-token+)))
+    (cl:declare (cl:type (cl:simple-array slot-data (2048)) slots))
 
     (cl:dotimes (i +prq-length+)
-      (cl:setf (cl:aref slots i) (new-slot)))
+      (cl:setf (cl:aref slots (cl:* i 2)) +new-metadata+)) 
 
     (make-prq% +prq-length+
                +prq-length+
                cl:nil
                slots
                cl:nil)))
+
+(cl:declaim (cl:inline slot-cas-metadata))
+(cl:defun slot-cas-metadata (prq i old new)
+  (cl:declare (cl:type prq% prq)
+              (cl:type cl:fixnum i)
+              (cl:type slot-metadata old new)
+              (cl:values cl:boolean))
+  (at:cas (place--prq%-slot-metadata prq i) old new))
+
+(cl:declaim (cl:inline slot-cas-value))
+(cl:defun slot-cas-value (prq i old new)
+  (cl:declare (cl:type prq% prq)
+              (cl:type cl:fixnum i)
+              (cl:values cl:boolean))
+  (at:cas (place--prq%-slot-value prq i) old new))
+
+(cl:declaim (cl:inline slot-set-value))
+(cl:defun slot-set-value (prq i val)
+  (cl:declare (cl:type prq% prq)
+              (cl:type cl:fixnum i)
+              (cl:values))
+  (cl:setf (place--prq%-slot-value prq i) val)
+  (cl:values))
 
 (cl:declaim (cl:inline prq-cas-close))
 (cl:defun prq-cas-close (prq)
@@ -227,20 +257,6 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
   (cl:declare (cl:type prq% prq)
               (cl:values cl:boolean))
   (at:cas (prq%-next prq) cl:nil new))
-
-(cl:declaim (cl:inline wd->index))
-(cl:defun wd->index (wd)
-  "Calculate the slot-index for a machine word. Automatically does % +prq-length+."
-  (cl:declare (cl:type cl-word wd)
-              (cl:values ufixnum))
-  (cl:logand wd +prq-index-mask+))
-
-(cl:declaim (cl:inline prq-slot))
-(cl:defun prq-slot (prq i)
-  (cl:declare (cl:type prq% prq)
-              (cl:type cl-word i)
-              (cl:values slot%))
-  (cl:aref (prq%-slots prq) (wd->index i)))
 
 (cl:declaim (cl:inline atm-inc-tail))
 (cl:defun atm-inc-tail (prq)
@@ -297,11 +313,10 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
           (cl:return cl:nil))
 
         (cl:let* ((cycle (cl:truncate tail_ +prq-length+))
-                  (slot (prq-slot prq tail_))
-                  (metadata (slot%-metadata slot))
+                  (metadata (prq%-slot-metadata prq tail_))
                   (is-safe? (safe? metadata))
                   (epoch (epoch metadata))
-                  (value (slot%-value slot))
+                  (value (prq%-slot-value prq tail_))
                   (head_ (prq%-head prq)))
 
           (cl:when (cl:and (cl:< epoch cycle)                    ;; enqueue is not overtaken
@@ -311,13 +326,13 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
             (cl:let ((ownership-token (cl:funcall current-thread-fn rt-prx)))
               (cl:when ;; Lock the slot with the ownership token
-                       (slot-cas-value slot value ownership-token)
+                       (slot-cas-value prq tail_ value ownership-token)
                 ;; Advance the epoch
-                (cl:if (cl:not (slot-cas-metadata slot metadata (pack cl:t cycle)))
+                (cl:if (cl:not (slot-cas-metadata prq tail_ metadata (pack cl:t cycle)))
                        ;; Another thread enqueued, so cleanup and try again
-                       (slot-cas-value slot ownership-token +empty-token+)
+                       (slot-cas-value prq tail_ ownership-token +empty-token+)
                        ;; Publish item
-                       (cl:when (slot-cas-value slot ownership-token val)
+                       (cl:when (slot-cas-value prq tail_ ownership-token val)
                          (cl:return cl:t))))))
 
           ;; Check overflow
@@ -352,7 +367,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
     ;; CONCURRENT: Masking handled by top-level call on LPRQ
     (cl:let* ((head_ (atm-inc-head prq))
               (cycle (cl:truncate head_ +prq-length+))
-              (slot (prq-slot prq head_))
+              ;; (slot (prq-slot prq head_))
               ;; Don't need to read initially because will be re-read with r & 255 == 0
               ;; on the first iteration, if necessary
               (closed? cl:nil)
@@ -366,12 +381,12 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
       (cl:loop
         (cl:tagbody
          start-iteration
-           (cl:let* ((metadata (slot%-metadata slot))
+           (cl:let* ((metadata (prq%-slot-metadata prq head_))
                      (safe? (safe? metadata))
                      (epoch (epoch metadata))
-                     (value (slot%-value slot)))
+                     (value (prq%-slot-value prq head_)))
 
-             (cl:when (cl:/= metadata (slot%-metadata slot))
+             (cl:when (cl:not (cl:eq metadata (prq%-slot-metadata prq head_)))
                ;; Inconsistent view of slot
                (cl:go next-iteration))
 
@@ -384,7 +399,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
                           (cl:not empty?)
                           (cl:not is-token?))
                   ;; slot has not been overwritten and value is legitimate - dequeue transition
-                  (slot-set-value slot +empty-token+)
+                  (slot-set-value prq head_ +empty-token+)
                   (cl:return-from try-dequeue-prq-inner%
                     (cl:values value cl:t)))
                  ((cl:and (cl:<= epoch cycle)
@@ -401,10 +416,10 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
                                   (cl:> r 4096))
                     ;; empty transition - unlock the cell
                     (cl:when (cl:and is-token?
-                                     (cl:not (slot-cas-value slot value +empty-token+)))
+                                     (cl:not (slot-cas-value prq head_ value +empty-token+)))
                       (cl:go next-iteration))
                     ;; advance the epoch
-                    (cl:when (slot-cas-metadata slot metadata (pack safe? cycle))
+                    (cl:when (slot-cas-metadata prq head_ metadata (pack safe? cycle))
                       (cl:return)))
                   (cl:incf r)
                   )
@@ -412,7 +427,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
                           (cl:not empty?)
                           (cl:not is-token?))
                   ;; unsafe transition
-                  (cl:when (slot-cas-metadata slot metadata (pack cl:nil epoch))
+                  (cl:when (slot-cas-metadata prq head_ metadata (pack cl:nil epoch))
                     (cl:return)))
                  (cl:t
                   ;; epoch > cycle
