@@ -318,7 +318,9 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
               (cl:type cl:function current-thread-fn is-thread-fn)
               (cl:values cl:boolean))
   ;; CONCURRENT: Masking handled by top-level call on LPRQ
-  (cl:let ((try-close 0))
+  (cl:let ((try-close 0)
+           ;; bind slot-data pointer to prevent repeated trips to contested PRQ header
+           (slot-data (prq%-slot-data prq)))
     (cl:declare (cl:type cl:fixnum try-close))
     
     (cl:loop
@@ -330,10 +332,10 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
             (cl:return cl:nil))
 
           (cl:let* ((cycle (cl:truncate tail_ +prq-length+))
-                    (metadata (prq%-slot-metadata prq i-tail-metadata))
+                    (metadata (cl:svref slot-data i-tail-metadata))
                     (is-safe? (safe? metadata))
                     (epoch (epoch metadata))
-                    (value (prq%-slot-value prq i-tail-value))
+                    (value (cl:svref slot-data i-tail-value))
                     (head_ (prq%-head prq)))
 
             (cl:when (cl:and (cl:< epoch cycle)                    ;; enqueue is not overtaken
@@ -343,13 +345,13 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
               (cl:let ((ownership-token (cl:funcall current-thread-fn rt-prx)))
                 (cl:when ;; Lock the slot with the ownership token
-                    (slot-cas-value prq i-tail-value value ownership-token)
+                    (at:cas (cl:svref slot-data i-tail-value) value ownership-token)
                   ;; Advance the epoch
-                  (cl:if (cl:not (slot-cas-metadata prq i-tail-metadata metadata (pack cl:t cycle)))
+                  (cl:if (cl:not (at:cas  (cl:svref slot-data i-tail-metadata) metadata (pack cl:t cycle)))
                          ;; Another thread enqueued, so cleanup and try again
-                         (slot-cas-value prq i-tail-value ownership-token +empty-token+)
+                         (at:cas (cl:svref slot-data i-tail-value) ownership-token +empty-token+)
                          ;; Publish item
-                         (cl:when (slot-cas-value prq i-tail-value ownership-token val)
+                         (cl:when (at:cas (cl:svref slot-data i-tail-value) ownership-token val)
                            (cl:return cl:t))))))
 
             ;; Check overflow
@@ -380,95 +382,97 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
   (cl:declare (cl:type prq% prq)
               (cl:type cl:function is-thread-fn)
               (cl:values (cl:or cl:null cl:t) cl:boolean))
-  (cl:loop
-    ;; CONCURRENT: Masking handled by top-level call on LPRQ
-    (cl:let* ((head_ (atm-inc-head prq))
-              (i-head-metadata 0)
-              (i-head-value 0)
-              (cycle (cl:truncate head_ +prq-length+))
-              ;; Don't need to read initially because will be re-read with r & 255 == 0
-              ;; on the first iteration, if necessary
-              (closed? cl:nil)
-              (tail_ 0)
+  ;; bind slot-data pointer to prevent repeated trips to contested PRQ header
+  (cl:let ((slot-data (prq%-slot-data prq)))
+    (cl:loop
+      ;; CONCURRENT: Masking handled by top-level call on LPRQ
+      (cl:let* ((head_ (atm-inc-head prq))
+                (i-head-metadata 0)
+                (i-head-value 0)
+                (cycle (cl:truncate head_ +prq-length+))
+                ;; Don't need to read initially because will be re-read with r & 255 == 0
+                ;; on the first iteration, if necessary
+                (closed? cl:nil)
+                (tail_ 0)
 
-              (r 0))
-      (cl:declare (cl:type cl-word tail_)
-                  (cl:type cl:fixnum r))
+                (r 0))
+        (cl:declare (cl:type cl-word tail_)
+                    (cl:type cl:fixnum r))
 
-      (cl:multiple-value-bind (i-head-metadata_ i-head-value_)
-          (to-slot-indices head_)
-        (cl:setf i-head-metadata i-head-metadata_
-                 i-head-value i-head-value_))
+        (cl:multiple-value-bind (i-head-metadata_ i-head-value_)
+            (to-slot-indices head_)
+          (cl:setf i-head-metadata i-head-metadata_
+                   i-head-value i-head-value_))
 
-      ;; Try to update the slot state
-      (cl:loop
-        (cl:tagbody
-         start-iteration
-           (cl:let* ((metadata (prq%-slot-metadata prq i-head-metadata))
-                     (safe? (safe? metadata))
-                     (epoch (epoch metadata))
-                     (value (prq%-slot-value prq i-head-value)))
+        ;; Try to update the slot state
+        (cl:loop
+          (cl:tagbody
+           start-iteration
+             (cl:let* ((metadata (cl:svref slot-data i-head-metadata))
+                       (safe? (safe? metadata))
+                       (epoch (epoch metadata))
+                       (value (cl:svref slot-data i-head-value)))
 
-             (cl:when (cl:not (cl:eq metadata (prq%-slot-metadata prq i-head-metadata)))
-               ;; Inconsistent view of slot
-               (cl:go next-iteration))
+               (cl:when (cl:not (cl:eq metadata (cl:svref slot-data i-head-metadata)))
+                 ;; Inconsistent view of slot
+                 (cl:go next-iteration))
 
-             (cl:let* ((empty? (cl:eq value +empty-token+))
-                       (is-token? (cl:and (cl:not empty?)
-                                          (cl:funcall is-thread-fn rt-prx value))))
+               (cl:let* ((empty? (cl:eq value +empty-token+))
+                         (is-token? (cl:and (cl:not empty?)
+                                            (cl:funcall is-thread-fn rt-prx value))))
 
-               (cl:cond
-                 ((cl:and (cl:eq epoch cycle)
-                          (cl:not empty?)
-                          (cl:not is-token?))
-                  ;; slot has not been overwritten and value is legitimate - dequeue transition
-                  (slot-set-value prq i-head-value +empty-token+)
-                  (cl:return-from try-dequeue-prq-inner%
-                    (cl:values value cl:t)))
-                 ((cl:and (cl:<= epoch cycle)
-                          (cl:or empty?
-                                 is-token?))
-                  ;; wait optimization - see reference implementation
-                  (cl:when (cl:zerop (cl:logand r 255))
-                    (cl:setf tail_ (prq%-tail prq)
-                             closed? (prq%-closed prq)))
+                 (cl:cond
+                   ((cl:and (cl:eq epoch cycle)
+                            (cl:not empty?)
+                            (cl:not is-token?))
+                    ;; slot has not been overwritten and value is legitimate - dequeue transition
+                    (cl:setf (cl:svref slot-data i-head-value) +empty-token+)
+                    (cl:return-from try-dequeue-prq-inner%
+                      (cl:values value cl:t)))
+                   ((cl:and (cl:<= epoch cycle)
+                            (cl:or empty?
+                                   is-token?))
+                    ;; wait optimization - see reference implementation
+                    (cl:when (cl:zerop (cl:logand r 255))
+                      (cl:setf tail_ (prq%-tail prq)
+                               closed? (prq%-closed prq)))
 
-                  (cl:when (cl:or (cl:not safe?)
-                                  (cl:<= tail_ head_)
-                                  closed?
-                                  (cl:> r 4096))
-                    ;; empty transition - unlock the cell
-                    (cl:when (cl:and is-token?
-                                     (cl:not (slot-cas-value prq i-head-value value +empty-token+)))
-                      (cl:go next-iteration))
-                    ;; advance the epoch
-                    (cl:when (slot-cas-metadata prq i-head-metadata metadata (pack safe? cycle))
+                    (cl:when (cl:or (cl:not safe?)
+                                    (cl:<= tail_ head_)
+                                    closed?
+                                    (cl:> r 4096))
+                      ;; empty transition - unlock the cell
+                      (cl:when (cl:and is-token?
+                                       (cl:not (at:cas (cl:svref slot-data i-head-value) value +empty-token+)))
+                        (cl:go next-iteration))
+                      ;; advance the epoch
+                      (cl:when (at:cas (cl:svref slot-data i-head-metadata) metadata (pack safe? cycle))
+                        (cl:return)))
+                    (cl:incf r)
+                    )
+                   ((cl:and (cl:< epoch cycle)
+                            (cl:not empty?)
+                            (cl:not is-token?))
+                    ;; unsafe transition
+                    (cl:when (at:cas (cl:svref slot-data i-head-metadata) metadata (pack cl:nil epoch))
                       (cl:return)))
-                  (cl:incf r)
-                  )
-                 ((cl:and (cl:< epoch cycle)
-                          (cl:not empty?)
-                          (cl:not is-token?))
-                  ;; unsafe transition
-                  (cl:when (slot-cas-metadata prq i-head-metadata metadata (pack cl:nil epoch))
-                    (cl:return)))
-                 (cl:t
-                  ;; epoch > cycle
-                  (cl:return-from try-dequeue-prq-inner%
-                    (cl:values cl:nil cl:nil))))))
-           ;; deq is overtaken
+                   (cl:t
+                    ;; epoch > cycle
+                    (cl:return-from try-dequeue-prq-inner%
+                      (cl:values cl:nil cl:nil))))))
+             ;; deq is overtaken
            next-iteration)) 
 
-      ;; Is the queue empty?
-      (cl:let ((head+1 #+sbcl (sb-ext:truly-the cl-word (cl:1+ head_))
-                       #-sbcl (cl:1+ head_)))
-        (cl:when (cl:<= (prq%-tail prq) head+1)
-          ;; monotonically advance tail to the current head before returning
-          ;; See footnote #2 of the paper. Prevents pathological behavior in
-          ;; consumer >>> producer livelock case.
-          (atm-catch-tail prq)
-          (cl:return cl:nil))))
-      ))
+        ;; Is the queue empty?
+        (cl:let ((head+1 #+sbcl (sb-ext:truly-the cl-word (cl:1+ head_))
+                         #-sbcl (cl:1+ head_)))
+          (cl:when (cl:<= (prq%-tail prq) head+1)
+            ;; monotonically advance tail to the current head before returning
+            ;; See footnote #2 of the paper. Prevents pathological behavior in
+            ;; consumer >>> producer livelock case.
+            (atm-catch-tail prq)
+            (cl:return cl:nil))))
+      )))
 
 (coalton-toplevel
   (inline)
