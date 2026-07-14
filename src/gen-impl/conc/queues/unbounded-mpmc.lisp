@@ -162,10 +162,13 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
            make-prq%))
 
 (cl:declaim (cl:inline to-slot-index))
-(cl:defun to-slot-index (i)
+(cl:defun to-slot-indices (i)
+  "Convert a head/tail ticket to an index on the array. Returns (metadata-index, value-index)."
   (cl:declare (cl:type cl:fixnum i)
-              (cl:values cl:fixnum))
-  (cl:* 2 (cl:mod i +prq-length+)))
+              (cl:values cl:fixnum cl:fixnum))
+  (cl:let* ((metadata-index (cl:* 2 (cl:mod i +prq-length+)))
+            (value-index (cl:1+ metadata-index)))
+    (cl:values metadata-index value-index)))
 
 ;; NOTE: The idiomatic solution would be to define separate accessor and setf variants for
 ;; metadata and value. The problem is that, on SBCL, this *also* requires defining a
@@ -173,27 +176,25 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 ;;
 ;; Just having place macros makes it difficult to annotate the type and use it as a CAS
 ;; target at the same time (the type annotation form confuses the CAS syntax).
-(cl:defmacro place--prq%-slot-metadata (prq i)
+(cl:defmacro place--prq%-slot-data (prq i)
   "Place for the metadata for the `i`th slot in `prq` (out of `+prq-length+`)."
-  `(cl:svref (prq%-slot-data ,prq) (to-slot-index ,i)))
+  `(cl:svref (prq%-slot-data ,prq) ,i))
 
-(cl:defmacro place--prq%-slot-value (prq i)
-  "Place for the value for the `i`th slot in `prq` (out of `+prq-length+`)."
-  `(cl:svref (prq%-slot-data ,prq) (cl:1+ (to-slot-index ,i))))
-
-(cl:declaim (cl:inline (prq%-slot-metadata)))
+(cl:declaim (cl:inline prq%-slot-metadata))
 (cl:defun prq%-slot-metadata (prq i)
+  "Requires `i` to be a physical index on the array. Assumes `i` is a valid metadata index."
   (cl:declare (cl:type prq% prq)
               (cl:type cl:fixnum i)
               (cl:values slot-metadata))
-  (place--prq%-slot-metadata prq i))
+  (place--prq%-slot-data prq i))
 
-(cl:declaim (cl:inline (prq%-slot-value)))
+(cl:declaim (cl:inline prq%-slot-metadata))
 (cl:defun prq%-slot-value (prq i)
+  "Requires `i` to be a physical index on the array. Assumes `i` is a valid value index."
   (cl:declare (cl:type prq% prq)
               (cl:type cl:fixnum i)
               (cl:values cl:t))
-  (place--prq%-slot-value prq i))
+  (place--prq%-slot-data prq i))
 
 (coalton-toplevel
   (repr :native prq%)
@@ -217,25 +218,28 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
 (cl:declaim (cl:inline slot-cas-metadata))
 (cl:defun slot-cas-metadata (prq i old new)
+  "Requires `i` to be a physical index on the array."
   (cl:declare (cl:type prq% prq)
               (cl:type cl:fixnum i)
               (cl:type slot-metadata old new)
               (cl:values cl:boolean))
-  (at:cas (place--prq%-slot-metadata prq i) old new))
+  (at:cas (place--prq%-slot-data prq i) old new))
 
 (cl:declaim (cl:inline slot-cas-value))
 (cl:defun slot-cas-value (prq i old new)
+  "Requires `i` to be a physical index on the array."
   (cl:declare (cl:type prq% prq)
               (cl:type cl:fixnum i)
               (cl:values cl:boolean))
-  (at:cas (place--prq%-slot-value prq i) old new))
+  (at:cas (place--prq%-slot-data prq i) old new))
 
 (cl:declaim (cl:inline slot-set-value))
 (cl:defun slot-set-value (prq i val)
+  "Requires `i` to be a physical index on the array."
   (cl:declare (cl:type prq% prq)
               (cl:type cl:fixnum i)
               (cl:values))
-  (cl:setf (place--prq%-slot-value prq i) val)
+  (cl:setf (place--prq%-slot-data prq i) val)
   (cl:values))
 
 (cl:declaim (cl:inline prq-cas-close))
@@ -308,48 +312,50 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
     
     (cl:loop
       (cl:let ((tail_ (atm-inc-tail prq)))
+        (cl:multiple-value-bind (i-tail-metadata i-tail-value)
+            (to-slot-indices tail_)
 
-        (cl:when (prq%-closed prq)
-          (cl:return cl:nil))
+          (cl:when (prq%-closed prq)
+            (cl:return cl:nil))
 
-        (cl:let* ((cycle (cl:truncate tail_ +prq-length+))
-                  (metadata (prq%-slot-metadata prq tail_))
-                  (is-safe? (safe? metadata))
-                  (epoch (epoch metadata))
-                  (value (prq%-slot-value prq tail_))
-                  (head_ (prq%-head prq)))
+          (cl:let* ((cycle (cl:truncate tail_ +prq-length+))
+                    (metadata (prq%-slot-metadata prq i-tail-metadata))
+                    (is-safe? (safe? metadata))
+                    (epoch (epoch metadata))
+                    (value (prq%-slot-value prq i-tail-value))
+                    (head_ (prq%-head prq)))
 
-          (cl:when (cl:and (cl:< epoch cycle)                    ;; enqueue is not overtaken
-                           (cl:or is-safe? (cl:<= head_ tail_))
-                           (cl:or (cl:eq +empty-token+ value)    ;; and the slot is empty
-                                  (cl:funcall is-thread-fn rt-prx value)))
+            (cl:when (cl:and (cl:< epoch cycle)                    ;; enqueue is not overtaken
+                             (cl:or is-safe? (cl:<= head_ tail_))
+                             (cl:or (cl:eq +empty-token+ value)    ;; and the slot is empty
+                                    (cl:funcall is-thread-fn rt-prx value)))
 
-            (cl:let ((ownership-token (cl:funcall current-thread-fn rt-prx)))
-              (cl:when ;; Lock the slot with the ownership token
-                       (slot-cas-value prq tail_ value ownership-token)
-                ;; Advance the epoch
-                (cl:if (cl:not (slot-cas-metadata prq tail_ metadata (pack cl:t cycle)))
-                       ;; Another thread enqueued, so cleanup and try again
-                       (slot-cas-value prq tail_ ownership-token +empty-token+)
-                       ;; Publish item
-                       (cl:when (slot-cas-value prq tail_ ownership-token val)
-                         (cl:return cl:t))))))
+              (cl:let ((ownership-token (cl:funcall current-thread-fn rt-prx)))
+                (cl:when ;; Lock the slot with the ownership token
+                    (slot-cas-value prq i-tail-value value ownership-token)
+                  ;; Advance the epoch
+                  (cl:if (cl:not (slot-cas-metadata prq i-tail-metadata metadata (pack cl:t cycle)))
+                         ;; Another thread enqueued, so cleanup and try again
+                         (slot-cas-value prq i-tail-value ownership-token +empty-token+)
+                         ;; Publish item
+                         (cl:when (slot-cas-value prq i-tail-value ownership-token val)
+                           (cl:return cl:t))))))
 
-          ;; Check overflow
-          (cl:let* ((head_ (prq%-head prq))
-                    (head+len #+sbcl
-                              (sb-ext:truly-the cl-word
-                                                (cl:+ head_ +prq-length+))
-                              #-sbcl
-                              (cl:+ head_ +prq-length+)))
-            (cl:when (cl:or (cl:>= tail_ head+len)                          ;; Is the queue full?
-                            (cl:eql try-close +prq-max-enqueue-attempts+))  ;; defensive closure against livelock
-              ;; TODO: Does this have to CAS? It's not in the paper
-              (prq-cas-close prq)
-              (cl:return cl:nil)))
+            ;; Check overflow
+            (cl:let* ((head_ (prq%-head prq))
+                      (head+len #+sbcl
+                                (sb-ext:truly-the cl-word
+                                                  (cl:+ head_ +prq-length+))
+                                #-sbcl
+                                (cl:+ head_ +prq-length+)))
+              (cl:when (cl:or (cl:>= tail_ head+len)                          ;; Is the queue full?
+                              (cl:eql try-close +prq-max-enqueue-attempts+))  ;; defensive closure against livelock
+                ;; TODO: Does this have to CAS? It's not in the paper
+                (prq-cas-close prq)
+                (cl:return cl:nil)))
 
-          (cl:incf try-close)
-          )))))
+            (cl:incf try-close)
+            ))))))
 
 (coalton-toplevel
   (inline)
@@ -366,8 +372,9 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
   (cl:loop
     ;; CONCURRENT: Masking handled by top-level call on LPRQ
     (cl:let* ((head_ (atm-inc-head prq))
+              (i-head-metadata 0)
+              (i-head-value 0)
               (cycle (cl:truncate head_ +prq-length+))
-              ;; (slot (prq-slot prq head_))
               ;; Don't need to read initially because will be re-read with r & 255 == 0
               ;; on the first iteration, if necessary
               (closed? cl:nil)
@@ -377,16 +384,21 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
       (cl:declare (cl:type cl-word tail_)
                   (cl:type cl:fixnum r))
 
+      (cl:multiple-value-bind (i-head-metadata_ i-head-value_)
+          (to-slot-indices head_)
+        (cl:setf i-head-metadata i-head-metadata_
+                 i-head-value i-head-value_))
+
       ;; Try to update the slot state
       (cl:loop
         (cl:tagbody
          start-iteration
-           (cl:let* ((metadata (prq%-slot-metadata prq head_))
+           (cl:let* ((metadata (prq%-slot-metadata prq i-head-metadata))
                      (safe? (safe? metadata))
                      (epoch (epoch metadata))
-                     (value (prq%-slot-value prq head_)))
+                     (value (prq%-slot-value prq i-head-value)))
 
-             (cl:when (cl:not (cl:eq metadata (prq%-slot-metadata prq head_)))
+             (cl:when (cl:not (cl:eq metadata (prq%-slot-metadata prq i-head-metadata)))
                ;; Inconsistent view of slot
                (cl:go next-iteration))
 
@@ -399,7 +411,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
                           (cl:not empty?)
                           (cl:not is-token?))
                   ;; slot has not been overwritten and value is legitimate - dequeue transition
-                  (slot-set-value prq head_ +empty-token+)
+                  (slot-set-value prq i-head-value +empty-token+)
                   (cl:return-from try-dequeue-prq-inner%
                     (cl:values value cl:t)))
                  ((cl:and (cl:<= epoch cycle)
@@ -416,10 +428,10 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
                                   (cl:> r 4096))
                     ;; empty transition - unlock the cell
                     (cl:when (cl:and is-token?
-                                     (cl:not (slot-cas-value prq head_ value +empty-token+)))
+                                     (cl:not (slot-cas-value prq i-head-value value +empty-token+)))
                       (cl:go next-iteration))
                     ;; advance the epoch
-                    (cl:when (slot-cas-metadata prq head_ metadata (pack safe? cycle))
+                    (cl:when (slot-cas-metadata prq i-head-metadata metadata (pack safe? cycle))
                       (cl:return)))
                   (cl:incf r)
                   )
@@ -427,7 +439,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
                           (cl:not empty?)
                           (cl:not is-token?))
                   ;; unsafe transition
-                  (cl:when (slot-cas-metadata prq head_ metadata (pack cl:nil epoch))
+                  (cl:when (slot-cas-metadata prq i-head-metadata metadata (pack cl:nil epoch))
                     (cl:return)))
                  (cl:t
                   ;; epoch > cycle
