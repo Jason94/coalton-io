@@ -161,14 +161,25 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
                         prq%)
            make-prq%))
 
-(cl:declaim (cl:inline to-slot-index))
+(cl:declaim (cl:type cl:fixnum +cache-line-size+ +slot-size+ +slots-per-cache-line+ +num-cache-lines+))
+(cl:defconstant +cache-line-size+ 128)
+(cl:defconstant +slot-size+ (cl:+ 8 8))
+(cl:defconstant +slots-per-cache-line+ (cl:/ +cache-line-size+ +slot-size+))
+(cl:defconstant +num-cache-lines+ (cl:/ (cl:* +prq-length+ +slot-size+) +cache-line-size+))
+
+(cl:declaim (cl:inline to-slot-indices))
 (cl:defun to-slot-indices (i)
   "Convert a head/tail ticket to an index on the array. Returns (metadata-index, value-index)."
-  (cl:declare (cl:type cl:fixnum i)
+  (cl:declare (cl:type cl-word i)
               (cl:values cl:fixnum cl:fixnum))
-  (cl:let* ((metadata-index (cl:* 2 (cl:mod i +prq-length+)))
-            (value-index (cl:1+ metadata-index)))
-    (cl:values metadata-index value-index)))
+  (cl:let ((j (cl:mod i +prq-length+)))
+    (cl:multiple-value-bind (quotient rem)
+        (cl:floor j +num-cache-lines+)
+      (cl:let* ((metadata-index (cl:* 2
+                                      (cl:+ (cl:* rem +slots-per-cache-line+)
+                                            quotient)))
+                (value-index (cl:1+ metadata-index)))
+        (cl:values metadata-index value-index)))))
 
 ;; NOTE: The idiomatic solution would be to define separate accessor and setf variants for
 ;; metadata and value. The problem is that, on SBCL, this *also* requires defining a
@@ -188,7 +199,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
               (cl:values slot-metadata))
   (place--prq%-slot-data prq i))
 
-(cl:declaim (cl:inline prq%-slot-metadata))
+(cl:declaim (cl:inline prq%-slot-value))
 (cl:defun prq%-slot-value (prq i)
   "Requires `i` to be a physical index on the array. Assumes `i` is a valid value index."
   (cl:declare (cl:type prq% prq)
