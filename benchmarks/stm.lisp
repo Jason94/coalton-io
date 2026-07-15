@@ -248,7 +248,7 @@ wakes."
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
-(defparameter *count* 55)
+(defparameter *count* 30)
 
 (define-benchmark small-tx-1-worker ()
   (loop :repeat *count*
