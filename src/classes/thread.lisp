@@ -88,7 +88,6 @@
    #:prxs-same-runtime
    #:concurrent-value-prx
    #:value-concurrent-prx
-   #:atomic-set-generation%!
    )
   (:local-nicknames
    (:bt #:io/utilities/bt-compat)
@@ -103,7 +102,7 @@
   (derive Eq)
   (repr :transparent)
   (define-type Generation
-    (Generation bt::Word))
+    (Generation Word))
 
   (derive Eq)
   (define-type TimeoutStrategy
@@ -143,16 +142,6 @@ ThreadingException.
     (inline)
     (define (<=> (Generation a) (Generation b))
       (<=> a b)))
-
-  ;; TODO: Convert the generation stuff to use my own AtomicInteger, not coalton-thread's,
-  ;; so I can use the same CAS loop algorithms.
-  (declare atomic-set-generation%! (Generation * bt:AtomicInteger -> Void))
-  (define (atomic-set-generation%! (Generation gen) atm)
-    "Set the value of ATM to GEN."
-    (rec % ()
-      (if (bt:cas! atm (bt:read atm) gen)
-          (values)
-          (%))))
 
   (define-class (Runtime :r :t (:r -> :t))
     "This class doesn't represent data, but the type tells a Concurrent and

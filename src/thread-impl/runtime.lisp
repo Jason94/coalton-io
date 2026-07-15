@@ -150,7 +150,7 @@
     (flags      bt:AtomicInteger)
     (stop-lk    bt:Lock)
     ;; Parking/Unparking
-    (generation bt:AtomicInteger)
+    (generation (c:Cell Generation))
     (fired-gen  bt:AtomicInteger)
     (park-lock  bt:Lock)
     (park-cv    bt:ConditionVariable)
@@ -160,7 +160,9 @@
     (status     (c:Cell ThreadStatus))
     (child-lk   bt:Lock)
     (children   (c:Cell (List IoThread)))
-    )
+    ))
+
+(coalton-toplevel
 
   (define-instance (Eq IoThread)
     (define (== a b)
@@ -177,7 +179,7 @@
      (c:new None)
      (bt:new-at CLEAN)
      (bt:new-lk)
-     (bt:new-at 0)
+     (c:new (Generation 0))
      (bt:new-at 0)
      (bt:new-lk)
      (bt:new-cv)
@@ -228,7 +230,7 @@
      (c:new (Some (current-native-thread%)))
      (bt:new-at CLEAN)
      (bt:new-lk)
-     (bt:new-at 0)
+     (c:new (Generation 0))
      (bt:new-at 0)
      (bt:new-lk)
      (bt:new-cv)
@@ -643,6 +645,19 @@ just be limited to implementing only solutions #2 or #3.
   ;;; Parking & Unparking Threads
   ;;;
 
+  (inline)
+  (declare increment-gen (Generation -> Generation))
+  (define (increment-gen (Generation g))
+    (Generation (1+ g)))
+
+  (declare atomic-set-generation%! (Generation * bt:AtomicInteger -> Void))
+  (define (atomic-set-generation%! (Generation gen) atm)
+    "Set the value of ATM to GEN."
+    (rec % ()
+      (if (bt:cas! atm (bt:read atm) gen)
+          (values)
+          (%))))
+
   ;; For full discussion of the park algorithm, see top of the file and docs/runtime.md
   (declare park-current-thread-if-with!% (Runtime :rt IoThread
                                           => Proxy :rt
@@ -667,7 +682,7 @@ just be limited to implementing only solutions #2 or #3.
     (let thread = (current-thread!%))
     (bt:acquire (.park-lock thread))
     ;; Checkout a new generation for the thread
-    (let new-gen = (bt:incf! (.generation thread) 1))
+    (let (Generation new-gen) = (c:update! increment-gen (.generation thread)))
     ;; Run any subscriptions with the new generation
     (with-gen (Generation new-gen))
     ;; (Re)check the "should I park?" pred now that the subscriptions have processed
