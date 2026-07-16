@@ -692,7 +692,7 @@ just be limited to implementing only solutions #2 or #3.
               (progn
                 (bt:release (.park-lock thread))
                 (when (should-park?)
-                  (park-current-thread-if!% rt-prx with-gen should-park? :timeout timeout)))
+                  (park-current-thread-if-masked!% rt-prx with-gen should-park? :timeout timeout)))
               ;; If another thread did not beat us to parking, wait on the CV
               (rec wait-loop ()
                 (unmask-and-await-safely-with% ;; (A)

@@ -599,6 +599,19 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
 (coalton-toplevel
   (inline)
+  (declare try-dequeue-masked% (Runtime :rt :t => Proxy :rt * LPRQ :a -> Optional :a))
+  (define (try-dequeue-masked% rt-prx lprq)
+    ;; CONCURRENT:
+    ;; Assumes masked
+    (let (values val found?) =
+      (lisp (-> Anything * Boolean) (rt-prx lprq is-thread?)
+        (try-dequeue-inner% rt-prx lprq is-thread?)))
+    (if found?
+        (Some (from-anything val))
+        None)))
+
+(coalton-toplevel
+  (inline)
   (declare try-dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> Optional :a))
   (define (try-dequeue% rt-prx lprq)
     ;; CONCURRENT:
@@ -613,35 +626,38 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
         None)))
 
 (coalton-toplevel
+  (inline)
   (declare dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> :a))
   (define (dequeue% rt-prx lprq)
     ;; CONCURRENT:
-    ;; Doesn't need to mask because try-dequeue% properly masks around LPRQ operations.
-    (match (try-dequeue% rt-prx lprq)
-      ((Some val)
-       (return val))
-      ((None)
-       Unit))
+    ;; For simplicity, masks around whole operation
+    (mask-current! rt-prx)
+    (let result =
+      (rec % ()
+        (match (try-dequeue-masked% rt-prx lprq)
+          ((Some val)
+           (return val))
+          ((None)
+           (let result = (c:new None))
 
-    (let result = (c:new None))
+           (park-in-set-if-masked%
+            rt-prx
+            (fn ()
+              (match (try-dequeue-masked% rt-prx lprq)
+                ((Some val)
+                 (c:write! result (Some val))
+                 False)
+                ((None)
+                 True)))
+            (lprq-parkers lprq))
 
-    (park-in-set-if%
-     rt-prx
-     (fn ()
-       (match (try-dequeue% rt-prx lprq)
-         ((Some val)
-          (c:write! result (Some val))
-          False)
-         ((None)
-          True)))
-     (lprq-parkers lprq))
-
-    (match (c:read result)
-      ((Some val)
-       val)
-      ((None)
-       (dequeue% rt-prx lprq))))
-  )
+           (match (c:read result)
+             ((Some val)
+              val)
+             ((None)
+              (%)))))))
+    (unmask-current! rt-prx)
+    result))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;            Public API             ;;;

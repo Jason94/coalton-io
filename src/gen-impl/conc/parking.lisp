@@ -28,6 +28,7 @@
    #:new-parking-set%
    #:park-in-sets-if%
    #:park-in-set-if%
+   #:park-in-set-if-masked%
    #:unpark-set%
    #:unpark-one%
    #:unpark-one-masked%
@@ -91,6 +92,30 @@ Concurrent:
        (values))
      should-park?
      :timeout timeout)
+    (values))
+
+  (inline)
+  (declare park-in-set-if-masked% (Runtime :rt :t
+                                 => Proxy :rt
+                                 * (Void -> Boolean)
+                                 * ParkingSet
+                                 &key (:timeout TimeoutStrategy)
+                                 -> Void))
+  (define (park-in-set-if-masked% rt-prx should-park? pset &key (timeout NoTimeout))
+    "Concurrent: Assumes already maksed!
+- Will exit with the same mask level as entered.
+- Will unmask one level before block."
+    (park-current-thread-if-masked!
+     rt-prx
+     (fn (gen)
+       (let parked-thread = (current-thread! rt-prx))
+       (let unpark-action = (fn ()
+                              (unpark-thread! rt-prx gen parked-thread)))
+       (at:atomic-push (get-set% pset) unpark-action)
+       (values))
+     should-park?
+     :timeout
+     timeout)
     (values))
 
   (inline)
