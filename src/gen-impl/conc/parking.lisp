@@ -27,9 +27,7 @@
    ;; Library Private
    #:new-parking-set%
    #:park-in-sets-if%
-   #:park-in-sets-if-with%
    #:park-in-set-if%
-   #:park-in-set-if-with%
    #:unpark-set%
    #:unpark-one%
    #:unpark-one-masked%
@@ -75,13 +73,13 @@ Concurrent:
     atm)
 
   (inline)
-  (declare park-in-sets-if-with% (Runtime :rt :t
+  (declare park-in-sets-if% (Runtime :rt :t
                                   => Proxy :rt
                                   * (Void -> Boolean)
-                                  * TimeoutStrategy
                                   * List ParkingSet
+                                  &key (:timeout TimeoutStrategy)
                                   -> Void))
-  (define (park-in-sets-if-with% rt-prx should-park? strategy psets)
+  (define (park-in-sets-if% rt-prx should-park? psets &key (timeout NoTimeout))
     (park-current-thread-if!
      rt-prx
      (fn (gen)
@@ -92,24 +90,17 @@ Concurrent:
          (at:atomic-push (get-set% pset) unpark-action))
        (values))
      should-park?
-     :timeout strategy)
+     :timeout timeout)
     (values))
 
   (inline)
-  (declare park-in-sets-if% (Runtime :rt :t
-                              => Proxy :rt * (Void -> Boolean) * List ParkingSet -> Void))
-  (define (park-in-sets-if% rt-prx should-park? psets)
-    (park-in-sets-if-with% rt-prx should-park? NoTimeout psets)
-    (values))
-
-  (inline)
-  (declare park-in-set-if-with% (Runtime :rt :t
+  (declare park-in-set-if% (Runtime :rt :t
                                  => Proxy :rt
                                  * (Void -> Boolean)
-                                 * TimeoutStrategy
                                  * ParkingSet
+                                 &key (:timeout TimeoutStrategy)
                                  -> Void))
-  (define (park-in-set-if-with% rt-prx should-park? strategy pset)
+  (define (park-in-set-if% rt-prx should-park? pset &key (timeout NoTimeout))
     (park-current-thread-if!
      rt-prx
      (fn (gen)
@@ -120,14 +111,8 @@ Concurrent:
        (values))
      should-park?
      :timeout
-     strategy)
+     timeout)
     (values))
-
-  (inline)
-  (declare park-in-set-if% (Runtime :rt :t
-                              => Proxy :rt * (Void -> Boolean) * ParkingSet -> Void))
-  (define (park-in-set-if% rt-prx should-park? pset)
-    (park-in-set-if-with% rt-prx should-park? NoTimeout pset))
 
   (inline)
   (declare park-in-sets-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)

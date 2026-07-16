@@ -475,13 +475,13 @@ For safety, disconnects the transactions when done."
     ;; CONCURRENT:
     ;; - Inherits concurrent semantics of park-in-sets-if%
     (let lock-snapshot = (the Word (c:read (.lock-snapshot tx-data))))
-    (park-in-sets-if-with%
+    (park-in-sets-if%
      rt-prx
      (fn ()
        (== (TxContinue% lock-snapshot)
            (validate% tx-data)))
-     strategy
-     (map read-entry-pset% (c:read (.read-log tx-data))))
+     (map read-entry-pset% (c:read (.read-log tx-data)))
+     :timeout strategy)
     (values))
 
   (declare inner-read-tvar% (TVar :a * TxData% -> :a))

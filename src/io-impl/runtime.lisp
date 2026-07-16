@@ -46,7 +46,7 @@
       (unmask-finally!% thread thunk))
     (inline)
     (define (park-current-thread-if! prx with-gen should-park? &key (timeout NoTimeout))
-      (park-current-thread-if-with!% prx with-gen should-park? timeout))
+      (park-current-thread-if!% prx with-gen should-park? :timeout timeout))
     (inline)
     (define (unpark-thread! _ gen thread)
       (unpark-thread!% gen thread))
