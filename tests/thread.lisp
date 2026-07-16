@@ -475,3 +475,21 @@
       (pure (Tuple finished-after-stale finished-after-fresh)))))
   (is (== (Tuple False True)
           result)))
+
+(define-test test-unpark-after-aborted-park-is-ignored ()
+  (let result =
+    (run-io!
+     (do
+      (generation <- (new-var None))
+      (thread <- current-thread)
+      (park-current-thread-if_
+       (fn (gen)
+         (do
+          (write generation (Some gen))
+          (pure Unit)))
+       (pure False))
+      (generation <- (read generation))
+      (unpark-thread (opt:from-some "Test execution failure" generation)
+                     thread))))
+  (is (== False result)))
+

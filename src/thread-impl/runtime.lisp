@@ -686,10 +686,11 @@ just be limited to implementing only solutions #2 or #3.
     ;; Run any subscriptions with the new generation
     (with-gen (Generation new-gen))
     ;; (Re)check the "should I park?" pred now that the subscriptions have processed
+    (let fired-gen = (bt:read (.fired-gen thread)))
     (if (should-park?)
         (progn
           ;; If another thread beat us to parking, re-attempt if SHOULD-PARK?
-          (if (>= (bt:read (.fired-gen thread)) new-gen)
+          (if (>= fired-gen new-gen)
               (progn
                 (bt:release (.park-lock thread))
                 (unmask-current-thread!%) ;; (A)
@@ -711,6 +712,9 @@ just be limited to implementing only solutions #2 or #3.
                     ;; Otherwise, re-loop
                     (wait-loop)))))
         (progn
+          ;; Expire the checked-out generation. This CAS is safe because, if
+          ;; fired-gen was updated, then new-gen is already expired.
+          (bt:cas! (.fired-gen thread) fired-gen new-gen)
           (bt:release (.park-lock thread))
           (unmask-current-thread!%))))
 
