@@ -531,12 +531,10 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
 (coalton-toplevel
   (inline)
-  (declare notify-parker (Runtime :rt :t => Proxy :rt * LPRQ :a -> Void))
-  (define (notify-parker rt-prx lprq)
+  (declare notify-parker (LPRQ :a -> Void))
+  (define (notify-parker lprq)
     "Notify parkers if necessary."
-    (let parkers = (lprq-parkers lprq))
-    (when (not (parking-set-empty?% parkers))
-      (unpark-one% parkers rt-prx))))
+    (unpark-one-masked% (lprq-parkers lprq))))
 
 (cl:declaim (cl:inline enqueue-inner%))
 (cl:defun enqueue-inner% (rt-prx lprq elt notify-parker-fn current-thread-fn is-thread-fn)
@@ -549,7 +547,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
       ;; fast-path: add to the current PRQ
       (cl:when (enqueue-prq-inner% rt-prx prq elt current-thread-fn is-thread-fn)
-        (cl:funcall notify-parker-fn rt-prx lprq)
+        (cl:funcall notify-parker-fn lprq)
         (cl:return-from enqueue-inner%))
 
       ;; slow-path: Tail is full, add new PRQ
@@ -559,7 +557,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
         (cl:if (prq-cas-next-empty prq new-tail)
           (cl:progn
             (lprq-cas-tail lprq prq new-tail)
-            (cl:funcall notify-parker-fn rt-prx lprq)
+            (cl:funcall notify-parker-fn lprq)
             (cl:return-from enqueue-inner%))
           (cl:let ((next (prq%-next prq)))
             (lprq-cas-tail lprq prq next)))))))

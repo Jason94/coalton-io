@@ -32,6 +32,7 @@
    #:park-in-set-if-with%
    #:unpark-set%
    #:unpark-one%
+   #:unpark-one-masked%
    #:num-waiters
    #:parking-set-empty?%
    ))
@@ -240,6 +241,31 @@ from another thread. Can specify a timeout."
       (unpark-set% pset rt-prx)
       Unit))
 
+  (inline)
+  (declare unpark-one-masked% (ParkingSet &key (:fair Boolean) -> Void))
+  (define (unpark-one-masked% pset &key (fair False))
+    "Concurrent: Assumes masked! Must execute in a masked region to be safe."
+    (match (at:read (get-set% pset))
+      ((Nil)
+       (values))
+      (_
+       (rec % ()
+         (let parked-actions = (at:atomic-update-swap (get-set% pset)
+                                                      (if fair
+                                                          l:init
+                                                          ƒl.(l:drop 1 l))))
+         (let parked-action? =
+           (if fair
+               (l:last parked-actions)
+               (l:head parked-actions)))
+         (match parked-action?
+           ((None)
+            (values))
+           ((Some parked-action)
+            (if (parked-action)
+                (values)
+                (%))))))))
+
   (declare unpark-one% (Runtime :rt :t => ParkingSet * Proxy :rt &key (:fair Boolean) -> Void))
   (define (unpark-one% pset rt-prx &key (fair False))
     ;; CONCURRENT:
@@ -248,22 +274,7 @@ from another thread. Can specify a timeout."
     ;; - Could technically unmask before recursion in stale case, but that would be
     ;;   inefficient because it would immediately remask.
     (mask-current! rt-prx)
-    (rec % ()
-      (let parked-actions = (at:atomic-update-swap (get-set% pset)
-                                                   (if fair
-                                                       l:init
-                                                       ƒl.(l:drop 1 l))))
-      (let parked-action? =
-        (if fair
-            (l:last parked-actions)
-            (l:head parked-actions)))
-      (match parked-action?
-        ((None)
-         (values))
-        ((Some parked-action)
-         (if (parked-action)
-             (values)
-             (%)))))
+    (unpark-one-masked% pset :fair fair)
     (unmask-current! rt-prx))
 
   (inline)
