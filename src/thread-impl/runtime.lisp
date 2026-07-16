@@ -46,6 +46,7 @@
    #:*global-thread*
 
    #:park-current-thread-if!%
+   #:park-current-thread-if-masked!%
    #:unpark-thread!%
 
    #:write-line-sync%
@@ -658,26 +659,24 @@ just be limited to implementing only solutions #2 or #3.
           (%))))
 
   ;; For full discussion of the park algorithm, see top of the file and docs/runtime.md
-  (declare park-current-thread-if!% (Runtime :rt IoThread
-                                          => Proxy :rt
-                                          * (Generation -> Void)
-                                          * (Void -> Boolean)
-                                          &key (:timeout TimeoutStrategy)
-                                          -> Void))
-  (define (park-current-thread-if!% rt-prx with-gen should-park? &key (timeout NoTimeout))
+  (declare park-current-thread-if-masked!% (Runtime :rt IoThread
+                                            => Proxy :rt
+                                            * (Generation -> Void)
+                                            * (Void -> Boolean)
+                                            &key (:timeout TimeoutStrategy)
+                                            -> Void))
+  (define (park-current-thread-if-masked!% rt-prx with-gen should-park? &key (timeout NoTimeout))
     ;; CONCURRENT:
-    ;; - Masks before acquiring the lock and unmasks after releasing the lock,
+    ;; - WARNING: Must mask before calling and unmask after returning!
+    ;; - Assumes mask was acquired before acquiring the lock and unmask after releasing the lock,
     ;;   so the thread can't be stopped while the lock is held
+    ;; - But does pop one mask layer (A) so will be properly stoppable during block
     ;; - Acquires park-lock before running with-gen so there's no race condition window
     ;;   where the thread has been subscribed, but isn't waiting on the CV yet.
-    ;; - (A) unmasking before checking if it should re-attempt parking is valid,
-    ;;   because it does not create a race-condition boundary, because the thread
-    ;;   can be stopped while the function is waiting on the CV anyway.
-    ;; - (B) unmask-and-await-safely% guarantees that the thread can't be stopped while
+    ;; - (A) unmask-and-await-safely% guarantees that the thread can't be stopped while
     ;;   the lock and CV operations are performed such that the lock is held and the
     ;;   thread stopped
-    ;; - (C) unmask the mask from unmask-and-await-safely%
-    (mask-current-thread!%)
+    ;; - (A) unmask-and-await-safely% returns with the popped mask-layer restored
     (let thread = (current-thread!%))
     (bt:acquire (.park-lock thread))
     ;; Checkout a new generation for the thread
@@ -692,12 +691,11 @@ just be limited to implementing only solutions #2 or #3.
           (if (>= fired-gen new-gen)
               (progn
                 (bt:release (.park-lock thread))
-                (unmask-current-thread!%) ;; (A)
                 (when (should-park?)
                   (park-current-thread-if!% rt-prx with-gen should-park? :timeout timeout)))
               ;; If another thread did not beat us to parking, wait on the CV
               (rec wait-loop ()
-                (unmask-and-await-safely-with% ;; (B)
+                (unmask-and-await-safely-with% ;; (A)
                  rt-prx
                  timeout
                  (.park-cv thread)
@@ -707,7 +705,7 @@ just be limited to implementing only solutions #2 or #3.
                 (if (>= (bt:read (.fired-gen thread)) new-gen)
                     (progn
                       (bt:release (.park-lock thread))
-                      (unmask-current-thread!%)) ;; (C)
+                      (values))
                     ;; Otherwise, re-loop
                     (wait-loop)))))
         (progn
@@ -715,7 +713,18 @@ just be limited to implementing only solutions #2 or #3.
           ;; fired-gen was updated, then new-gen is already expired.
           (bt:cas! (.fired-gen thread) fired-gen new-gen)
           (bt:release (.park-lock thread))
-          (unmask-current-thread!%))))
+          (values))))
+
+  (declare park-current-thread-if!% (Runtime :rt IoThread
+                                            => Proxy :rt
+                                            * (Generation -> Void)
+                                            * (Void -> Boolean)
+                                            &key (:timeout TimeoutStrategy)
+                                            -> Void))
+  (define (park-current-thread-if!% rt-prx with-gen should-park? &key (timeout NoTimeout))
+    (mask-current-thread!%)
+    (park-current-thread-if-masked!% rt-prx with-gen should-park? :timeout timeout)
+    (unmask-current-thread!%))
 
   (declare unpark-thread!% (Generation * IoThread -> Boolean))
   (define (unpark-thread!% gen thread)

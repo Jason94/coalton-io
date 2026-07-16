@@ -51,6 +51,7 @@
    #:mask-current!
    #:unmask-current!
    #:park-current-thread-if!
+   #:park-current-thread-if-masked!
    #:unpark-thread!
 
    #:Concurrent
@@ -212,6 +213,25 @@ SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread s
 park, *not* if it should resume. Can specify a timeout.
 
 Concurrent:
+  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
+    state.
+  - Can briefly block while trying to park the thread, if contended."
+     (Proxy :r * (Generation -> Void) * (Void -> Boolean)
+      &key (:timeout TimeoutStrategy)
+      -> Void))
+    (park-current-thread-if-masked!
+     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
+woken by an unpark from another thread. Upon an unpark, the thread will resume even if
+SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
+park, *not* if it should resume. Can specify a timeout.
+
+Must be masked when entering! This is a low-level function meant for optimizing specific
+algorithms.
+
+Concurrent:
+  - WARNING: Assumes there is a mask already set on the function. Will leave the mask state
+    the same when it exits as when it started. Will pop one mask level when/if the thread
+    waits for a park.
   - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
     state.
   - Can briefly block while trying to park the thread, if contended."
