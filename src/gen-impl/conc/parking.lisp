@@ -110,7 +110,7 @@ Concurrent:
      (fn (gen)
        (let parked-thread = (current-thread! rt-prx))
        (let unpark-action = (fn ()
-                              (unpark-thread! rt-prx gen parked-thread)))
+                              (unpark-thread-masked! rt-prx gen parked-thread)))
        (at:atomic-push (get-set% pset) unpark-action)
        (values))
      should-park?

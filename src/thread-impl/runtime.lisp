@@ -48,6 +48,7 @@
    #:park-current-thread-if!%
    #:park-current-thread-if-masked!%
    #:unpark-thread!%
+   #:unpark-thread-masked!%
 
    #:write-line-sync%
    ))
@@ -692,7 +693,7 @@ just be limited to implementing only solutions #2 or #3.
               (progn
                 (bt:release (.park-lock thread))
                 (when (should-park?)
-                  (park-current-thread-if-masked!% rt-prx with-gen should-park? :timeout timeout)))
+                  (park-current-thread-if!% rt-prx with-gen should-park? :timeout timeout)))
               ;; If another thread did not beat us to parking, wait on the CV
               (rec wait-loop ()
                 (unmask-and-await-safely-with% ;; (A)
@@ -725,6 +726,32 @@ just be limited to implementing only solutions #2 or #3.
     (mask-current-thread!%)
     (park-current-thread-if-masked!% rt-prx with-gen should-park? :timeout timeout)
     (unmask-current-thread!%))
+
+  (declare unpark-thread-masked!% (Generation * IoThread -> Boolean))
+  (define (unpark-thread-masked!% gen thread)
+    "Attempt to unpark. Returns `True` if unparked, `False` if stale.
+
+Concurrent:
+  - WARNING: Assumes thread is already masked!"
+    ;; CONCURRENT:
+    ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;;   condition and interpose lock acquisition before waiting/notifying.
+    ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
+
+    ;; Only unpark if the targeted gen is more recent than the last fired gen
+    (if (> gen (Generation (bt:read (.fired-gen thread))))
+        (progn
+          (bt:acquire (.park-lock thread))
+          (if (> gen (Generation (bt:read (.fired-gen thread))))
+              (progn
+                (atomic-set-generation%! gen (.fired-gen thread))
+                (bt:release (.park-lock thread))
+                (bt:notify (.park-cv thread))
+                True)
+              (progn
+                (bt:release (.park-lock thread))
+                False)))
+        False))
 
   (declare unpark-thread!% (Generation * IoThread -> Boolean))
   (define (unpark-thread!% gen thread)

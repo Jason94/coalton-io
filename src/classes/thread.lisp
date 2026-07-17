@@ -53,6 +53,7 @@
    #:park-current-thread-if!
    #:park-current-thread-if-masked!
    #:unpark-thread!
+   #:unpark-thread-masked!
 
    #:Concurrent
    #:stop
@@ -226,7 +227,7 @@ SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread s
 park, *not* if it should resume. Can specify a timeout.
 
 Must be masked when entering! This is a low-level function meant for optimizing specific
-algorithms.
+low-level algorithms.
 
 Concurrent:
   - WARNING: Assumes there is a mask already set on the function. Will leave the mask state
@@ -238,6 +239,18 @@ Concurrent:
      (Proxy :r * (Generation -> Void) * (Void -> Boolean)
       &key (:timeout TimeoutStrategy)
       -> Void))
+    (unpark-thread-masked!
+     "Unparks the thread if it is still waiting on the generation. Attempting to unpark
+the thread with a stale generation has no effect. A generation will be stale if the thread
+has unparked and re-parked since the initial park. Returns `True` if unparked, `False` if
+parking was stale.
+
+Must be masked when entering! This is a low-level function meant for optimizing specific
+low-level algorithms.
+
+Concurrent:
+  - Can briefly block while trying to unpark the thread, if contended."
+     (Proxy :r * Generation * :t -> Boolean))
     (unpark-thread!
      "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread
