@@ -625,6 +625,35 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
         (Some (from-anything val))
         None)))
 
+(cl:defconstant +spin-base+ 3)
+(cl:defconstant +spin-attempts+ 5)
+
+(cl:declaim (cl:inline lprq-tail-changed))
+(cl:defun lprq-tail-changed (lprq tail-init prq-tail-init)
+  (cl:declare (cl:type lprq% lprq)
+              (cl:type prq% tail-init)
+              (cl:type cl-word prq-tail-init)
+              (cl:values cl:boolean))
+  (cl:or (cl:not (cl:eq (lprq%-tail lprq) tail-init))
+         (cl:not (cl:eq (prq%-tail tail-init) prq-tail-init))))
+
+(coalton-toplevel
+  (inline)
+  (declare spin-until-tail-changed (LPRQ :a * PRQ :a * Word -> Boolean))
+  (define (spin-until-tail-changed lprq tail-init prq-tail-init)
+    "Returns True if the tail changed, false otherwise."
+    (lisp (-> Boolean) (lprq tail-init prq-tail-init)
+      (cl:let (#-sbcl (sink 0))
+        (cl:loop :repeat +spin-attempts+
+           :for x := +spin-base+ :then (cl:* x +spin-base+)
+           :do
+              (cl:loop :repeat x
+                 :do
+                   #+sbcl (sb-ext:spin-loop-hint)
+                   #-sbcl (cl:setf sink x))
+           :when (lprq-tail-changed lprq tail-init prq-tail-init)
+             :return cl:t)))))
+         
 (coalton-toplevel
   (inline)
   (declare dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> :a))
@@ -632,31 +661,34 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
     ;; CONCURRENT:
     ;; For simplicity, masks around whole operation
     (mask-current! rt-prx)
-    (rec % ()
-      (match (try-dequeue-masked% rt-prx lprq)
-        ((Some val)
-         (unmask-current! rt-prx)
-         val)
-        ((None)
-         (let result = (c:new None))
+    
+    (let result =
+      (rec % ((tail-init (lisp (-> PRQ :a) (lprq)
+                           (lprq%-tail lprq)))
+              (prq-tail-init (lisp (-> Word) (tail-init)
+                               (prq%-tail tail-init))))
+        (match (try-dequeue-masked% rt-prx lprq)
+          ((Some val)
+           val)
+          ((None)
+           (when (not (spin-until-tail-changed lprq tail-init prq-tail-init))
+             (park-in-set-if-masked%
+              rt-prx
+              (fn ()
+                (not
+                 (lisp (-> Boolean) (lprq tail-init prq-tail-init)
+                   (lprq-tail-changed lprq tail-init prq-tail-init))))
+              (lprq-parkers lprq)))
+           (let tail-init =
+             (lisp (-> PRQ :a) (lprq)
+               (lprq%-tail lprq)))
+           (%
+            tail-init
+            (lisp (-> Word) (tail-init)
+              (prq%-tail tail-init)))))))
 
-         (park-in-set-if-masked%
-          rt-prx
-          (fn ()
-            (match (try-dequeue-masked% rt-prx lprq)
-              ((Some val)
-               (c:write! result (Some val))
-               False)
-              ((None)
-               True)))
-          (lprq-parkers lprq))
-
-         (match (c:read result)
-           ((Some val)
-            (unmask-current! rt-prx)
-            val)
-           ((None)
-            (%))))))))
+    (unmask-current! rt-prx)
+    result))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;            Public API             ;;;
