@@ -632,32 +632,31 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
     ;; CONCURRENT:
     ;; For simplicity, masks around whole operation
     (mask-current! rt-prx)
-    (let result =
-      (rec % ()
-        (match (try-dequeue-masked% rt-prx lprq)
-          ((Some val)
-           (return val))
-          ((None)
-           (let result = (c:new None))
+    (rec % ()
+      (match (try-dequeue-masked% rt-prx lprq)
+        ((Some val)
+         (unmask-current! rt-prx)
+         val)
+        ((None)
+         (let result = (c:new None))
 
-           (park-in-set-if-masked%
-            rt-prx
-            (fn ()
-              (match (try-dequeue-masked% rt-prx lprq)
-                ((Some val)
-                 (c:write! result (Some val))
-                 False)
-                ((None)
-                 True)))
-            (lprq-parkers lprq))
+         (park-in-set-if-masked%
+          rt-prx
+          (fn ()
+            (match (try-dequeue-masked% rt-prx lprq)
+              ((Some val)
+               (c:write! result (Some val))
+               False)
+              ((None)
+               True)))
+          (lprq-parkers lprq))
 
-           (match (c:read result)
-             ((Some val)
-              val)
-             ((None)
-              (%)))))))
-    (unmask-current! rt-prx)
-    result))
+         (match (c:read result)
+           ((Some val)
+            (unmask-current! rt-prx)
+            val)
+           ((None)
+            (%))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;            Public API             ;;;
