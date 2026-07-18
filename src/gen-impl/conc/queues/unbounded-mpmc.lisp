@@ -598,11 +598,14 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
   (define (enqueue% rt-prx lprq elt)
     ;; CONCURRENT:
     ;; For simplicity, conservatively masks the entire run of the function.
-    (mask-current! rt-prx)
+    
+    ;; Take advantage of the fact that the ownership-token is the thread handle
+    ;; to avoid looking it up two more times in mask and unmask
     (let ownership-token = (current-thread! rt-prx))
+    (mask! rt-prx ownership-token)
     (lisp (-> :a) (rt-prx lprq elt notify-parker ownership-token is-thread?)
       (enqueue-inner% rt-prx lprq elt notify-parker ownership-token is-thread?))
-    (unmask-current! rt-prx)
+    (unmask! rt-prx ownership-token)
     ))
 
 (cl:declaim (cl:inline try-dequeue-inner%))

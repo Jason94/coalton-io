@@ -596,7 +596,10 @@ just be limited to implementing only solutions #2 or #3.
   (inline)
   (declare unmask-inner!% (IoThread -> Void))
   (define (unmask-inner!% thread)
-    (unmask-finally!% thread (fn (_) (values))))
+    (let new-flag-state = (bt:decf! (.flags thread) 2))
+    (when (== new-flag-state PENDING-KILL)
+      (interrupt-iothread% thread))
+    (values))
 
   (inline)
   (declare unmask!% (IoThread -> Void))
