@@ -27,11 +27,11 @@
    ;; Library Private
    #:new-parking-set%
    #:park-in-sets-if%
-   #:park-in-sets-if-with%
    #:park-in-set-if%
-   #:park-in-set-if-with%
+   #:park-in-set-if-masked%
    #:unpark-set%
    #:unpark-one%
+   #:unpark-one-masked%
    #:num-waiters
    #:parking-set-empty?%
    ))
@@ -74,13 +74,13 @@ Concurrent:
     atm)
 
   (inline)
-  (declare park-in-sets-if-with% (Runtime :rt :t
+  (declare park-in-sets-if% (Runtime :rt :t
                                   => Proxy :rt
                                   * (Void -> Boolean)
-                                  * TimeoutStrategy
                                   * List ParkingSet
+                                  &key (:timeout TimeoutStrategy)
                                   -> Void))
-  (define (park-in-sets-if-with% rt-prx should-park? strategy psets)
+  (define (park-in-sets-if% rt-prx should-park? psets &key (timeout NoTimeout))
     (park-current-thread-if!
      rt-prx
      (fn (gen)
@@ -91,24 +91,41 @@ Concurrent:
          (at:atomic-push (get-set% pset) unpark-action))
        (values))
      should-park?
-     :timeout strategy)
+     :timeout timeout)
     (values))
 
   (inline)
-  (declare park-in-sets-if% (Runtime :rt :t
-                              => Proxy :rt * (Void -> Boolean) * List ParkingSet -> Void))
-  (define (park-in-sets-if% rt-prx should-park? psets)
-    (park-in-sets-if-with% rt-prx should-park? NoTimeout psets)
-    (values))
-
-  (inline)
-  (declare park-in-set-if-with% (Runtime :rt :t
+  (declare park-in-set-if-masked% (Runtime :rt :t
                                  => Proxy :rt
                                  * (Void -> Boolean)
-                                 * TimeoutStrategy
                                  * ParkingSet
+                                 &key (:timeout TimeoutStrategy)
                                  -> Void))
-  (define (park-in-set-if-with% rt-prx should-park? strategy pset)
+  (define (park-in-set-if-masked% rt-prx should-park? pset &key (timeout NoTimeout))
+    "Concurrent: Assumes already maksed!
+- Will exit with the same mask level as entered.
+- Will unmask one level before block."
+    (park-current-thread-if-masked!
+     rt-prx
+     (fn (gen)
+       (let parked-thread = (current-thread! rt-prx))
+       (let unpark-action = (fn ()
+                              (unpark-thread-masked! rt-prx gen parked-thread)))
+       (at:atomic-push (get-set% pset) unpark-action)
+       (values))
+     should-park?
+     :timeout
+     timeout)
+    (values))
+
+  (inline)
+  (declare park-in-set-if% (Runtime :rt :t
+                                 => Proxy :rt
+                                 * (Void -> Boolean)
+                                 * ParkingSet
+                                 &key (:timeout TimeoutStrategy)
+                                 -> Void))
+  (define (park-in-set-if% rt-prx should-park? pset &key (timeout NoTimeout))
     (park-current-thread-if!
      rt-prx
      (fn (gen)
@@ -119,14 +136,8 @@ Concurrent:
        (values))
      should-park?
      :timeout
-     strategy)
+     timeout)
     (values))
-
-  (inline)
-  (declare park-in-set-if% (Runtime :rt :t
-                              => Proxy :rt * (Void -> Boolean) * ParkingSet -> Void))
-  (define (park-in-set-if% rt-prx should-park? pset)
-    (park-in-set-if-with% rt-prx should-park? NoTimeout pset))
 
   (inline)
   (declare park-in-sets-if ((BaseIo :io) (Threads :rt :t :io) (MonadIo :m)
@@ -240,6 +251,31 @@ from another thread. Can specify a timeout."
       (unpark-set% pset rt-prx)
       Unit))
 
+  (inline)
+  (declare unpark-one-masked% (ParkingSet &key (:fair Boolean) -> Void))
+  (define (unpark-one-masked% pset &key (fair False))
+    "Concurrent: Assumes masked! Must execute in a masked region to be safe."
+    (match (at:read (get-set% pset))
+      ((Nil)
+       (values))
+      (_
+       (rec % ()
+         (let parked-actions = (at:atomic-update-swap (get-set% pset)
+                                                      (if fair
+                                                          l:init
+                                                          ƒl.(l:drop 1 l))))
+         (let parked-action? =
+           (if fair
+               (l:last parked-actions)
+               (l:head parked-actions)))
+         (match parked-action?
+           ((None)
+            (values))
+           ((Some parked-action)
+            (if (parked-action)
+                (values)
+                (%))))))))
+
   (declare unpark-one% (Runtime :rt :t => ParkingSet * Proxy :rt &key (:fair Boolean) -> Void))
   (define (unpark-one% pset rt-prx &key (fair False))
     ;; CONCURRENT:
@@ -248,22 +284,7 @@ from another thread. Can specify a timeout."
     ;; - Could technically unmask before recursion in stale case, but that would be
     ;;   inefficient because it would immediately remask.
     (mask-current! rt-prx)
-    (rec % ()
-      (let parked-actions = (at:atomic-update-swap (get-set% pset)
-                                                   (if fair
-                                                       l:init
-                                                       ƒl.(l:drop 1 l))))
-      (let parked-action? =
-        (if fair
-            (l:last parked-actions)
-            (l:head parked-actions)))
-      (match parked-action?
-        ((None)
-         (values))
-        ((Some parked-action)
-         (if (parked-action)
-             (values)
-             (%)))))
+    (unpark-one-masked% pset :fair fair)
     (unmask-current! rt-prx))
 
   (inline)

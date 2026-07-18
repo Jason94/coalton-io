@@ -150,10 +150,34 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
 (cl:defstruct (prq% (:constructor make-prq% (head tail closed slot-data next)))
   (head      (cl:error "must provide head")   :type cl-word)
+  (%pad2     0                                :type cl:fixnum)
+  (%pad3     0                                :type cl:fixnum)
+  (%pad4     0                                :type cl:fixnum)
+  (%pad5     0                                :type cl:fixnum)
+  (%pad6     0                                :type cl:fixnum)
+  (%pad7     0                                :type cl:fixnum)
+  (%pad8     0                                :type cl:fixnum)
+
   (tail      (cl:error "must provide tail")   :type cl-word)
-  (closed    (cl:error "must provide closed") :type cl:boolean)
+  (%pad1-2   0                                :type cl:fixnum)
+  (%pad1-3   0                                :type cl:fixnum)
+  (%pad1-4   0                                :type cl:fixnum)
+  (%pad1-5   0                                :type cl:fixnum)
+  (%pad1-6   0                                :type cl:fixnum)
+  (%pad1-7   0                                :type cl:fixnum)
+  (%pad1-8   0                                :type cl:fixnum)
+
   (slot-data (cl:error "must provide slots")  :type (cl:simple-array slot-data (2048)))
-  (next      (cl:error "must provide next")   :type (cl:or cl:null prq%)))
+  (%pad2-2   0                                :type cl:fixnum)
+  (%pad2-3   0                                :type cl:fixnum)
+  (%pad2-4   0                                :type cl:fixnum)
+  (%pad2-5   0                                :type cl:fixnum)
+  (%pad2-6   0                                :type cl:fixnum)
+  (%pad2-7   0                                :type cl:fixnum)
+  (%pad2-8   0                                :type cl:fixnum)
+
+  (next      (cl:error "must provide next")   :type (cl:or cl:null prq%))
+  (closed    (cl:error "must provide closed") :type cl:boolean))
   
 (cl:declaim
  (cl:inline make-prq% prq%-head prq%-tail prq%-closed prq%-slot-data prq%-next)
@@ -313,9 +337,9 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
            
 
 (cl:declaim (cl:inline enqueue-prq-inner%))
-(cl:defun enqueue-prq-inner% (rt-prx prq val current-thread-fn is-thread-fn)
+(cl:defun enqueue-prq-inner% (rt-prx prq val ownership-token is-thread-fn)
   (cl:declare (cl:type prq% prq)
-              (cl:type cl:function current-thread-fn is-thread-fn)
+              (cl:type cl:function is-thread-fn)
               (cl:values cl:boolean))
   ;; CONCURRENT: Masking handled by top-level call on LPRQ
   (cl:let ((try-close 0)
@@ -335,24 +359,22 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
                     (metadata (cl:svref slot-data i-tail-metadata))
                     (is-safe? (safe? metadata))
                     (epoch (epoch metadata))
-                    (value (cl:svref slot-data i-tail-value))
-                    (head_ (prq%-head prq)))
+                    (value (cl:svref slot-data i-tail-value)))
 
-            (cl:when (cl:and (cl:< epoch cycle)                    ;; enqueue is not overtaken
-                             (cl:or is-safe? (cl:<= head_ tail_))
-                             (cl:or (cl:eq +empty-token+ value)    ;; and the slot is empty
+            (cl:when (cl:and (cl:< epoch cycle)                              ;; enqueue is not overtaken
+                             (cl:or is-safe? (cl:<= (prq%-head prq) tail_))
+                             (cl:or (cl:eq +empty-token+ value)              ;; and the slot is empty
                                     (cl:funcall is-thread-fn rt-prx value)))
 
-              (cl:let ((ownership-token (cl:funcall current-thread-fn rt-prx)))
-                (cl:when ;; Lock the slot with the ownership token
-                    (at:cas (cl:svref slot-data i-tail-value) value ownership-token)
-                  ;; Advance the epoch
-                  (cl:if (cl:not (at:cas  (cl:svref slot-data i-tail-metadata) metadata (pack cl:t cycle)))
-                         ;; Another thread enqueued, so cleanup and try again
-                         (at:cas (cl:svref slot-data i-tail-value) ownership-token +empty-token+)
-                         ;; Publish item
-                         (cl:when (at:cas (cl:svref slot-data i-tail-value) ownership-token val)
-                           (cl:return cl:t))))))
+              (cl:when ;; Lock the slot with the ownership token
+                  (at:cas (cl:svref slot-data i-tail-value) value ownership-token)
+                ;; Advance the epoch
+                (cl:if (cl:not (at:cas  (cl:svref slot-data i-tail-metadata) metadata (pack cl:t cycle)))
+                       ;; Another thread enqueued, so cleanup and try again
+                       (at:cas (cl:svref slot-data i-tail-value) ownership-token +empty-token+)
+                       ;; Publish item
+                       (cl:when (at:cas (cl:svref slot-data i-tail-value) ownership-token val)
+                         (cl:return cl:t)))))
 
             ;; Check overflow
             (cl:let* ((head_ (prq%-head prq))
@@ -369,13 +391,6 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
             (cl:incf try-close)
             ))))))
-
-(coalton-toplevel
-  (inline)
-  (declare enqueue-prq% (Runtime :rt :t => Proxy :rt * PRQ :a * :a -> Boolean))
-  (define (enqueue-prq% rt-prx prq elt)
-    (lisp (-> Boolean) (rt-prx prq elt current-thread! is-thread?)
-      (enqueue-prq-inner% rt-prx prq elt current-thread! is-thread?))))
 
 (cl:declaim (cl:inline try-dequeue-prq-inner%))
 (cl:defun try-dequeue-prq-inner% (rt-prx prq is-thread-fn)
@@ -491,7 +506,23 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
 (cl:defstruct (lprq% (:constructor make-lprq% (head tail parkers)))
   (head    (cl:error "must provide head"))
+  (%pad1-2   0                                :type cl:fixnum)
+  (%pad1-3   0                                :type cl:fixnum)
+  (%pad1-4   0                                :type cl:fixnum)
+  (%pad1-5   0                                :type cl:fixnum)
+  (%pad1-6   0                                :type cl:fixnum)
+  (%pad1-7   0                                :type cl:fixnum)
+  (%pad1-8   0                                :type cl:fixnum)
+
   (tail    (cl:error "must provide tail"))
+  (%pad2-2   0                                :type cl:fixnum)
+  (%pad2-3   0                                :type cl:fixnum)
+  (%pad2-4   0                                :type cl:fixnum)
+  (%pad2-5   0                                :type cl:fixnum)
+  (%pad2-6   0                                :type cl:fixnum)
+  (%pad2-7   0                                :type cl:fixnum)
+  (%pad2-8   0                                :type cl:fixnum)
+
   (parkers (cl:error "must provide parkers")))
 
 (cl:declaim (cl:inline lprq%-head lprq%-tail lprq%-parkers))
@@ -531,35 +562,33 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
 (coalton-toplevel
   (inline)
-  (declare notify-parker (Runtime :rt :t => Proxy :rt * LPRQ :a -> Void))
-  (define (notify-parker rt-prx lprq)
+  (declare notify-parker (LPRQ :a -> Void))
+  (define (notify-parker lprq)
     "Notify parkers if necessary."
-    (let parkers = (lprq-parkers lprq))
-    (when (not (parking-set-empty?% parkers))
-      (unpark-one% parkers rt-prx))))
+    (unpark-one-masked% (lprq-parkers lprq))))
 
 (cl:declaim (cl:inline enqueue-inner%))
-(cl:defun enqueue-inner% (rt-prx lprq elt notify-parker-fn current-thread-fn is-thread-fn)
+(cl:defun enqueue-inner% (rt-prx lprq elt notify-parker-fn ownership-token is-thread-fn)
   (cl:declare (cl:type lprq% lprq)
               (cl:type cl:t elt)
-              (cl:type cl:function notify-parker-fn current-thread-fn is-thread-fn))
+              (cl:type cl:function notify-parker-fn is-thread-fn))
   ;; CONCURRENT: masking handled by Coalton wrapper
   (cl:loop
     (cl:let ((prq (lprq%-tail lprq)))
 
       ;; fast-path: add to the current PRQ
-      (cl:when (enqueue-prq-inner% rt-prx prq elt current-thread-fn is-thread-fn)
-        (cl:funcall notify-parker-fn rt-prx lprq)
+      (cl:when (enqueue-prq-inner% rt-prx prq elt ownership-token is-thread-fn)
+        (cl:funcall notify-parker-fn lprq)
         (cl:return-from enqueue-inner%))
 
       ;; slow-path: Tail is full, add new PRQ
       (cl:let ((new-tail (new-prq)))
-        (enqueue-prq-inner% rt-prx new-tail elt current-thread-fn is-thread-fn)
+        (enqueue-prq-inner% rt-prx new-tail elt ownership-token is-thread-fn)
 
         (cl:if (prq-cas-next-empty prq new-tail)
           (cl:progn
             (lprq-cas-tail lprq prq new-tail)
-            (cl:funcall notify-parker-fn rt-prx lprq)
+            (cl:funcall notify-parker-fn lprq)
             (cl:return-from enqueue-inner%))
           (cl:let ((next (prq%-next prq)))
             (lprq-cas-tail lprq prq next)))))))
@@ -569,10 +598,15 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
   (define (enqueue% rt-prx lprq elt)
     ;; CONCURRENT:
     ;; For simplicity, conservatively masks the entire run of the function.
-    (mask-current! rt-prx)
-    (lisp (-> :a) (rt-prx lprq elt notify-parker current-thread! is-thread?)
-      (enqueue-inner% rt-prx lprq elt notify-parker current-thread! is-thread?))
-    (unmask-current! rt-prx)))
+    
+    ;; Take advantage of the fact that the ownership-token is the thread handle
+    ;; to avoid looking it up two more times in mask and unmask
+    (let ownership-token = (current-thread! rt-prx))
+    (mask! rt-prx ownership-token)
+    (lisp (-> :a) (rt-prx lprq elt notify-parker ownership-token is-thread?)
+      (enqueue-inner% rt-prx lprq elt notify-parker ownership-token is-thread?))
+    (unmask! rt-prx ownership-token)
+    ))
 
 (cl:declaim (cl:inline try-dequeue-inner%))
 (cl:defun try-dequeue-inner% (rt-prx lprq is-thread-fn)
@@ -601,6 +635,19 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
 
 (coalton-toplevel
   (inline)
+  (declare try-dequeue-masked% (Runtime :rt :t => Proxy :rt * LPRQ :a -> Optional :a))
+  (define (try-dequeue-masked% rt-prx lprq)
+    ;; CONCURRENT:
+    ;; Assumes masked
+    (let (values val found?) =
+      (lisp (-> Anything * Boolean) (rt-prx lprq is-thread?)
+        (try-dequeue-inner% rt-prx lprq is-thread?)))
+    (if found?
+        (Some (from-anything val))
+        None)))
+
+(coalton-toplevel
+  (inline)
   (declare try-dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> Optional :a))
   (define (try-dequeue% rt-prx lprq)
     ;; CONCURRENT:
@@ -614,36 +661,74 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
         (Some (from-anything val))
         None)))
 
+(cl:defconstant +spin-base+ 3)
+(cl:defconstant +spin-attempts+ 5)
+
+(cl:declaim (cl:inline lprq-tail-changed))
+(cl:defun lprq-tail-changed (lprq tail-init prq-tail-init)
+  (cl:declare (cl:type lprq% lprq)
+              (cl:type prq% tail-init)
+              (cl:type cl-word prq-tail-init)
+              (cl:values cl:boolean))
+  (cl:or (cl:not (cl:eq (lprq%-tail lprq) tail-init))
+         (cl:not (cl:eq (prq%-tail tail-init) prq-tail-init))))
+
 (coalton-toplevel
+  (inline)
+  (declare spin-until-tail-changed (LPRQ :a * PRQ :a * Word -> Boolean))
+  (define (spin-until-tail-changed lprq tail-init prq-tail-init)
+    "Returns True if the tail changed, false otherwise."
+    (lisp (-> Boolean) (lprq tail-init prq-tail-init)
+      (cl:let (#-sbcl (sink 0))
+        (cl:loop :repeat +spin-attempts+
+           :for x := +spin-base+ :then (cl:* x +spin-base+)
+           :do
+              (cl:loop :repeat x
+                 :do
+                   #+sbcl (sb-ext:spin-loop-hint)
+                   #-sbcl (cl:setf sink x))
+           :when (lprq-tail-changed lprq tail-init prq-tail-init)
+             :return cl:t)))))
+         
+(coalton-toplevel
+  (inline)
   (declare dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> :a))
   (define (dequeue% rt-prx lprq)
     ;; CONCURRENT:
-    ;; Doesn't need to mask because try-dequeue% properly masks around LPRQ operations.
-    (match (try-dequeue% rt-prx lprq)
-      ((Some val)
-       (return val))
-      ((None)
-       Unit))
+    ;; For simplicity, masks around whole operation
+    (mask-current! rt-prx)
+    
+    (let result =
+      (match (try-dequeue-masked% rt-prx lprq)
+        ((Some val)
+         val)
+        (_
+         (rec % ((tail-init (lisp (-> PRQ :a) (lprq)
+                              (lprq%-tail lprq)))
+                 (prq-tail-init (lisp (-> Word) (tail-init)
+                                  (prq%-tail tail-init))))
+           (match (try-dequeue-masked% rt-prx lprq)
+             ((Some val)
+              val)
+             ((None)
+              (when (not (spin-until-tail-changed lprq tail-init prq-tail-init))
+                (park-in-set-if-masked%
+                 rt-prx
+                 (fn ()
+                   (not
+                    (lisp (-> Boolean) (lprq tail-init prq-tail-init)
+                      (lprq-tail-changed lprq tail-init prq-tail-init))))
+                 (lprq-parkers lprq)))
+              (let tail-init =
+                (lisp (-> PRQ :a) (lprq)
+                  (lprq%-tail lprq)))
+              (%
+               tail-init
+               (lisp (-> Word) (tail-init)
+                 (prq%-tail tail-init)))))))))
 
-    (let result = (c:new None))
-
-    (park-in-set-if%
-     rt-prx
-     (fn ()
-       (match (try-dequeue% rt-prx lprq)
-         ((Some val)
-          (c:write! result (Some val))
-          False)
-         ((None)
-          True)))
-     (lprq-parkers lprq))
-
-    (match (c:read result)
-      ((Some val)
-       val)
-      ((None)
-       (dequeue% rt-prx lprq))))
-  )
+    (unmask-current! rt-prx)
+    result))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;            Public API             ;;;

@@ -25,6 +25,7 @@
    #:IoThread
 
    ;; Library Private
+   #:*masking-enabled*
    #:current-thread!%
    #:is-thread?%
    #:construct-toplevel-current-thread
@@ -46,8 +47,9 @@
    #:*global-thread*
 
    #:park-current-thread-if!%
-   #:park-current-thread-if-with!%
+   #:park-current-thread-if-masked!%
    #:unpark-thread!%
+   #:unpark-thread-masked!%
 
    #:write-line-sync%
    ))
@@ -150,7 +152,7 @@
     (flags      bt:AtomicInteger)
     (stop-lk    bt:Lock)
     ;; Parking/Unparking
-    (generation bt:AtomicInteger)
+    (generation (c:Cell Generation))
     (fired-gen  bt:AtomicInteger)
     (park-lock  bt:Lock)
     (park-cv    bt:ConditionVariable)
@@ -160,7 +162,9 @@
     (status     (c:Cell ThreadStatus))
     (child-lk   bt:Lock)
     (children   (c:Cell (List IoThread)))
-    )
+    ))
+
+(coalton-toplevel
 
   (define-instance (Eq IoThread)
     (define (== a b)
@@ -177,7 +181,7 @@
      (c:new None)
      (bt:new-at CLEAN)
      (bt:new-lk)
-     (bt:new-at 0)
+     (c:new (Generation 0))
      (bt:new-at 0)
      (bt:new-lk)
      (bt:new-cv)
@@ -200,16 +204,6 @@
         (atomic-remove-pending-kill at-int)))
 
   (inline)
-  (declare mask-once% (Word -> Word))
-  (define (mask-once% word)
-    (+ word 2))
-
-  (inline)
-  (declare unmask-once% (Word -> Word))
-  (define (unmask-once% word)
-    (- word 2))
-
-  (inline)
   (declare masked-once? (Word -> Boolean))
   (define (masked-once? word)
     "Check that WORD is masked only once."
@@ -228,7 +222,7 @@
      (c:new (Some (current-native-thread%)))
      (bt:new-at CLEAN)
      (bt:new-lk)
-     (bt:new-at 0)
+     (c:new (Generation 0))
      (bt:new-at 0)
      (bt:new-lk)
      (bt:new-cv)
@@ -251,7 +245,6 @@
 
 (coalton-toplevel
 
-  (inline)
   (declare interrupt-iothread% (IoThread -> Void))
   (define (interrupt-iothread% thd)
     "Stop an IoThread. Does not check masked state, etc. Does check if the target
@@ -402,11 +395,16 @@ was stopping/stopped and the child should not start."
     ;; it will be available in either thread before subsequent code could reference it,
     ;; regardless of race conditions.
     (let thread-container = (new-io-thread))
+    ;; TODO: Remove wrapping when this issue is fixed:
+    ;; https://github.com/coalton-lang/coalton/issues/2037
+    (let masking-enabled = (lisp (-> :a) ()
+                             (coalton *masking-enabled*)))
     ;; CONCURRENT:
     ;; Start the thread masked. The thread runner will unmask itself before starting the
     ;; IO thunk, but after it sets up the async catch machinery to guarantee structured
     ;; cleanup.
-    (mask!% thread-container)
+    (when masking-enabled
+      (mask!% thread-container))
     (let parent =
       (match (.scope strategy)
         ((Structured)
@@ -426,10 +424,11 @@ was stopping/stopped and the child should not start."
       ;; See https://sionescu.github.io/bordeaux-threads/threads/make-thread/
       (bt:spawn (fn ()
                  (if child-should-run?
-                     (lisp (-> Result Dynamic :a) (strategy thunk thread-container global-thread)
-                       (cl:let ((*current-thread* thread-container)
-                                (*global-thread* global-thread))
-                         (call-coalton-function thread-runner!% strategy thread-container thunk)))
+                     (dynamic-bind ((*masking-enabled* masking-enabled))
+                       (lisp (-> Result Dynamic :a) (strategy thunk thread-container global-thread)
+                         (cl:let ((*current-thread* thread-container)
+                                  (*global-thread* global-thread))
+                           (call-coalton-function thread-runner!% strategy thread-container thunk))))
                    (Ok Unit)))))
     (c:write! (.handle thread-container) (Some native-thread))
     (when (not child-should-run?)
@@ -468,33 +467,42 @@ was stopping/stopped and the child should not start."
   ;;; Stopping & Masking Threads
   ;;;
 
-  (declare mask!% (IoThread -> Void))
-  (define (mask!% thread)
+  (define *masking-enabled* False)
+
+  (inline)
+  (declare mask-inner!% (IoThread -> Void))
+  (define (mask-inner!% thread)
     ;; CONCURRENT:
     ;;   - Stops thread if it was previously unmasked AND the pending stop was
     ;;     previously set. Prevents a race condition where a stopped thread is
     ;;     masked between checking for unmasked and throwing the exception.
-    (let flags = (.flags thread))
-    (rec % ()
-      (let old = (bt:read flags))
-      (let new = (mask-once% old))
-      (if (bt:cas! flags old new)
-          ;; The PENDING-KILL bitmask is the kill bit set with no masking bits set
-          (when  (== old PENDING-KILL)
-            (interrupt-iothread% thread))
-          (%))))
+    (let old = (bt:atomic-inc-old (.flags thread) 2))
+    (when  (== old PENDING-KILL)
+      (interrupt-iothread% thread)))
+
+  (inline)
+  (declare mask!% (IoThread -> Void))
+  (define (mask!% thread)
+    (when *masking-enabled*
+      (mask-inner!% thread)))
+
+  (inline)
+  (declare mask-current-thread-inner!% (Void -> Void))
+  (define (mask-current-thread-inner!%)
+    (mask-inner!%
+     (lisp (-> IoThread) ()
+       *current-thread*)))
 
   (inline)
   (declare mask-current-thread!% (Void -> Void))
   (define (mask-current-thread!%)
-    (mask!%
-     (lisp (-> IoThread) ()
-       *current-thread*)))
+    (when *masking-enabled*
+      (mask-current-thread-inner!%)))
 
   ;; TODO: Merge this with unmask-current-thread-finally!% when Threads
   ;; loses the unmask other thread functions
-  (declare unmask-finally!% (IoThread * (UnmaskFinallyMode -> :a) -> Void))
-  (define (unmask-finally!% thread thunk)
+  (declare unmask-finally-inner!% (IoThread * (UnmaskFinallyMode -> :a) -> Void))
+  (define (unmask-finally-inner!% thread thunk)
     "Unmask the thread. Guarantees that THUNK will be run, regardless of pending
 stop, with either the RUNNING or STOPPED mode. Finally, checks if there is a pending
 stop and interrupts the thread if it finds one.
@@ -579,34 +587,53 @@ just be limited to implementing only solutions #2 or #3.
              (masked-once? flag-state))
         (thunk Stopped)
         (thunk Running))
-    (let new-flag-state =
-      (rec % ()
-        (let old = (bt:read flags))
-        (let new = (unmask-once% old))
-        (if (bt:cas! flags old new)
-            new
-            (%))))
+    (let new-flag-state = (bt:decf! (.flags thread) 2))
     (when (and (masked-once? flag-state)
                (matches-flag new-flag-state PENDING-KILL))
       (interrupt-iothread% thread))
     (values))
 
   (inline)
+  (declare unmask-finally!% (IoThread * (UnmaskFinallyMode -> :a) -> Void))
+  (define (unmask-finally!% thread thunk)
+    (when *masking-enabled*
+      (unmask-finally-inner!% thread thunk)))
+
+  (inline)
+  (declare unmask-inner!% (IoThread -> Void))
+  (define (unmask-inner!% thread)
+    (let new-flag-state = (bt:decf! (.flags thread) 2))
+    (when (== new-flag-state PENDING-KILL)
+      (interrupt-iothread% thread))
+    (values))
+
+  (inline)
   (declare unmask!% (IoThread -> Void))
   (define (unmask!% thread)
-    (unmask-finally!% thread (fn (_) (values))))
+    (when *masking-enabled*
+      (unmask-inner!% thread)))
+
+  (inline)
+  (declare unmask-current-thread-finally-inner!% ((UnmaskFinallyMode -> Void) -> Void))
+  (define (unmask-current-thread-finally-inner!% thunk)
+    (unmask-finally!% (current-thread!%) thunk))
 
   (inline)
   (declare unmask-current-thread-finally!% ((UnmaskFinallyMode -> Void) -> Void))
   (define (unmask-current-thread-finally!% thunk)
-    (unmask-finally!% (current-thread!%) thunk))
+    (when *masking-enabled*
+      (unmask-current-thread-finally-inner!% thunk)))
+
+  (inline)
+  (declare unmask-current-thread-inner!% (Void -> Void))
+  (define (unmask-current-thread-inner!%)
+    (unmask-inner!% (current-thread!%)))
 
   (inline)
   (declare unmask-current-thread!% (Void -> Void))
   (define (unmask-current-thread!%)
-    (unmask-current-thread-finally!%
-     (fn (_) (values)))
-    (values))
+    (when *masking-enabled*
+      (unmask-current-thread-inner!%)))
 
   (inline)
   (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m)
@@ -643,48 +670,59 @@ just be limited to implementing only solutions #2 or #3.
   ;;; Parking & Unparking Threads
   ;;;
 
+  (inline)
+  (declare increment-gen (Generation -> Generation))
+  (define (increment-gen (Generation g))
+    (Generation (1+ g)))
+
+  (declare atomic-set-generation%! (Generation * bt:AtomicInteger -> Void))
+  (define (atomic-set-generation%! (Generation gen) atm)
+    "Set the value of ATM to GEN."
+    (rec % ()
+      (if (bt:cas! atm (bt:read atm) gen)
+          (values)
+          (%))))
+
   ;; For full discussion of the park algorithm, see top of the file and docs/runtime.md
-  (declare park-current-thread-if-with!% (Runtime :rt IoThread
-                                          => Proxy :rt
-                                          * (Generation -> Void)
-                                          * (Void -> Boolean)
-                                          * TimeoutStrategy
-                                          -> Void))
-  (define (park-current-thread-if-with!% rt-prx with-gen should-park? strategy)
+  (declare park-current-thread-if-masked!% (Runtime :rt IoThread
+                                            => Proxy :rt
+                                            * (Generation -> Void)
+                                            * (Void -> Boolean)
+                                            &key (:timeout TimeoutStrategy)
+                                            -> Void))
+  (define (park-current-thread-if-masked!% rt-prx with-gen should-park? &key (timeout NoTimeout))
     ;; CONCURRENT:
-    ;; - Masks before acquiring the lock and unmasks after releasing the lock,
+    ;; - WARNING: Must mask before calling and unmask after returning!
+    ;; - Assumes mask was acquired before acquiring the lock and unmask after releasing the lock,
     ;;   so the thread can't be stopped while the lock is held
+    ;; - But does pop one mask layer (A) so will be properly stoppable during block
     ;; - Acquires park-lock before running with-gen so there's no race condition window
     ;;   where the thread has been subscribed, but isn't waiting on the CV yet.
-    ;; - (A) unmasking before checking if it should re-attempt parking is valid,
-    ;;   because it does not create a race-condition boundary, because the thread
-    ;;   can be stopped while the function is waiting on the CV anyway.
-    ;; - (B) unmask-and-await-safely% guarantees that the thread can't be stopped while
+    ;; - (A) unmask-and-await-safely% guarantees that the thread can't be stopped while
     ;;   the lock and CV operations are performed such that the lock is held and the
     ;;   thread stopped
-    ;; - (C) unmask the mask from unmask-and-await-safely%
-    (mask-current-thread!%)
+    ;; - (A) unmask-and-await-safely% returns with the popped mask-layer restored
     (let thread = (current-thread!%))
     (bt:acquire (.park-lock thread))
     ;; Checkout a new generation for the thread
-    (let new-gen = (bt:incf! (.generation thread) 1))
+    (let (Generation new-gen) = (c:update! increment-gen (.generation thread)))
     ;; Run any subscriptions with the new generation
     (with-gen (Generation new-gen))
     ;; (Re)check the "should I park?" pred now that the subscriptions have processed
+    (let fired-gen = (bt:read (.fired-gen thread)))
     (if (should-park?)
         (progn
           ;; If another thread beat us to parking, re-attempt if SHOULD-PARK?
-          (if (>= (bt:read (.fired-gen thread)) new-gen)
+          (if (>= fired-gen new-gen)
               (progn
                 (bt:release (.park-lock thread))
-                (unmask-current-thread!%) ;; (A)
                 (when (should-park?)
-                  (park-current-thread-if-with!% rt-prx with-gen should-park? strategy)))
+                  (park-current-thread-if-masked!% rt-prx with-gen should-park? :timeout timeout)))
               ;; If another thread did not beat us to parking, wait on the CV
               (rec wait-loop ()
-                (unmask-and-await-safely-with% ;; (B)
+                (unmask-and-await-safely-with% ;; (A)
                  rt-prx
-                 strategy
+                 timeout
                  (.park-cv thread)
                  (.park-lock thread)
                  :release-on-timeout True)
@@ -692,21 +730,52 @@ just be limited to implementing only solutions #2 or #3.
                 (if (>= (bt:read (.fired-gen thread)) new-gen)
                     (progn
                       (bt:release (.park-lock thread))
-                      (unmask-current-thread!%)) ;; (C)
+                      (values))
                     ;; Otherwise, re-loop
                     (wait-loop)))))
         (progn
+          ;; Expire the checked-out generation. This CAS is safe because, if
+          ;; fired-gen was updated, then new-gen is already expired.
+          (bt:cas! (.fired-gen thread) fired-gen new-gen)
           (bt:release (.park-lock thread))
-          (unmask-current-thread!%))))
+          (values))))
 
-  (inline)
   (declare park-current-thread-if!% (Runtime :rt IoThread
-                                     => Proxy :rt
-                                     * (Generation -> Void)
-                                     * (Void -> Boolean)
-                                     -> Void))
-  (define (park-current-thread-if!% rt-prx with-gen should-park?)
-    (park-current-thread-if-with!% rt-prx with-gen should-park? NoTimeout))
+                                            => Proxy :rt
+                                            * (Generation -> Void)
+                                            * (Void -> Boolean)
+                                            &key (:timeout TimeoutStrategy)
+                                            -> Void))
+  (define (park-current-thread-if!% rt-prx with-gen should-park? &key (timeout NoTimeout))
+    (mask-current-thread!%)
+    (park-current-thread-if-masked!% rt-prx with-gen should-park? :timeout timeout)
+    (unmask-current-thread!%))
+
+  (declare unpark-thread-masked!% (Generation * IoThread -> Boolean))
+  (define (unpark-thread-masked!% gen thread)
+    "Attempt to unpark. Returns `True` if unparked, `False` if stale.
+
+Concurrent:
+  - WARNING: Assumes thread is already masked!"
+    ;; CONCURRENT:
+    ;; - Notifying after release is valid because all waiter/notifiers evaluate guard
+    ;;   condition and interpose lock acquisition before waiting/notifying.
+    ;;   See https://stackoverflow.com/questions/21439359/signal-on-condition-variable-without-holding-lock
+
+    ;; Only unpark if the targeted gen is more recent than the last fired gen
+    (if (> gen (Generation (bt:read (.fired-gen thread))))
+        (progn
+          (bt:acquire (.park-lock thread))
+          (if (> gen (Generation (bt:read (.fired-gen thread))))
+              (progn
+                (atomic-set-generation%! gen (.fired-gen thread))
+                (bt:release (.park-lock thread))
+                (bt:notify (.park-cv thread))
+                True)
+              (progn
+                (bt:release (.park-lock thread))
+                False)))
+        False))
 
   (declare unpark-thread!% (Generation * IoThread -> Boolean))
   (define (unpark-thread!% gen thread)

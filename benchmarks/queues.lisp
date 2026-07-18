@@ -27,6 +27,8 @@
 
 (coalton-toplevel
 
+  (define *disable-masking* True)
+
   (declare benchmark-vector-cache (c:Cell (Optional (Vector Boolean))))
   (define benchmark-vector-cache (c:new None))
 
@@ -47,7 +49,8 @@
        (b:commit (b:current-timer))
        ;; Write out the buffer to prevent SBCL from optimizing it away
        (c:write! benchmark-vector-cache (Some buffer))
-       Unit)))
+       Unit))
+     :disable-masking *disable-masking*)
     (values))
 
   (declare benchmark-list-cache (c:Cell (Optional (List Boolean))))
@@ -71,7 +74,8 @@
        (b:commit (b:current-timer))
        ;; Write out the buffer to prevent SBCL from optimizing it away
        (c:write! benchmark-list-cache (Some (l:reverse (c:read list))))
-       Unit)))
+       Unit))
+     :disable-masking *disable-masking*)
     (values))
 
   (declare benchmark-enqueue-x-threads (Queue :q => UFix * UFix * IO (:q Boolean) -> Unit))
@@ -96,7 +100,8 @@
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer))
-       Unit))))
+       Unit))
+     :disable-masking *disable-masking*))
 
   (declare benchmark-dequeue-x-threads (Queue :q => UFix * UFix * IO (:q Boolean) -> Unit))
   (define (benchmark-dequeue-x-threads n-tasks n-threads make-queue)
@@ -122,7 +127,8 @@
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer))
-       Unit))))
+       Unit))
+     :disable-masking *disable-masking*))
 
   (declare benchmark-enqueue-dequeue-x-threads (Queue :q => UFix * UFix * UFix * IO (:q Boolean) -> Unit))
   (define (benchmark-enqueue-dequeue-x-threads n-tasks n-enqueue-threads n-dequeue-threads make-queue)
@@ -153,7 +159,8 @@
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer))
-       Unit))))
+       Unit))
+     :disable-masking *disable-masking*))
 
   (declare benchmark-enqueue-try-dequeue-x-threads (Queue :q => UFix * UFix * UFix * IO (:q Boolean) -> Unit))
   (define (benchmark-enqueue-try-dequeue-x-threads n-tasks n-enqueue-threads n-dequeue-threads make-queue)
@@ -186,7 +193,8 @@
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer))
-       Unit))))
+       Unit))
+     :disable-masking *disable-masking*))
 
   (declare benchmark-enqueue-try-dequeue-pairs-x-threads (Queue :q => UFix * UFix * IO (:q Boolean) -> Unit))
   (define (benchmark-enqueue-try-dequeue-pairs-x-threads n-tasks n-threads make-queue)
@@ -198,12 +206,13 @@
       (start-gate <- new-empty-mvar)
       (threads <-
         (do-fork-n-threads (_ n-threads)
+          (let loop-until-dequeue =
+            (do-while-io
+              (map none? (try-dequeue queue))))
           (read-mvar start-gate)
           (do-repeat-io tasks-per-thread
             (enqueue True queue)
-            (do-while-io
-              (result <- (try-dequeue queue))
-              (pure (none? result))))))
+            loop-until-dequeue)))
       ;; Run the benchmark
       (sleep 2)
       (wrap-io (b:start (b:current-timer)))
@@ -213,7 +222,8 @@
       (wrap-io
        (b:stop (b:current-timer))
        (b:commit (b:current-timer))
-       Unit))))
+       Unit))
+     :disable-masking *disable-masking*))
   )
 
 (in-package #:benchmark-queues)
@@ -936,6 +946,16 @@
              6
              (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
 
+(define-benchmark bounded-enqueue-try-dequeue-pairs-x-tasks-12-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-pairs-x-threads
+             *tasks*
+             12
+             (io/conc/queues/bounded-mpmc:new-bounded-mpmc-queue *tasks*)))))
+
 (define-benchmark unbounded-enqueue-try-dequeue-pairs-x-tasks-1-thread ()
   (declare (optimize speed))
   (loop :repeat *count*
@@ -976,3 +996,12 @@
              6
              io/conc/queues/unbounded-mpmc:new-unbounded-mpmc-queue))))
 
+(define-benchmark unbounded-enqueue-try-dequeue-pairs-x-tasks-12-threads ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (c:coalton
+            (benchmark-queues/native::benchmark-enqueue-try-dequeue-pairs-x-threads
+             *tasks*
+             12
+             io/conc/queues/unbounded-mpmc:new-unbounded-mpmc-queue))))

@@ -113,9 +113,10 @@ is run AFTER the lock is released, and only if the thread is stopped!!"
 or just release the LOCK. Masks after resuming post-await. FINALLY
 is run AFTER the lock is released, and only if the thread is stopped!!"
     (catch (progn
-             (unmask! rt-prx (current-thread! rt-prx))
+             (let current-thread = (current-thread! rt-prx))
+             (unmask! rt-prx current-thread)
              (cv-await-with cv lock strategy :release-on-timeout release-on-timeout)
-             (mask-current! rt-prx))
+             (mask! rt-prx current-thread))
       ((InterruptCurrentThread msg)
        (bt:release lock)
        (finally)

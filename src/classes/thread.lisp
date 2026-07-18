@@ -51,7 +51,9 @@
    #:mask-current!
    #:unmask-current!
    #:park-current-thread-if!
+   #:park-current-thread-if-masked!
    #:unpark-thread!
+   #:unpark-thread-masked!
 
    #:Concurrent
    #:stop
@@ -88,7 +90,6 @@
    #:prxs-same-runtime
    #:concurrent-value-prx
    #:value-concurrent-prx
-   #:atomic-set-generation%!
    )
   (:local-nicknames
    (:bt #:io/utilities/bt-compat)
@@ -103,7 +104,7 @@
   (derive Eq)
   (repr :transparent)
   (define-type Generation
-    (Generation bt::Word))
+    (Generation Word))
 
   (derive Eq)
   (define-type TimeoutStrategy
@@ -143,16 +144,6 @@ ThreadingException.
     (inline)
     (define (<=> (Generation a) (Generation b))
       (<=> a b)))
-
-  ;; TODO: Convert the generation stuff to use my own AtomicInteger, not coalton-thread's,
-  ;; so I can use the same CAS loop algorithms.
-  (declare atomic-set-generation%! (Generation * bt:AtomicInteger -> Void))
-  (define (atomic-set-generation%! (Generation gen) atm)
-    "Set the value of ATM to GEN."
-    (rec % ()
-      (if (bt:cas! atm (bt:read atm) gen)
-          (values)
-          (%))))
 
   (define-class (Runtime :r :t (:r -> :t))
     "This class doesn't represent data, but the type tells a Concurrent and
@@ -200,12 +191,18 @@ the target thread to complete."
     (mask!
      "Mask the thread so it can't be stopped."
      (Proxy :r * :t -> Void))
+    (mask-current!
+     "Mask the current thread."
+     (Proxy :r -> Void))
     (unmask!
      "Unmask the thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
 stopped after being unmasked N times. When the thread unmasks, if
 there are any pending stops, it will immediately be stopped."
      (Proxy :r * :t -> Void))
+    (unmask-current!
+     "Unmask the current thread."
+     (Proxy :r -> Void))
     (unmask-finally!
      "Unmask the thread, run the provided action, and then honor any pending stop for that
 thread after the action finishes.
@@ -229,6 +226,37 @@ Concurrent:
      (Proxy :r * (Generation -> Void) * (Void -> Boolean)
       &key (:timeout TimeoutStrategy)
       -> Void))
+    (park-current-thread-if-masked!
+     "Parks the current thread if SHOULD-PARK? returns True. Will park the thread until
+woken by an unpark from another thread. Upon an unpark, the thread will resume even if
+SHOULD-PARK? is False! SHOULD-PARK? is only checked to determine if the thread should
+park, *not* if it should resume. Can specify a timeout.
+
+Must be masked when entering! This is a low-level function meant for optimizing specific
+low-level algorithms.
+
+Concurrent:
+  - WARNING: Assumes there is a mask already set on the function. Will leave the mask state
+    the same when it exits as when it started. Will pop one mask level when/if the thread
+    waits for a park.
+  - WARNING: SHOULD-PARK? must not block, or the thread could be left blocked in a masked
+    state.
+  - Can briefly block while trying to park the thread, if contended."
+     (Proxy :r * (Generation -> Void) * (Void -> Boolean)
+      &key (:timeout TimeoutStrategy)
+      -> Void))
+    (unpark-thread-masked!
+     "Unparks the thread if it is still waiting on the generation. Attempting to unpark
+the thread with a stale generation has no effect. A generation will be stale if the thread
+has unparked and re-parked since the initial park. Returns `True` if unparked, `False` if
+parking was stale.
+
+Must be masked when entering! This is a low-level function meant for optimizing specific
+low-level algorithms.
+
+Concurrent:
+  - Can briefly block while trying to unpark the thread, if contended."
+     (Proxy :r * Generation * :t -> Boolean))
     (unpark-thread!
      "Unparks the thread if it is still waiting on the generation. Attempting to unpark
 the thread with a stale generation has no effect. A generation will be stale if the thread
@@ -239,18 +267,6 @@ Concurrent:
   - Can briefly block while trying to unpark the thread, if contended."
      (Proxy :r * Generation * :t -> Boolean))
      )
-
-  (inline)
-  (declare mask-current! (Runtime :rt :t => Proxy :rt -> Void))
-  (define (mask-current! rt-prx)
-    "Mask the current thread."
-    (mask! rt-prx (current-thread! rt-prx)))
-
-  (inline)
-  (declare unmask-current! (Runtime :rt :t => Proxy :rt -> Void))
-  (define (unmask-current! rt-prx)
-    "Unmask the current thread."
-    (unmask! rt-prx (current-thread! rt-prx)))
 
   (define-class (Concurrent :c :a (:c -> :a))
     "A Concurrent has thread-like semantics. It can be stopped, masked, unmasked, and await-ed.
