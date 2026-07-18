@@ -25,6 +25,7 @@
    #:IoThread
 
    ;; Library Private
+   #:*masking-enabled*
    #:current-thread!%
    #:is-thread?%
    #:construct-toplevel-current-thread
@@ -244,7 +245,6 @@
 
 (coalton-toplevel
 
-  (inline)
   (declare interrupt-iothread% (IoThread -> Void))
   (define (interrupt-iothread% thd)
     "Stop an IoThread. Does not check masked state, etc. Does check if the target
@@ -461,9 +461,11 @@ was stopping/stopped and the child should not start."
   ;;; Stopping & Masking Threads
   ;;;
 
+  (define *masking-enabled* True)
+
   (inline)
-  (declare mask!% (IoThread -> Void))
-  (define (mask!% thread)
+  (declare mask-inner!% (IoThread -> Void))
+  (define (mask-inner!% thread)
     ;; CONCURRENT:
     ;;   - Stops thread if it was previously unmasked AND the pending stop was
     ;;     previously set. Prevents a race condition where a stopped thread is
@@ -473,16 +475,28 @@ was stopping/stopped and the child should not start."
       (interrupt-iothread% thread)))
 
   (inline)
-  (declare mask-current-thread!% (Void -> Void))
-  (define (mask-current-thread!%)
-    (mask!%
+  (declare mask!% (IoThread -> Void))
+  (define (mask!% thread)
+    (when *masking-enabled*
+      (mask-inner!% thread)))
+
+  (inline)
+  (declare mask-current-thread-inner!% (Void -> Void))
+  (define (mask-current-thread-inner!%)
+    (mask-inner!%
      (lisp (-> IoThread) ()
        *current-thread*)))
 
+  (inline)
+  (declare mask-current-thread!% (Void -> Void))
+  (define (mask-current-thread!%)
+    (when *masking-enabled*
+      (mask-current-thread-inner!%)))
+
   ;; TODO: Merge this with unmask-current-thread-finally!% when Threads
   ;; loses the unmask other thread functions
-  (declare unmask-finally!% (IoThread * (UnmaskFinallyMode -> :a) -> Void))
-  (define (unmask-finally!% thread thunk)
+  (declare unmask-finally-inner!% (IoThread * (UnmaskFinallyMode -> :a) -> Void))
+  (define (unmask-finally-inner!% thread thunk)
     "Unmask the thread. Guarantees that THUNK will be run, regardless of pending
 stop, with either the RUNNING or STOPPED mode. Finally, checks if there is a pending
 stop and interrupts the thread if it finds one.
@@ -574,21 +588,45 @@ just be limited to implementing only solutions #2 or #3.
     (values))
 
   (inline)
+  (declare unmask-finally!% (IoThread * (UnmaskFinallyMode -> :a) -> Void))
+  (define (unmask-finally!% thread thunk)
+    (when *masking-enabled*
+      (unmask-finally-inner!% thread thunk)))
+
+  (inline)
+  (declare unmask-inner!% (IoThread -> Void))
+  (define (unmask-inner!% thread)
+    (unmask-finally!% thread (fn (_) (values))))
+
+  (inline)
   (declare unmask!% (IoThread -> Void))
   (define (unmask!% thread)
-    (unmask-finally!% thread (fn (_) (values))))
+    (when *masking-enabled*
+      (unmask-inner!% thread)))
+
+  (inline)
+  (declare unmask-current-thread-finally-inner!% ((UnmaskFinallyMode -> Void) -> Void))
+  (define (unmask-current-thread-finally-inner!% thunk)
+    (unmask-finally!% (current-thread!%) thunk))
 
   (inline)
   (declare unmask-current-thread-finally!% ((UnmaskFinallyMode -> Void) -> Void))
   (define (unmask-current-thread-finally!% thunk)
-    (unmask-finally!% (current-thread!%) thunk))
+    (when *masking-enabled*
+      (unmask-current-thread-finally-inner!% thunk)))
+
+  (inline)
+  (declare unmask-current-thread-inner!% (Void -> Void))
+  (define (unmask-current-thread-inner!%)
+    (unmask-current-thread-finally!%
+     (fn (_) (values)))
+    (values))
 
   (inline)
   (declare unmask-current-thread!% (Void -> Void))
   (define (unmask-current-thread!%)
-    (unmask-current-thread-finally!%
-     (fn (_) (values)))
-    (values))
+    (when *masking-enabled*
+      (unmask-current-thread-inner!%)))
 
   (inline)
   (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m)
