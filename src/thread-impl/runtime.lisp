@@ -621,9 +621,7 @@ just be limited to implementing only solutions #2 or #3.
   (inline)
   (declare unmask-current-thread-inner!% (Void -> Void))
   (define (unmask-current-thread-inner!%)
-    (unmask-current-thread-finally!%
-     (fn (_) (values)))
-    (values))
+    (unmask-inner!% (current-thread!%)))
 
   (inline)
   (declare unmask-current-thread!% (Void -> Void))

@@ -191,12 +191,18 @@ the target thread to complete."
     (mask!
      "Mask the thread so it can't be stopped."
      (Proxy :r * :t -> Void))
+    (mask-current!
+     "Mask the current thread."
+     (Proxy :r -> Void))
     (unmask!
      "Unmask the thread so it can be stopped. Unmask respects
 nested masks - if the thread has been masked N times, it can only be
 stopped after being unmasked N times. When the thread unmasks, if
 there are any pending stops, it will immediately be stopped."
      (Proxy :r * :t -> Void))
+    (unmask-current!
+     "Unmask the current thread."
+     (Proxy :r -> Void))
     (unmask-finally!
      "Unmask the thread, run the provided action, and then honor any pending stop for that
 thread after the action finishes.
@@ -261,18 +267,6 @@ Concurrent:
   - Can briefly block while trying to unpark the thread, if contended."
      (Proxy :r * Generation * :t -> Boolean))
      )
-
-  (inline)
-  (declare mask-current! (Runtime :rt :t => Proxy :rt -> Void))
-  (define (mask-current! rt-prx)
-    "Mask the current thread."
-    (mask! rt-prx (current-thread! rt-prx)))
-
-  (inline)
-  (declare unmask-current! (Runtime :rt :t => Proxy :rt -> Void))
-  (define (unmask-current! rt-prx)
-    "Unmask the current thread."
-    (unmask! rt-prx (current-thread! rt-prx)))
 
   (define-class (Concurrent :c :a (:c -> :a))
     "A Concurrent has thread-like semantics. It can be stopped, masked, unmasked, and await-ed.
