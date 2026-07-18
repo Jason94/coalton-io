@@ -43,6 +43,26 @@
        (is-thread? rt-prx
                    (to-anything obj))))))
   (is (not result)))
+
+(define-test test-disable-masking-works ()
+  (let result =
+    (run-io!
+     (do
+      (result <- (new-var True))
+      (started-gate <- s-new)
+      (continue-gate <- s-new)
+      (thread <-
+        (do-fork-thread_
+          mask-current-thread
+          (s-signal started-gate)
+          (s-await continue-gate)
+          (write result False)))
+      (s-await started-gate)
+      (stop thread) 
+      (sleep 2)
+      (read result))
+     :disable-masking True))
+  (is (== True result)))
   
 ;;;
 ;;; Tests for the IoThread Concurrent instance

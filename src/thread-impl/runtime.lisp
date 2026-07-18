@@ -395,11 +395,16 @@ was stopping/stopped and the child should not start."
     ;; it will be available in either thread before subsequent code could reference it,
     ;; regardless of race conditions.
     (let thread-container = (new-io-thread))
+    ;; TODO: Remove wrapping when this issue is fixed:
+    ;; https://github.com/coalton-lang/coalton/issues/2037
+    (let masking-enabled = (lisp (-> :a) ()
+                             (coalton *masking-enabled*)))
     ;; CONCURRENT:
     ;; Start the thread masked. The thread runner will unmask itself before starting the
     ;; IO thunk, but after it sets up the async catch machinery to guarantee structured
     ;; cleanup.
-    (mask!% thread-container)
+    (when masking-enabled
+      (mask!% thread-container))
     (let parent =
       (match (.scope strategy)
         ((Structured)
@@ -419,10 +424,11 @@ was stopping/stopped and the child should not start."
       ;; See https://sionescu.github.io/bordeaux-threads/threads/make-thread/
       (bt:spawn (fn ()
                  (if child-should-run?
-                     (lisp (-> Result Dynamic :a) (strategy thunk thread-container global-thread)
-                       (cl:let ((*current-thread* thread-container)
-                                (*global-thread* global-thread))
-                         (call-coalton-function thread-runner!% strategy thread-container thunk)))
+                     (dynamic-bind ((*masking-enabled* masking-enabled))
+                       (lisp (-> Result Dynamic :a) (strategy thunk thread-container global-thread)
+                         (cl:let ((*current-thread* thread-container)
+                                  (*global-thread* global-thread))
+                           (call-coalton-function thread-runner!% strategy thread-container thunk))))
                    (Ok Unit)))))
     (c:write! (.handle thread-container) (Some native-thread))
     (when (not child-should-run?)
@@ -461,7 +467,7 @@ was stopping/stopped and the child should not start."
   ;;; Stopping & Masking Threads
   ;;;
 
-  (define *masking-enabled* True)
+  (define *masking-enabled* False)
 
   (inline)
   (declare mask-inner!% (IoThread -> Void))

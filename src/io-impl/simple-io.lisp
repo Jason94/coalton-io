@@ -132,15 +132,30 @@ completion. Used for internal testing only."
                (call-coalton-function f)))))
 
   (inline)
-  (declare run-io! (IO :a -> :a))
-  (define (run-io! io-op)
+  (declare run-io! (IO :a &key (:disable-masking Boolean) -> :a))
+  (define (run-io! io-op &key (disable-masking False))
     "Top-level run-io! that raises any unhandled exceptions. Also sets the current thread
-as the global thread for structured concurrency, and exits any child threads on exit."
+as the global thread for structured concurrency, and exits any child threads on exit.
+
+Can disable masking with `:disable-masking` set to `True.` For programs that need
+high-performance hot loops around a cheap synchronized IO operation, such as enqueuing to
+an MPMC queue, this can give up to a ~33% speedup. However, if the loop is also doing any
+meaningful CPU work or any kind of slow IO call (like writing to a file or reading from a
+network socket), then disabling masking will likely not result in a significant speedup.
+
+If masking is disabled, then asynchronous thread stopping is not safe. Because of this,
+all structured concurrency thread cleanups except the top level will join child threads
+but not stop them. So if masking is disabled, threads must stop cooperatively. Regardless,
+all threads will be stopped by the main thread when `run-io!` completes."
     ;; CONCURRENT:
     ;;   - Masks around stop-and-join-children!%
-    (let f = (fn (toplevel?)
+    (let toplevel? = (lisp (-> Boolean) () (cl:null *global-thread*)))
+    (let f = (fn ()
                (let result =
-                 (match (run-io-handled!% io-op)
+                 (match (if toplevel?
+                            (dynamic-bind ((*masking-enabled* (not disable-masking)))
+                              (run-io-handled!% io-op))
+                            (run-io-handled!% io-op))
                    ((Ok a)
                     a)
                    ((Err io-err)
@@ -156,21 +171,23 @@ as the global thread for structured concurrency, and exits any child threads on 
                  (stop-and-join-children!% (current-thread!%))
                  (unmask-current-thread!%))
                result))
-    (lisp (-> :a) (f)
+    (lisp (-> :a) (f toplevel?)
       ;; Only bind dynamic variables and set up catching if at the top level
-      (cl:if *global-thread*
-             (call-coalton-function f False)
+      (cl:if toplevel? 
              (cl:let* ((current-thread (call-coalton-function construct-toplevel-current-thread))
                        (*current-thread* current-thread)
                        (*global-thread* current-thread))
                (cl:handler-case
-                   (call-coalton-function f True)
+                   (call-coalton-function f)
                  (cl:error (e)
+                   ;; NOTE: No performance need to respect disable-masking for toplevel cleanup.
+                   ;; Safer to guarantee toplevel thread can't be stopped.
                    (coalton
                     (mask-current-thread!%)
                     (stop-and-join-children!% (current-thread!%))
                     (unmask-current-thread!%))
-                   (cl:error e)))))))
+                   (cl:error e))))
+             (call-coalton-function f))))
 
   (define-instance (Functor IO)
     (inline)
