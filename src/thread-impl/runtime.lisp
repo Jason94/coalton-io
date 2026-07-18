@@ -203,16 +203,6 @@
         (atomic-remove-pending-kill at-int)))
 
   (inline)
-  (declare mask-once% (Word -> Word))
-  (define (mask-once% word)
-    (+ word 2))
-
-  (inline)
-  (declare unmask-once% (Word -> Word))
-  (define (unmask-once% word)
-    (- word 2))
-
-  (inline)
   (declare masked-once? (Word -> Boolean))
   (define (masked-once? word)
     "Check that WORD is masked only once."
@@ -471,21 +461,16 @@ was stopping/stopped and the child should not start."
   ;;; Stopping & Masking Threads
   ;;;
 
+  (inline)
   (declare mask!% (IoThread -> Void))
   (define (mask!% thread)
     ;; CONCURRENT:
     ;;   - Stops thread if it was previously unmasked AND the pending stop was
     ;;     previously set. Prevents a race condition where a stopped thread is
     ;;     masked between checking for unmasked and throwing the exception.
-    (let flags = (.flags thread))
-    (rec % ()
-      (let old = (bt:read flags))
-      (let new = (mask-once% old))
-      (if (bt:cas! flags old new)
-          ;; The PENDING-KILL bitmask is the kill bit set with no masking bits set
-          (when  (== old PENDING-KILL)
-            (interrupt-iothread% thread))
-          (%))))
+    (let old = (bt:atomic-inc-old (.flags thread) 2))
+    (when  (== old PENDING-KILL)
+      (interrupt-iothread% thread)))
 
   (inline)
   (declare mask-current-thread!% (Void -> Void))
@@ -582,13 +567,7 @@ just be limited to implementing only solutions #2 or #3.
              (masked-once? flag-state))
         (thunk Stopped)
         (thunk Running))
-    (let new-flag-state =
-      (rec % ()
-        (let old = (bt:read flags))
-        (let new = (unmask-once% old))
-        (if (bt:cas! flags old new)
-            new
-            (%))))
+    (let new-flag-state = (bt:decf! (.flags thread) 2))
     (when (and (masked-once? flag-state)
                (matches-flag new-flag-state PENDING-KILL))
       (interrupt-iothread% thread))

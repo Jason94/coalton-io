@@ -14,6 +14,7 @@
    #:cas!
    #:decf!
    #:incf!
+   #:atomic-inc-old
    #:read
 
    ;; Locks
@@ -89,16 +90,37 @@ Returns True if the replacement was successful, otherwise False."
   (inline)
   (declare decf! (AtomicInteger * Word -> Word))
   (define (decf! atomic delta)
-    "Decrements the value of `atomic' by `delta'."
+    "Decrements the value of `atomic' by `delta'. Returns the new value."
     (lisp (-> Word) (atomic delta)
       (bt2:atomic-integer-decf atomic delta)))
 
   (inline)
   (declare incf! (AtomicInteger * Word -> Word))
   (define (incf! atomic delta)
-    "Increments the value of `atomic' by `delta'."
+    "Increments the value of `atomic' by `delta'. Returns the new value."
     (lisp (-> Word) (atomic delta)
       (bt2:atomic-integer-incf atomic delta)))
+
+  (inline)
+  (declare atomic-inc-old (AtomicInteger * Word -> Word))
+  (define (atomic-inc-old atm n)
+    "Atomically increment `atm` by `n`. Returns the old value."
+    (lisp (-> Word) (atm n)
+      #+sbcl
+      (sb-ext:atomic-incf
+          (bt2::atomic-integer-cell atm)
+          n)
+      #+ccl
+      (cl:let ((new-value
+                 (ccl::atomic-incf-decf
+                  (cl:svref (bt2::atomic-integer-cell atm) 0)
+                  1)))
+        (cl:ldb (cl:byte #+32-bit 32
+                         #+64-bit 64
+                         0)
+                (cl:- new-value n)))
+      #-(or sbcl ccl)
+      (cl:error "Only supported by SBCL and CCL.")))
 
   (inline)
   (declare read (AtomicInteger -> Word))
