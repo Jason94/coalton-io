@@ -186,7 +186,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
            make-prq%))
 
 (cl:declaim (cl:type cl:fixnum +cache-line-size+ +slot-size+ +slots-per-cache-line+ +num-cache-lines+))
-(cl:defconstant +cache-line-size+ 128)
+(cl:defconstant +cache-line-size+ 64)
 (cl:defconstant +slot-size+ (cl:+ 8 8))
 (cl:defconstant +slots-per-cache-line+ (cl:/ +cache-line-size+ +slot-size+))
 (cl:defconstant +num-cache-lines+ (cl:/ (cl:* +prq-length+ +slot-size+) +cache-line-size+))
