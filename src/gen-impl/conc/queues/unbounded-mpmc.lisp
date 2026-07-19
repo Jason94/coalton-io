@@ -692,8 +692,8 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
          
 (coalton-toplevel
   (inline)
-  (declare dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a -> :a))
-  (define (dequeue% rt-prx lprq)
+  (declare dequeue% (Runtime :rt :t => Proxy :rt * LPRQ :a * TimeoutStrategy -> :a))
+  (define (dequeue% rt-prx lprq timeout)
     ;; CONCURRENT:
     ;; For simplicity, masks around whole operation
     (mask-current! rt-prx)
@@ -711,14 +711,16 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
              ((Some val)
               val)
              ((None)
-              (when (not (spin-until-tail-changed lprq tail-init prq-tail-init))
+              ;; 1+ to account for the FAA on tail during the initial try-dequeue
+              (when (not (spin-until-tail-changed lprq tail-init (1+ prq-tail-init)))
                 (park-in-set-if-masked%
                  rt-prx
                  (fn ()
                    (not
                     (lisp (-> Boolean) (lprq tail-init prq-tail-init)
-                      (lprq-tail-changed lprq tail-init prq-tail-init))))
-                 (lprq-parkers lprq)))
+                      (lprq-tail-changed lprq tail-init (cl:1+ prq-tail-init)))))
+                 (lprq-parkers lprq)
+                 :timeout timeout))
               (let tail-init =
                 (lisp (-> PRQ :a) (lprq)
                   (lprq%-tail lprq)))
@@ -766,7 +768,7 @@ must be a power of 2 so the compiler can optimize the integer div operations.")
     (inline)
     (define (dequeue queue &key (timeout NoTimeout))
       (wrap-io-with-runtime (rt-prx)
-        (dequeue% rt-prx (lprq% queue))))
+        (dequeue% rt-prx (lprq% queue) timeout)))
     (inline)
     (define (try-dequeue queue)
       (wrap-io-with-runtime (rt-prx)
