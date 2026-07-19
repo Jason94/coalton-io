@@ -217,6 +217,12 @@
     (zero? (lisp (-> Word) (word)
              (cl:ash word -1))))
 
+  (inline)
+  (declare atomically-unmask! (bt:AtomicInteger -> Word))
+  (define (atomically-unmask! flags)
+    "Atomically unmask `flags` once. Returns the new flags."
+    (bt:decf! flags 2))
+
   (declare construct-toplevel-current-thread (Void -> IoThread))
   (define (construct-toplevel-current-thread)
     (IoThread
@@ -516,6 +522,8 @@ was stopping/stopped and the child should not start."
 stop, with either the RUNNING or STOPPED mode. Finally, checks if there is a pending
 stop and interrupts the thread if it finds one.
 
+If `finally-thunk` throws, that exception is swallowed and the thread is still stopped.
+---
 This function does NOT guarantee that `finally-thunk` will be called with STOPPED in all cases
 in which this function ultimately interrupts the current thread before exiting.
 However, even if the runtime used locks for masking threads, that is unavoidable.
@@ -592,11 +600,16 @@ just be limited to implementing only solutions #2 or #3.
     (let flag-state = (bt:read flags))
     ;; Only stop if there are no other masks applied besides the one
     ;; we're undoing now.
-    (if (and (matches-flag flag-state PENDING-KILL)
-             (masked-once? flag-state))
-        (finally-thunk Stopped)
-        (finally-thunk Running))
-    (let new-flag-state = (bt:decf! (.flags thread) 2))
+    (catch
+        (progn
+          (if (and (matches-flag flag-state PENDING-KILL)
+                   (masked-once? flag-state))
+              (finally-thunk Stopped)
+              (finally-thunk Running))
+          (values))
+      (_
+       (values)))
+    (let new-flag-state = (atomically-unmask! flags))
     (when (and (masked-once? flag-state)
                (matches-flag new-flag-state PENDING-KILL))
       (interrupt-iothread% thread))
