@@ -21,6 +21,10 @@
    #:handle-all
    #:try-dynamic
 
+   #:finally
+   #:on-success-or-exception
+   #:do-finally
+
    #:try
    #:try-all
    #:raise-result
@@ -35,6 +39,24 @@
 (in-package :io/classes/exceptions)
 
 (named-readtables:in-readtable coalton:coalton)
+
+;;; Exception & Resource naming conventions:
+;;;
+;;; operation/op:      A function/monad operation that is run as the "main" operation
+;;;                    in an exception/resource combinator.
+;;; 
+;;; finally(-op):      A function/monad operation that should always be run after the
+;;;                    computation, regardless of its success or failure.
+;;;
+;;; release(-op):      A function/monad operation that should always be run after the
+;;;                    computation, regardless of its success or failure, to release
+;;;                    a previously acquired resource.
+;;;
+;;; on-exception(-op): A function/monad operation that should only be run after a
+;;;                    failed computation.
+;;;
+;;; on-success(-op):   A function/monad operation that should only be run after a
+;;;                    successful computation.
 
 ;; NOTE: Unlike most IO classes, this one can't be implemented on top of
 ;; standard MonadIo functionality. As such, it has no implement macro.
@@ -60,8 +82,8 @@ must catch and wrap all unhandled errors inside a wrap-io call."
 between IO instances."
      (Dynamic -> :m :a))
     (reraise
-     "Run an operation, run a catch operation if the first operation raised,
-then re-raise the exception. If the catch operation raises, that exception will
+     "Run an operation, run a cleanup operation if the first operation raised,
+then re-raise the exception. If the cleanup operation raises, that exception will
 be emitted instead of the original exception."
      (:m :a * (Void -> :m :b) -> :m :a))
     (handle
@@ -129,6 +151,40 @@ them as exceptions."
   `(wrap-error_ (fn () ,@body)))
 
 ;;;
+;;; Class-based functions
+;;; 
+
+(coalton-toplevel
+  (inline)
+  (declare finally (Exceptions :m => :m :a * :m :b -> :m :a))
+  (define (finally op finally-op)
+    "Run `op` followed by `finally-op`, returning the result of `op`. If `op` raises,
+`finally-op` is run and `op`'s exception is re-raised. If `finally-op` raises, that
+exception is propogated instead of `op`'s exception."
+    (reraise
+     (do
+      (result <- op)
+      finally-op
+      (pure result))
+     (fn () finally-op)))
+
+  (inline)
+  (declare on-success-or-exception (Exceptions :m => :m :a * :m :b * :m :c -> :m :a))
+  (define (on-success-or-exception op on-success on-exception)
+    "Run `op`. If `op` raises an exception, run `on-exception` and re-raise `op`'s
+exception. If `op` succeeds, run `on-success` and return the result from `op`.
+
+If either `on-success` or `on-exception` raise an exception, that exception is raised
+instead."
+    (do
+     (result <-
+       (reraise
+        op
+        (fn () on-exception)))
+     on-success
+     (pure result))))
+
+;;;
 ;;; Syntax Macros
 ;;;
 
@@ -138,6 +194,19 @@ them as exceptions."
     (fn ()
       (do
        ,@body))))
+
+(defmacro do-finally (finally-op cl:&body body)
+  "Type: (Exceptions :m => :m :b &body :m :a -> :m :a)
+
+Run `body` followed by `finally-op`, returning the result of `body`. If `body` raises,
+`finally-op` is run and `body`'s exception is re-raised. If `finally-op` raises, that
+exception is propogated instead of `body`'s exception.
+
+`body` is wrapped in `do` notation."
+  `(finally
+    (do
+     ,@body)
+    ,finally-op))
 
 (defmacro do-handle (op (err-sym) cl:&body body)
   "Convenience macro for handle."

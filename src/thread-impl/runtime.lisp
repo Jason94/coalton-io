@@ -52,6 +52,7 @@
    #:unpark-thread-masked!%
 
    #:write-line-sync%
+   #:is-masked?%
    ))
 (in-package :io/threads-impl/runtime)
 
@@ -295,6 +296,14 @@ Concurrent:
   (define (is-thread?% obj)
     (lisp (-> Boolean) (obj)
       (cl:typep obj 'IoThread/IoThread)))
+
+  (inline)
+  (declare is-masked?% (IoThread -> Boolean))
+  (define (is-masked?% thread)
+    "Check if `thread` is masked. Not suitable for general usage! Provided for internal
+testing purposes only."
+    (let bits = (bt:read (.flags thread)))
+    (not (unmasked? bits)))
 
   (inline)
   (declare global-thread!% (Void -> IoThread))
