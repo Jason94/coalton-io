@@ -156,7 +156,7 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
   (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r) (Exceptions :m)
                             (Concurrent :c :a) (Threads :rt :t :m)
                             => ConcurrentGroup :c :a * (UnmaskFinallyMode -> :r Unit) -> :m Unit))
-  (define (unmask-finally% group callback)
+  (define (unmask-finally% group finally-op)
     ;; CONCURRENT: Masks entire operation to guarantee enclosed threads are left in a
     ;; consistent state.
     (let cnc-prx = (value-concurrent-prx (value-prx group)))
@@ -168,7 +168,7 @@ Warning: After calling, the enclosed Concurrents should only be managed through 
        (foreach (.pool group)
                 (as-proxy-of
                  (fn (t)
-                   (unmask-finally t callback))
+                   (unmask-finally t finally-op))
                  (proxy-with-arg cnc-prx))))))
 
   (define-instance (Concurrent :c :a => Concurrent (ConcurrentGroup :c :a) (List :a))

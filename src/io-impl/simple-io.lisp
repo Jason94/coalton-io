@@ -243,7 +243,7 @@ all threads will be stopped by the main thread when `run-io!` completes."
 
   (inline)
   (declare reraise-io (IO :a * (Void -> IO :b) -> IO :a))
-  (define (reraise-io op catch-op)
+  (define (reraise-io op on-exception-op)
     (IO%
      (fn ()
        (let result = (run-io-handled!% op))
@@ -251,12 +251,12 @@ all threads will be stopped by the main thread when `run-io!` completes."
          ((Ok a)
           a)
          ((Err e)
-          (run-io-unhandled! (catch-op))
+          (run-io-unhandled! (on-exception-op))
           (throw e))))))
 
   (inline)
   (declare handle-io (RuntimeRepr :e => IO :a * (:e -> IO :a) -> IO :a))
-  (define (handle-io io-op handle-op)
+  (define (handle-io io-op on-exception-op)
     (IO%
      (fn ()
       (let result = (run-io-handled!% io-op))
@@ -271,14 +271,14 @@ all threads will be stopped by the main thread when `run-io!` completes."
             (let casted = (cast e?))
             (match casted
               ((Some e)
-               (run-io-unhandled! (handle-op e)))
+               (run-io-unhandled! (on-exception-op e)))
               ((None)
                (throw io-err))))))))))
 
   (inline)
   (declare handle-all-io (IO :a * (Void -> IO :a) -> IO :a))
-  (define (handle-all-io io-op handle-op)
-    "Run IO-OP, and run HANDLE-OP to handle exceptions of any type thrown by IO-OP."
+  (define (handle-all-io io-op on-exception-op)
+    "Run IO-OP, and run `on-exception-op` to handle exceptions of any type thrown by IO-OP."
     (IO%
      (fn ()
       (let result = (run-io-handled!% io-op))
@@ -289,7 +289,7 @@ all threads will be stopped by the main thread when `run-io!` completes."
          ;; Don't allow handle-all to accidentally mask the thread!
          (if (is-threading-exception io-err)
              (throw io-err)
-             (run-io-unhandled! (handle-op))))))))
+             (run-io-unhandled! (on-exception-op))))))))
 
   (inline)
   (declare try-dynamic-io (IO :a -> IO (Result Dynamic :a)))

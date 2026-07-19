@@ -511,24 +511,24 @@ was stopping/stopped and the child should not start."
   ;; TODO: Merge this with unmask-current-thread-finally!% when Threads
   ;; loses the unmask other thread functions
   (declare unmask-finally-inner!% (IoThread * (UnmaskFinallyMode -> :a) -> Void))
-  (define (unmask-finally-inner!% thread thunk)
-    "Unmask the thread. Guarantees that THUNK will be run, regardless of pending
+  (define (unmask-finally-inner!% thread finally-thunk)
+    "Unmask the thread. Guarantees that `finally-thunk` will be run, regardless of pending
 stop, with either the RUNNING or STOPPED mode. Finally, checks if there is a pending
 stop and interrupts the thread if it finds one.
 
-This function does NOT guarantee that THUNK will be called with STOPPED in all cases
+This function does NOT guarantee that `finally-thunk` will be called with STOPPED in all cases
 in which this function ultimately interrupts the current thread before exiting.
 However, even if the runtime used locks for masking threads, that is unavoidable.
 
 The fundamental problem is that it will always be possible for another thread to try
-to stop you while you're executing (THUNK RUNNING). You can do one of three things in
+to stop you while you're executing `(finally-thunk running)`. You can do one of three things in
 that instance:
 
-1. Wrap (THUNK RUNNING) in a try/catch on this thread. Have the stopping thread signal us,
-interrupting (THUNK RUNNING). On this thread, in the catch, detect that (THUNK RUNNING)
-was stopped and re-call with (THUNK STOPPED).
+1. Wrap `(finally-thunk running)` in a try/catch on this thread. Have the stopping thread signal us,
+interrupting `(finally-thunk running)`. On this thread, in the catch, detect that `(finally-thunk running)`
+was stopped and re-call with `(finally-thunk stopped)`.
 
-This sounds good. But the problem is that (THUNK RUNNING) is supposed to be guaranteed
+This sounds good. But the problem is that `(finally-thunk running)` is supposed to be guaranteed
 to execute. It could leave a resource in an un-recoverably inconsistent state.
 It would also require every call to this function or any of the user-facing bracket
 machinery to constantly hedge their cleanup functions against checking if it already
@@ -547,10 +547,10 @@ has no way of knowing how long it will take for this thread to finish its masked
 In theory this thread could run masked indefinitely, which would effectively either block
 the stopping thread or force it to give up on stopping this one.
 
-3. The solution implemented here, where the mode that THUNK sees and what this function
+3. The solution implemented here, where the mode that finally-thunk sees and what this function
 ultimately decides to do can be inconsistent. This doesn't create any problems for the
 stopping therad, and the only onus it puts on this thread is to guarantee that both
-paths in THUNK cleanup whatever resource in a reasonable way. Ultimately that's something
+paths in finally-thunk cleanup whatever resource in a reasonable way. Ultimately that's something
 they should be doing anyway. Suppose a function calling this (or higher level bracket-io
 machinery, which will inherent this function's semantics) did something like this:
 
@@ -588,14 +588,14 @@ to a purely cooperative model also wouldn't help. You'd have the same problem, b
 just be limited to implementing only solutions #2 or #3.
 "
     (let flags = (.flags thread))
-    ;; Wait to unmask until *after* we guarantee thunk has been run.
+    ;; Wait to unmask until *after* we guarantee finally-thunk has been run.
     (let flag-state = (bt:read flags))
     ;; Only stop if there are no other masks applied besides the one
     ;; we're undoing now.
     (if (and (matches-flag flag-state PENDING-KILL)
              (masked-once? flag-state))
-        (thunk Stopped)
-        (thunk Running))
+        (finally-thunk Stopped)
+        (finally-thunk Running))
     (let new-flag-state = (bt:decf! (.flags thread) 2))
     (when (and (masked-once? flag-state)
                (matches-flag new-flag-state PENDING-KILL))
@@ -604,9 +604,9 @@ just be limited to implementing only solutions #2 or #3.
 
   (inline)
   (declare unmask-finally!% (IoThread * (UnmaskFinallyMode -> :a) -> Void))
-  (define (unmask-finally!% thread thunk)
+  (define (unmask-finally!% thread finally-thunk)
     (when *masking-enabled*
-      (unmask-finally-inner!% thread thunk)))
+      (unmask-finally-inner!% thread finally-thunk)))
 
   (inline)
   (declare unmask-inner!% (IoThread -> Void))
@@ -624,14 +624,14 @@ just be limited to implementing only solutions #2 or #3.
 
   (inline)
   (declare unmask-current-thread-finally-inner!% ((UnmaskFinallyMode -> Void) -> Void))
-  (define (unmask-current-thread-finally-inner!% thunk)
-    (unmask-finally!% (current-thread!%) thunk))
+  (define (unmask-current-thread-finally-inner!% finally-thunk)
+    (unmask-finally!% (current-thread!%) finally-thunk))
 
   (inline)
   (declare unmask-current-thread-finally!% ((UnmaskFinallyMode -> Void) -> Void))
-  (define (unmask-current-thread-finally!% thunk)
+  (define (unmask-current-thread-finally!% finally-thunk)
     (when *masking-enabled*
-      (unmask-current-thread-finally-inner!% thunk)))
+      (unmask-current-thread-finally-inner!% finally-thunk)))
 
   (inline)
   (declare unmask-current-thread-inner!% (Void -> Void))
@@ -647,24 +647,24 @@ just be limited to implementing only solutions #2 or #3.
   (inline)
   (declare unmask-finally% ((UnliftIo :r :io) (LiftTo :r :m)
                             => IoThread * (UnmaskFinallyMode -> :r Unit) -> :m Unit))
-  (define (unmask-finally% thread thunk)
+  (define (unmask-finally% thread finally-op)
     (lift-to
      (with-run-in-io
          (fn (run)
            (wrap-io
-            (unmask-finally!% thread (fn (m) (run! (run (thunk m)))))
+            (unmask-finally!% thread (fn (m) (run! (run (finally-op m)))))
             Unit)))))
 
   (inline)
   (declare unmask-current-thread-finally% ((UnliftIo :r :io) (LiftTo :r :m)
                                            => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
-  (define (unmask-current-thread-finally% thunk)
+  (define (unmask-current-thread-finally% finally-op)
     (lift-to
      (with-run-in-io
          (fn (run)
            (wrap-io
             (unmask-current-thread-finally!% (fn (m)
-                                               (run! (run (thunk m)))
+                                               (run! (run (finally-op m)))
                                                (values)))
             Unit)))))
 

@@ -137,12 +137,12 @@ exception to the program."
 
   (inline)
   (declare wrap-error_ (Exceptions :m => (Void -> :a) -> :m :a))
-  (define (wrap-error_ thunk)
-    "Run thunk, catching any unhandled Lisp/Coalton errors and raising
+  (define (wrap-error_ op)
+    "Run `op`, catching any unhandled Lisp/Coalton errors and raising
 them as exceptions."
     (raise-result-dynamic (pure
                            (r:map-err to-dynamic
-                                      (catch-thunk thunk)))))
+                                      (catch-thunk op)))))
   )
 
 (defmacro wrap-error (cl:&body body)
@@ -245,41 +245,41 @@ Example:
   (declare handle-stateT ((Exceptions :m) (RuntimeRepr :e)
                           => st:StateT :s :m :a * (:e -> st:StateT :s :m :a)
                           -> st:StateT :s :m :a))
-  (define (handle-stateT st-op st-handle-op)
+  (define (handle-stateT st-op st-on-exception)
     (st:StateT
      (fn (s)
        (handle
         (st:run-stateT st-op s)
         (fn (e)
           (st:run-stateT
-           (st-handle-op e)
+           (st-on-exception e)
            s))))))
 
   (inline)
   (declare handle-all-stateT (Exceptions :m
                               => st:StateT :s :m :a * (Void -> st:StateT :s :m :a)
                               -> st:StateT :s :m :a))
-  (define (handle-all-stateT st-op st-handle-op)
+  (define (handle-all-stateT st-op st-on-exception)
     (st:StateT
      (fn (s)
        (handle-all
         (st:run-stateT st-op s)
         (fn ()
-         (st:run-stateT (st-handle-op) s))))))
+         (st:run-stateT (st-on-exception) s))))))
 
   (inline)
   (declare reraise-stateT (Exceptions :m
                            => st:StateT :s :m :a
                            * (Void -> st:StateT :s :m :b)
                            -> st:StateT :s :m :a))
-  (define (reraise-stateT st-op st-catch-op)
+  (define (reraise-stateT st-op st-on-exception)
     (st:StateT
      (fn (s)
        (reraise
         (st:run-stateT st-op s)
         (fn ()
           (st:run-stateT
-           (st-catch-op) s))))))
+           (st-on-exception) s))))))
 
   (inline)
   (declare try-dynamic-stateT (Exceptions :m
@@ -309,42 +309,42 @@ Example:
   (declare handle-envT ((Exceptions :m) (RuntimeRepr :err)
                         => e:EnvT :e :m :a * (:err -> e:EnvT :e :m :a)
                         -> e:EnvT :e :m :a))
-  (define (handle-envT env-op env-handle-op)
+  (define (handle-envT env-op env-on-exception)
     (e:EnvT
      (fn (env)
        (handle
         (e:run-envT env-op env)
         (fn (err)
           (e:run-envT
-           (env-handle-op err)
+           (env-on-exception err)
            env))))))
 
   (inline)
   (declare handle-all-envT (Exceptions :m
                             => e:EnvT :e :m :a * (Void -> e:EnvT :e :m :a)
                             -> e:EnvT :e :m :a))
-  (define (handle-all-envT env-op env-handle-op)
+  (define (handle-all-envT env-op env-on-exception)
     (e:EnvT
      (fn (env)
        (handle-all
         (e:run-envT env-op env)
         (fn ()
           (e:run-envT
-           (env-handle-op)
+           (env-on-exception)
            env))))))
 
   (inline)
   (declare reraise-envT (Exceptions :m
                             => e:EnvT :e :m :a * (Void -> e:EnvT :e :m :b)
                             -> e:EnvT :e :m :a))
-  (define (reraise-envT env-op env-handle-op)
+  (define (reraise-envT env-op env-on-exception)
     (e:EnvT
      (fn (env)
        (reraise
         (e:run-envT env-op env)
         (fn ()
           (e:run-envT
-           (env-handle-op)
+           (env-on-exception)
            env))))))
 
   (inline)
