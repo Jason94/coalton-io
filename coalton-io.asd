@@ -223,6 +223,7 @@ mutable variables, multithreading, and several data structures to safely share s
                 :serial t
                 :components
                 ((:file "stress-tests")
+                 (:file "stm")
                  (:file "queues")
                  (:file "package")
                  )))

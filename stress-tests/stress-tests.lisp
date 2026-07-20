@@ -86,6 +86,13 @@
            (when (== 1 (la:aref obs-count-array (unwrap-into x)))
              (return (Err (f:format f:Str "Globally observed packet (~a ~a) multiple times" prod-id x))))
            (la:set! obs-count-array (unwrap-into x) 1)))))
+    ;; Verify that every ID x Count combination was observed
+    (dotimes (i-producer n-producer-threads)
+      (let observed-counts = (v:index-unsafe i-producer observed-count-arrays))
+      (dotimes (i-count elts-per-producer)
+        (let bit = (la:aref observed-counts i-count))
+        (when (zero? bit)
+          (return (Err (f:format f:Str "Observed unsignaled packet (~a ~a)" i-producer i-count))))))
     (Ok Unit))
   
   (declare linearized-producer-consumers-stress-test
@@ -148,7 +155,8 @@ At the end, the test returns `Ok Unit` if the following invariants are observed:
       ;; and wait for the consumers to finish
       (await producers)
       (do-repeat-io n-consumer-threads
-        (producer-op Finished))
+        (do-while-io
+          (map not (producer-op Finished))))
       (await consumers)
       ;; Now verify
       (empty? <- check-empty-op)

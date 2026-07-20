@@ -14,6 +14,7 @@
       (fiasco:run-package-tests
        :packages '(
                    #:io/stress/queues-fiasco
+                   #:io/stress/stm-fiasco
                    )
        :interactive cl:nil)
     (cl:declare (cl:ignore results))
