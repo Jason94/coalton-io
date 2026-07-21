@@ -214,3 +214,20 @@ mutable variables, multithreading, and several data structures to safely share s
                  (:file "stm")
                  )))
   :description "Benchmarks for coalton-io.")
+
+(defsystem "coalton-io/stress-tests"
+  :author "Jason Walker"
+  :license "MIT"
+  :depends-on ("coalton-io" "coalton/testing" "fiasco" "coalton-io/tests")
+  :components ((:module "stress-tests"
+                :serial t
+                :components
+                ((:file "stress-tests")
+                 (:file "stm")
+                 (:file "queues")
+                 (:file "package")
+                 )))
+  :description "Stress test system for coalton-io."
+  :perform (test-op (op c)
+            (uiop:with-current-directory ((asdf:system-source-directory c))
+              (uiop:symbol-call '#:io/stress '#:run-tests))))

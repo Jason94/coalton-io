@@ -10,5 +10,6 @@
    #:do-repeat-io
    #:do-while-io
    #:do-while-val-io
+   #:do-until-val-io
    ))
 

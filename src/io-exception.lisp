@@ -14,6 +14,10 @@
    #:handle-all
    #:try-dynamic
 
+   #:finally
+   #:on-success-or-exception
+   #:do-finally
+
    #:try
    #:try-all
    #:raise-result

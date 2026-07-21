@@ -22,6 +22,7 @@
    #:do-repeat-io
    #:do-while-io
    #:do-while-val-io
+   #:do-until-val-io
 
    ;; Library Private
    ))
@@ -107,6 +108,19 @@
             (run-io-unhandled! (io-body a))
             (values))))
        Unit))))
+
+  (inline)
+  (declare until-val-io ((LiftIo IO :m) (dcc::Yielder :y) => IO (:y :a) -> :m :a))
+  (define (until-val-io producer-op)
+    (lift-io
+     (the (IO :a)
+          (wrap-io
+           (rec % ()
+             (match (dcc::yield (run-io-unhandled! producer-op))
+               ((None)
+                (%))
+               ((Some a)
+                a)))))))                           
   )
 
 (defmacro do-map-into-io ((var lst) cl:&body body)
@@ -150,3 +164,9 @@ results."
     (fn (,var)
       (do
        ,@body))))
+
+(defmacro do-until-val-io (cl:&body body)
+  "Efficiently run `body` until it produces a value, and return that value."
+  `(until-val-io
+    (do
+     ,@body)))

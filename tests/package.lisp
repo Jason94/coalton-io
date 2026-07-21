@@ -1,4 +1,3 @@
-
 (defpackage #:coalton-io/tests
   (:use #:coalton #:coalton-prelude #:coalton-testing)
   (:export #:run-tests))

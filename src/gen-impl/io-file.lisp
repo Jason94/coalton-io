@@ -216,8 +216,9 @@
                            (:direction f_:OpenDirection)
                            (:if-exists f_:IfExists)
                            -> :m :b))
-  (define (with-open-file pth k &key (direction f_:Input) (if-exists f_:EError))
-     "Opens a file stream, performs K on it, then closes the stream.
+  (define (with-open-file pth op &key (direction f_:Input) (if-exists f_:EError))
+     "Opens a file stream, performs `op` on it, then closes the stream.
+
 Can run any underlying BaseIo, which can be useful but can also cause inference issues
 in some cases. Try WITH-OPEN-FILE_ if you have issues."
     (lift-to
@@ -229,7 +230,7 @@ in some cases. Try WITH-OPEN-FILE_ if you have issues."
              (fn (file)
                (raise-result (close file)))
              (fn (file)
-               (run (k file)))))))))
+               (run (op file)))))))))
 
   (declare with-temp-file ((f_:File :a) (Files :i) (Threads :rt :t :i)
                            (UnliftIo :r :i) (LiftTo :r :m) (Exceptions :i)
@@ -237,8 +238,9 @@ in some cases. Try WITH-OPEN-FILE_ if you have issues."
                            &key
                            (:extension String)
                            -> :m :b))
-  (define (with-temp-file k &key (extension ""))
-     "Performs an operation `thunk` on a temporary file. File type extensions need to include `.`
+  (define (with-temp-file op &key (extension ""))
+     "Performs `op` on a temporary file. File type extensions need to include `.`
+
 Can run any underlying BaseIo, which can be useful but can also cause inference issues
 in some cases. Try WITH-TEMP-FILE_ if you have issues."
     (lift-to
@@ -251,14 +253,15 @@ in some cases. Try WITH-TEMP-FILE_ if you have issues."
                (fn (_)
                  (raise-result (delete-file filepath)))
                (fn (file)
-                 (run (k file))))))))))
+                 (run (op file))))))))))
 
   (declare with-temp-directory ((UnliftIo :r :i) (LiftTo :r :m) (Exceptions :i)
                                 (Files :i) (Threads :rt :t :i)
                                 => (f_:Pathname -> :r :a)
                                 -> :m :a))
-  (define (with-temp-directory k)
-      "Performs an operation `thunk` inside a temporary directory.
+  (define (with-temp-directory op)
+      "Performs `op` inside a temporary directory.
+
 Can run any underlying BaseIo, which can be useful but can also cause inference issues
 in some cases. Try WITH-TEMP-DIRECTORY_ if you have issues."
     (lift-to
@@ -270,7 +273,7 @@ in some cases. Try WITH-TEMP-DIRECTORY_ if you have issues."
              (fn (pathname)
                (remove-directory-recursive pathname))
              (fn (pathname)
-               (run (k pathname)))))))))
+               (run (op pathname)))))))))
 
   )
 

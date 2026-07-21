@@ -493,7 +493,7 @@ stopped after being unmasked N times."
   (inline)
   (declare unmask-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r)
                                   => :t * (UnmaskFinallyMode -> :r Unit) -> :m Unit))
-  (define (unmask-thread-finally thread op-finally)
+  (define (unmask-thread-finally thread finally-op)
     "Unmask the thread, run the provided action, and then honor any
  pending stop for that thread after the action finishes.
 
@@ -505,10 +505,10 @@ continuing."
     (lift-to
      (with-run-in-io
          (fn (run)
-           (wrap-io (unmask-finally! (runtime-for (proxy-result-of op-finally))
+           (wrap-io (unmask-finally! (runtime-for (proxy-result-of finally-op))
                                      thread
                                      (fn (m)
-                                       (run! (run (op-finally m)))
+                                       (run! (run (finally-op m)))
                                        (values)))
                     Unit)))))
 
@@ -517,7 +517,7 @@ continuing."
   (inline)
   (declare unmask-current-thread-finally ((UnliftIo :r :io) (LiftTo :r :m) (Threads :rt :t :r)
                                           => (UnmaskFinallyMode -> :r Unit) -> :m Unit))
-  (define (unmask-current-thread-finally op-finally)
+  (define (unmask-current-thread-finally finally-op)
     "Unmask the current thread, run the provided action, and then honor any pending stop
 for that thread after the action finishes.
 
@@ -531,11 +531,11 @@ the log file with a final message if the thread is continuing."
      (with-run-in-io
        (fn (run)
          (wrap-io
-           (let runtime-prx = (runtime-for (proxy-result-of op-finally)))
+           (let runtime-prx = (runtime-for (proxy-result-of finally-op)))
            (unmask-finally! runtime-prx
                             (current-thread! runtime-prx)
                             (fn (m)
-                              (run! (run (op-finally m)))
+                              (run! (run (finally-op m)))
                               (values)))
            Unit)))))
 

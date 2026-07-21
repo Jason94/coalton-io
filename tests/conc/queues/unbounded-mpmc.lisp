@@ -93,6 +93,15 @@
       (read result))))
   (is (== (Some 10) result)))
 
+(define-test test-dequeue-timeout-on-empty ()
+  (let result =
+    (run-io!
+     (do
+      (buffer <- new-unbounded-mpmc-queue)
+      (try-all (dequeue buffer :timeout (Timeout 1))))))
+  (is (== (the (Optional Boolean) None)
+          result)))
+
 ;;;
 ;;; Edge case tests
 ;;; 

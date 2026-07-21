@@ -72,8 +72,8 @@ the produced :m is run."
                       (mask! rt-prx thread))
                     (fn ()
                       (unmask! rt-prx thread))
-                    (fn (callback)
-                      (unmask-finally! rt-prx thread callback)))))
+                    (fn (finally-op)
+                      (unmask-finally! rt-prx thread finally-op)))))
      m-prx))
 
   (inline)
@@ -145,13 +145,13 @@ the produced :m is run."
        ((.unmask-callback fut))
        Unit))
     (inline)
-    (define (unmask-finally fut callback)
+    (define (unmask-finally fut finally-op)
       (lift-to
        (with-run-in-io
            (fn (run)
              (wrap-io
                ((.unmask-finally-callback fut) (fn (x)
-                                                 (run! (run (callback x)))
+                                                 (run! (run (finally-op x)))
                                                  (values)))
                Unit))))))
   )
