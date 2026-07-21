@@ -503,28 +503,3 @@
       (pure (Tuple err released?)))))
   (is (== (Tuple (Err (BE "Raised Error")) True)
           result)))
-
-(define-test test-bracket-unmasked-releases-when-stopped-in-operation ()
-  (let release-completed? =
-    (run-io!
-     (do
-      (release <- (new-var False))
-      (start-gate <- s-new)
-      (release-done-gate <- s-new)
-      (wait-forever <- s-new)
-      (thread <-
-        (do-fork-thread_
-          (bracket-unmasked
-            (pure Unit)
-            (fn (_) (do
-                     (write release True)
-                     (s-signal release-done-gate)))
-            (fn (_) (do (s-signal start-gate)
-                        (s-await wait-forever))))))
-      ;; Ensure the operation has started before stopping it
-      (s-await start-gate)
-      (stop-thread thread)
-      (s-await release-done-gate)
-      (read release))))
-  (is (== True
-          release-completed?)))

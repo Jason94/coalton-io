@@ -370,7 +370,7 @@ results.</p><h4
          <li class=instances-item><code><a href="#coalton-types-runtimerepr-class">RuntimeRepr</a> <a href="#io-resource-exitcase-type">ExitCase</a></code></ul></details></div>
       <hr><div class=values-content>
        <h3 class=values-header>Values</h3><h4
-    id=io-resource-bracket-lifecycle-masked-value><a href="#io-resource-bracket-lifecycle-masked-value"><code>(BRACKET-LIFECYCLE-MASKED ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L44-L60">src</a></sub></sup></sub></sup></h4><code>&forall; :RT :T :M :R :A :B. (<a href="#io-classes-exceptions-exceptions-class">Exceptions</a> :M) (<a href="#io-classes-thread-threads-class">Threads</a> :RT :T :M) &rArr; :M :R * (:R &rarr; :M :A) * (:R &rarr; :M :B) &rarr; :M :B</code><p class=docstring>Acquire a resource, run a computation with it, and release it. Guarantees that
+    id=io-resource-bracket-lifecycle-masked-value><a href="#io-resource-bracket-lifecycle-masked-value"><code>(BRACKET-LIFECYCLE-MASKED ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L151-L163">src</a></sub></sup></sub></sup></h4><code>&forall; :RT :T :M :R :A :B. (<a href="#io-classes-exceptions-exceptions-class">Exceptions</a> :M) (<a href="#io-classes-thread-threads-class">Threads</a> :RT :T :M) &rArr; :M :R * (:R &rarr; :M :A) * (:R &rarr; :M :B) &rarr; :M :B</code><p class=docstring>Acquire a resource, run a computation with it, and release it. Guarantees that
 RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,
 it will be re-raised after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise
 an exception, then release is not guaranteed.
@@ -378,10 +378,10 @@ an exception, then release is not guaranteed.
 RELEASE-OP receives only the acquired resource.
 
 Concurrent:
-- Masks the thread during resource acquisition and release.
-- The computation is not masked, but if another thread stops this one during the
-  computation then the resource the resource will still be released.</p><h4
-    id=io-resource-bracket-lifecycle-masked-case-value><a href="#io-resource-bracket-lifecycle-masked-case-value"><code>(BRACKET-LIFECYCLE-MASKED-CASE ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L67-L85">src</a></sub></sup></sub></sup></h4><code>&forall; :RT :T :M :R :A :B. (<a href="#io-classes-exceptions-exceptions-class">Exceptions</a> :M) (<a href="#io-classes-thread-threads-class">Threads</a> :RT :T :M) &rArr; :M :R * (:R * <a href="#io-resource-exitcase-type">ExitCase</a> &rarr; :M :A) * (:R &rarr; :M :B) &rarr; :M :B</code><p class=docstring>Acquire a resource, run a computation with it, and release it. Guarantees that
+  - Masks the thread during resource acquisition and release.
+  - The computation is not masked, but if another thread stops this one during the
+    computation then the resource the resource will still be released.</p><h4
+    id=io-resource-bracket-lifecycle-masked-case-value><a href="#io-resource-bracket-lifecycle-masked-case-value"><code>(BRACKET-LIFECYCLE-MASKED-CASE ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L171-L184">src</a></sub></sup></sub></sup></h4><code>&forall; :RT :T :M :R :A :B. (<a href="#io-classes-exceptions-exceptions-class">Exceptions</a> :M) (<a href="#io-classes-thread-threads-class">Threads</a> :RT :T :M) &rArr; :M :R * (:R * <a href="#io-resource-exitcase-type">ExitCase</a> &rarr; :M :A) * (:R &rarr; :M :B) &rarr; :M :B</code><p class=docstring>Acquire a resource, run a computation with it, and release it. Guarantees that
 RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,
 it will be re-raised after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise
 an exception, then release is not guaranteed.
@@ -390,17 +390,17 @@ RELEASE-OP receives both the acquired resource and an ExitCase indicating whethe
 the computation completed successfully (Completed) or errored (Errored).
 
 Concurrent:
-- Masks the thread during resource acquisition and release.
-- The computation is not masked, but if another thread stops this one during the
-  computation then the resource the resource will still be released.</p><h4 id=io-resource-bracket-masked-value><a href="#io-resource-bracket-masked-value"><code>(BRACKET-MASKED ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L120-L134">src</a></sub></sup></sub></sup></h4><code>&forall; :RT :T :M :R :A :B. (<a href="#io-classes-exceptions-exceptions-class">Exceptions</a> :M) (<a href="#io-classes-thread-threads-class">Threads</a> :RT :T :M) &rArr; :M :R * (:R &rarr; :M :A) * (:R &rarr; :M :B) &rarr; :M :B</code><p class=docstring>Acquire a resource, run a computation with it, and release it. Guarantees that RELEASE-OP will run
+  - Masks the thread during resource acquisition and release.
+  - The computation is not masked, but if another thread stops this one during the
+    computation then the resource the resource will still be released.</p><h4 id=io-resource-bracket-masked-value><a href="#io-resource-bracket-masked-value"><code>(BRACKET-MASKED ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L111-L122">src</a></sub></sup></sub></sup></h4><code>&forall; :RT :T :M :R :A :B. (<a href="#io-classes-exceptions-exceptions-class">Exceptions</a> :M) (<a href="#io-classes-thread-threads-class">Threads</a> :RT :T :M) &rArr; :M :R * (:R &rarr; :M :A) * (:R &rarr; :M :B) &rarr; :M :B</code><p class=docstring>Acquire a resource, run a computation with it, and release it. Guarantees that RELEASE-OP will run
 if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception, it will be re-raised after the
 resource cleans up. If ACQUIRE-OP or RELEASE-OP raise an exception, then release is not guaranteed.
 
 The entire sequence is masked, including `computation-op`.
 
 Concurrent:
-- Masks the thread before ACQUIRE-OP starts.
-- Unmasks the thread after RELEASE-OP finishes.</p><h4 id=io-resource-bracket-masked-case-value><a href="#io-resource-bracket-masked-case-value"><code>(BRACKET-MASKED-CASE ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L92-L113">src</a></sub></sup></sub></sup></h4><code>&forall; :RT :T :M :R :A :B. (<a href="#io-classes-exceptions-exceptions-class">Exceptions</a> :M) (<a href="#io-classes-thread-threads-class">Threads</a> :RT :T :M) &rArr; :M :R * (:R * <a href="#io-resource-exitcase-type">ExitCase</a> &rarr; :M :A) * (:R &rarr; :M :B) &rarr; :M :B</code><p class=docstring>Acquire a resource, run a computation with it, and release it. Guarantees that RELEASE-OP will run
+  - Masks the thread before ACQUIRE-OP starts.
+  - Unmasks the thread after RELEASE-OP finishes.</p><h4 id=io-resource-bracket-masked-case-value><a href="#io-resource-bracket-masked-case-value"><code>(BRACKET-MASKED-CASE ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L130-L143">src</a></sub></sup></sub></sup></h4><code>&forall; :RT :T :M :R :A :B. (<a href="#io-classes-exceptions-exceptions-class">Exceptions</a> :M) (<a href="#io-classes-thread-threads-class">Threads</a> :RT :T :M) &rArr; :M :R * (:R * <a href="#io-resource-exitcase-type">ExitCase</a> &rarr; :M :A) * (:R &rarr; :M :B) &rarr; :M :B</code><p class=docstring>Acquire a resource, run a computation with it, and release it. Guarantees that RELEASE-OP will run
 if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception, it will be re-raised after the
 resource cleans up. If ACQUIRE-OP or RELEASE-OP raise an exception, then release is not guaranteed.
 RELEASE-OP receives both the acquired resource and an ExitCase indicating whether
@@ -409,22 +409,30 @@ the computation completed successfully (Completed) or errored (Errored).
 The entire sequence is masked, including `computation-op`.
 
 Concurrent:
-- Masks the thread before ACQUIRE-OP starts.
-- Unmasks the thread after RELEASE-OP finishes.</p><h4 id=io-resource-bracket-unmasked-value><a href="#io-resource-bracket-unmasked-value"><code>(BRACKET-UNMASKED ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L167-L178">src</a></sub></sup></sub></sup></h4><code>&forall; :RT :T :M :R :A :B. (<a href="#io-classes-exceptions-exceptions-class">Exceptions</a> :M) (<a href="#io-classes-thread-threads-class">Threads</a> :RT :T :M) &rArr; :M :R * (:R &rarr; :M :A) * (:R &rarr; :M :B) &rarr; :M :B</code><p class=docstring>Acquire a resource, run a computation with it, and release it. Guarantees that
-RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,
-it will be re-raised after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise
+  - Masks the thread before ACQUIRE-OP starts.
+  - Unmasks the thread after RELEASE-OP finishes.</p><h4 id=io-resource-bracket-unmasked-value><a href="#io-resource-bracket-unmasked-value"><code>(BRACKET-UNMASKED ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L44-L76">src</a></sub></sup></sub></sup></h4><code>&forall; :RT :T :M :R :A :B. (<a href="#io-classes-exceptions-exceptions-class">Exceptions</a> :M) (<a href="#io-classes-thread-threads-class">Threads</a> :RT :T :M) &rArr; :M :R * (:R &rarr; :M :A) * (:R &rarr; :M :B) &rarr; :M :B</code><p class=docstring>Acquire a resource, run a computation with it, and release it. Guarantees that
+`release-op` will run if `computation-op` raises. If `computation-op` raises an exception,
+it will be re-raised after the resource cleans up. If `acquire-op` or `release-op` raise
 an exception, then release is not guaranteed.
 
-Does not mask.</p><h4
-    id=io-resource-bracket-unmasked-case-value><a href="#io-resource-bracket-unmasked-case-value"><code>(BRACKET-UNMASKED-CASE ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L141-L160">src</a></sub></sup></sub></sup></h4><code>&forall; :RT :T :M :R :A :B. (<a href="#io-classes-exceptions-exceptions-class">Exceptions</a> :M) (<a href="#io-classes-thread-threads-class">Threads</a> :RT :T :M) &rArr; :M :R * (:R * <a href="#io-resource-exitcase-type">ExitCase</a> &rarr; :M :A) * (:R &rarr; :M :B) &rarr; :M :B</code><p class=docstring>Acquire a resource, run a computation with it, and release it. Guarantees that
-RELEASE-OP will run if ACQUIRE-OP completes. If COMPUTATION-OP raises an exception,
-it will be re-raised after the resource cleans up. If ACQUIRE-OP or RELEASE-OP raise
+Concurrent:
+  - Does not mask.
+  - Cannot guarantee resource will be released on an asynchronous stop. If you need to
+    guarantee release during an asynchronous stop, use `bracket-lifecycle-masked` or
+    `bracket-masked`.</p><h4
+    id=io-resource-bracket-unmasked-case-value><a href="#io-resource-bracket-unmasked-case-value"><code>(BRACKET-UNMASKED-CASE ACQUIRE-OP RELEASE-OP COMPUTATION-OP)</code></a> <sup><sub>FUNCTION · <a href="https://github.com/Jason94/coalton-io/tree/master/src/io-resource.lisp#L83-L103">src</a></sub></sup></sub></sup></h4><code>&forall; :RT :T :M :R :A :B. (<a href="#io-classes-exceptions-exceptions-class">Exceptions</a> :M) (<a href="#io-classes-thread-threads-class">Threads</a> :RT :T :M) &rArr; :M :R * (:R * <a href="#io-resource-exitcase-type">ExitCase</a> &rarr; :M :A) * (:R &rarr; :M :B) &rarr; :M :B</code><p class=docstring>Acquire a resource, run a computation with it, and release it. Guarantees that
+`release-op` will run if `computation-op` raises. If COMPUTATION-OP raises an exception,
+it will be re-raised after the resource cleans up. If `acquire-op` or `release-op` raise
 an exception, then release is not guaranteed.
 
-RELEASE-OP receives both the acquired resource and an ExitCase indicating whether
+`release-op` receives both the acquired resource and an `ExitCase` indicating whether
 the computation completed successfully (Completed) or errored (Errored).
 
-Does not mask.</p></div>
+Concurrent:
+  - Does not mask.
+  - Cannot guarantee resource will be released on an asynchronous stop. If you need to
+    guarantee release during an asynchronous stop, use `bracket-lifecycle-masked-case`
+    or `bracket-masked-case`.</p></div>
       <hr><h1 id=io-mut-package>Package <code>IO/MUT</code></h1><div class=types-content>
        <h3 class=types-header>Types</h3><h4 id=io-classes-mut-var-type><a href="#io-classes-mut-var-type"><code>Var</code></a> <sup><sub>TYPE · <a href="https://github.com/Jason94/coalton-io/tree/master/src/classes/mut.lisp#L33-L34">src</a></sub></sup></sub></sup></h4><details>
         <summary>Instances</summary>
