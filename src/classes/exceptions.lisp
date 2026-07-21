@@ -82,9 +82,9 @@ must catch and wrap all unhandled errors inside a wrap-io call."
 between IO instances."
      (Dynamic -> :m :a))
     (reraise
-     "Run an operation, run a cleanup operation if the first operation raised,
-then re-raise the exception. If the cleanup operation raises, that exception will
-be emitted instead of the original exception."
+     "Run an operation, run `on-exception` if the first operation raised, then re-raise
+the exception. If `on-exception` raises, that exception will be emitted instead of the
+original exception."
      (:m :a * (Void -> :m :b) -> :m :a))
     (handle
      "Run an operation, immediately handling if it raised an exception that matches :e."
