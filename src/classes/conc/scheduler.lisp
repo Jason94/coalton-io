@@ -18,9 +18,6 @@
 
 (coalton-toplevel
 
- ;; TODO: The definition here is simple, but the WorkerPool has to use
- ;; (Scheduler (Optional (:i Unit))). Specialize the functions on the class more so that
- ;; the type signature elsewhere is more simplified.
  (define-class (Scheduler :s)
    "A Scheduler distributes work from producer threads to worker threads. Generally, the
 Scheduler is allowed to completely control the worker threads: it can sleep, block, spin,
@@ -44,24 +41,24 @@ should be 0-indexed, from [0, n-threads)."
 
 Concurrent:
   - Blocks if the Scheduler is full. Only bounded Schedulers will ever be full."
-    (Threads :rt :t :m => :a * :s :a -> :m Unit))
+    (Threads :rt :t :m => :m :a * :s :a -> :m Unit))
    (submit-with
     "Submit a new item to the Scheduler.
 
 Concurrent:
   - Blocks if the Scheduler is full, possibly timing out based on STRATEGY. Only bounded
 Schedulers will ever be full."
-    (Threads :rt :t :m => :a * TimeoutStrategy * :s :a -> :m Unit))
+    (Threads :rt :t :m => :m :a * TimeoutStrategy * :s :a -> :m Unit))
    (try-submit
     "Attempt to submit a new item to the Scheduler. Returns `True` if the item was added,
 or `False` if the Scheduler was full. Only bounded Schedulers can be full."
-    (Threads :rt :t :m => :a * :s :a -> :m Boolean))
+    (Threads :rt :t :m => :m :a * :s :a -> :m Boolean))
    (take-item
     "Take the next item from the Scheduler for the given thread.
 
 Concurrent:
   - May block, sleep, spin, or do anything else to the requesting thread, except
     (1) leave it masked after returning, or (2) stop the thread."
-    (Threads :rt :t :m => UFix * :s :a -> :m :a)))
+    (Threads :rt :t :m => UFix * :s :a -> :m (:m :a))))
 
   )

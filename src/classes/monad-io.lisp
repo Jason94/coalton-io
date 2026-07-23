@@ -66,7 +66,9 @@ exceptions."
 exceptions as an (Err e)."
      (:m :a -> Result Dynamic :a)))
 
-  (define-class ((Monad :m) (BaseIo :i) => LiftIo :i :m)
+  ;; BROKEN, See:
+  ;; https://github.com/coalton-lang/coalton/issues/2030
+  (define-class ((Monad :m) (BaseIo :i) => LiftIo :i :m (:m -> :i))
     (lift-io (BaseIo :i => :i :a -> :m :a)))
 
   (define-class ((MonadIo :m) (LiftIo :i :m) => UnliftIo :m :i (:m -> :i))
