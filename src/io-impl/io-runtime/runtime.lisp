@@ -195,6 +195,11 @@
   (define PENDING-KILL (b:shift 0 1))
 
   (inline)
+  (declare has-pending-kill? (Word -> Boolean))
+  (define (has-pending-kill? word)
+    (matches-flag word PENDING-KILL))
+
+  (inline)
   (declare atomic-remove-pending-kill (bt:AtomicInteger -> Word))
   (define (atomic-remove-pending-kill at-int)
     "Atomically remove the pending kill bit. Return the old bitmask."
@@ -205,18 +210,22 @@
         (atomic-remove-pending-kill at-int)))
 
   (inline)
+  (declare masked-count (Word -> Word))
+  (define (masked-count word)
+    (lisp (-> Word) (word)
+      (cl:ash word -1)))
+
+  (inline)
   (declare masked-once? (Word -> Boolean))
   (define (masked-once? word)
     "Check that WORD is masked only once."
-    (== 1 (lisp (-> Word) (word)
-            (cl:ash word -1))))
+    (== 1 (masked-count word)))
 
   (inline)
   (declare unmasked? (Word -> Boolean))
   (define (unmasked? word)
-    (zero? (lisp (-> Word) (word)
-             (cl:ash word -1))))
-
+    (zero? (masked-count word)))
+  
   (inline)
   (declare atomically-unmask! (bt:AtomicInteger -> Word))
   (define (atomically-unmask! flags)
@@ -602,7 +611,7 @@ just be limited to implementing only solutions #2 or #3.
     ;; we're undoing now.
     (catch
         (progn
-          (if (and (matches-flag flag-state PENDING-KILL)
+          (if (and (has-pending-kill? flag-state)
                    (masked-once? flag-state))
               (finally-thunk Stopped)
               (finally-thunk Running))
@@ -611,7 +620,7 @@ just be limited to implementing only solutions #2 or #3.
        (values)))
     (let new-flag-state = (atomically-unmask! flags))
     (when (and (masked-once? flag-state)
-               (matches-flag new-flag-state PENDING-KILL))
+               (has-pending-kill? new-flag-state))
       (interrupt-iothread% thread))
     (values))
 

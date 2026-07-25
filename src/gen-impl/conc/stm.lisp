@@ -89,9 +89,11 @@
   (define (tvar-value% tvar)
     (c:read (unwrap-tvar% tvar)))
 
+  ;; TODO: Remove useless `Unit` from `TxFailed`.
+  ;; See https://github.com/coalton-lang/coalton/issues/2046
   (define-exception TxAbort
     (TxRetryAfterWrite TimeoutStrategy) ;; User-requested sleep until another write commit
-    TxFailed) ;; Another thread wrote to an accessed TVar during our commit
+    (TxFailed Unit))                    ;; Another thread wrote to an accessed TVar during our commit
 
   (repr :native cl:cons)
   (define-type ReadEntry%)
@@ -501,7 +503,7 @@ For safety, disconnects the transactions when done."
                val)
              (match (validate% tx-data)
                ((TxAbort%)
-                (throw TxFailed))
+                (throw (TxFailed Unit)))
                ((TxContinue% time)
                 (c:write! (.lock-snapshot tx-data)
                           time)
@@ -683,9 +685,9 @@ retry, then the entire transaction retries."
                 (let val = (run-stm% a-tx-data tx-a))
                 (merge-into-parent-tx% a-tx-data)
                 val)
-         ((TxFailed)
+         ((TxFailed _)
           (merge-into-parent-tx% a-tx-data)
-          (throw TxFailed))
+          (throw (TxFailed Unit))) 
          ((TxRetryAfterWrite _)
           (merge-read-log-into-parent-tx% a-tx-data)
           (run-stm% tx-data tx-b))))))
@@ -714,7 +716,8 @@ a consistent snapshot of the data. Therefore, TX must be pure."
           ((TxRetryAfterWrite strategy)
            (wait-for-write-tx!% rt-prx strategy tx-data)
            Unit)
-          (_ Unit))
+          ((TxFailed _)
+           Unit))
         (if (c:read commit-succeeded?)
             (opt:from-some "Impossible error, please submit a bug report: Transaction failed to produce a value"
                            (c:read return))

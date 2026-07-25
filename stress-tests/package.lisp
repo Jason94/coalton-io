@@ -15,6 +15,7 @@
        :packages '(
                    #:io/stress/queues-fiasco
                    #:io/stress/stm-fiasco
+                   #:io/stress/mvar-fiasco
                    )
        :interactive cl:nil)
     (cl:declare (cl:ignore results))
