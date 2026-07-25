@@ -8,5 +8,6 @@ To run one package's tests:
 ```
 (asdf:load-system "coalton-io/stress-tests")
 (in-package :io/stress/stm-fiasco)
+(in-package :io/stress/mvar-fiasco)
 (run-package-tests)
 ```
