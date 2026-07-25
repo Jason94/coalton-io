@@ -6,7 +6,7 @@
    #:io/classes/monad-io
    #:io/classes/thread
    #:io/gen-impl/conc/parking
-   #:io/threads-impl/runtime
+   #:io/io-impl/runtime
    #:io/io-impl/simple-io
    )
   (:export

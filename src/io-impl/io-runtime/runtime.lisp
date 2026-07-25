@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :io/threads-impl/runtime
+(defpackage :io/io-impl/io-runtime/runtime
   (:use
    #:coalton
    #:coalton-prelude
@@ -54,7 +54,7 @@
    #:write-line-sync%
    #:is-masked?%
    ))
-(in-package :io/threads-impl/runtime)
+(in-package :io/io-impl/io-runtime/runtime)
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 1)))
 

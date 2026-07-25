@@ -1,4 +1,4 @@
-(defpackage #:io/threads-impl/atomics
+(defpackage #:io/utilities/atomics
   (:use
    #:coalton
    #:coalton-prelude
@@ -41,7 +41,7 @@
    #:at-st-peek
    ))
 
-(in-package #:io/threads-impl/atomics)
+(in-package #:io/utilities/atomics)
 
 (named-readtables:in-readtable coalton:coalton)
 

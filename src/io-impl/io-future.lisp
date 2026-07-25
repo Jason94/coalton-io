@@ -5,8 +5,8 @@
    #:coalton-prelude
    #:coalton-library/monad/classes
    #:io/classes/thread
-   #:io/threads-impl/runtime
    #:io/gen-impl/conc/future
+   #:io/io-impl/io-runtime/runtime
    #:io/io-impl/runtime
    #:io/io-impl/simple-io
    )

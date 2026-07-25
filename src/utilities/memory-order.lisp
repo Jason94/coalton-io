@@ -1,5 +1,5 @@
 (cl:in-package #:cl-user)
-(defpackage #:io/threads-impl/memory-order
+(defpackage #:io/utilities/memory-order
   (:use
    #:coalton
    #:coalton-prelude)
@@ -16,7 +16,7 @@
    #:write-barrier%
    #:memory-barrier%))
 
-(in-package #:io/threads-impl/memory-order)
+(in-package #:io/utilities/memory-order)
 
 (cl:declaim (cl:inline read-barrier%
                        write-barrier%

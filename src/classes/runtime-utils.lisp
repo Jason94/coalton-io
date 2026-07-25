@@ -78,12 +78,6 @@
                                " milliseconds."))))))
        (values))))
 
-  ;; TODO: Standardize usage of 'finally' throughout the library.
-  ;; There's two separate concepts: (1) Call a cleanup function only on failure,
-  ;; and (2) guarantee a cleanup function is called regardless of failure or success.
-  ;; "Finally" should cleanly refer to one, and another word should refer to the other.
-  ;; TODO: Remove lambda when this is fixed:
-  ;; https://github.com/coalton-lang/coalton/issues/1719
   (inline)
   (declare unmask-and-await-safely-finally% (Runtime :rt :t
                                              => Proxy :rt
@@ -122,8 +116,6 @@ is run AFTER the lock is released, and only if the thread is stopped!!"
        (finally)
        (throw (InterruptCurrentThread msg)))))
 
-  ;; TODO: Remove lambda when this is fixed:
-  ;; https://github.com/coalton-lang/coalton/issues/1719
   (inline)
   (declare unmask-and-await-safely% (Runtime :rt :t
                                      => Proxy :rt * bt:ConditionVariable * bt:Lock
@@ -135,8 +127,6 @@ or just release the LOCK. Masks after resuming post-await."
     (unmask-and-await-safely-with% rt-prx NoTimeout cv lock
                                    :release-on-timeout release-on-timeout))
 
-  ;; TODO: Remove lambda when this is fixed:
-  ;; https://github.com/coalton-lang/coalton/issues/1719
   (declare unmask-and-await-safely-with% (Runtime :rt :t
                                           => Proxy :rt
                                           * TimeoutStrategy

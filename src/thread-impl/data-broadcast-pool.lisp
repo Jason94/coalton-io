@@ -6,14 +6,13 @@
    #:coalton-library/types
    #:io/utils
    #:io/threads-exceptions
-   #:io/threads-impl/runtime
    #:io/classes/runtime-utils
    #:io/classes/thread
    )
   (:local-nicknames
    (:bt  #:io/utilities/bt-compat)
    (:c #:coalton-library/cell)
-   (:at #:io/threads-impl/atomics)
+   (:at #:io/utilities/atomics)
    )
   (:export
    #:DataBroadcastPool
@@ -25,8 +24,6 @@
 (in-package :io/threads-impl/data-broadcast-pool)
 
 (named-readtables:in-readtable coalton:coalton)
-
-;; TODO: Modify DataBroadcastPool to use generic runtime
 
 (coalton-toplevel
 
@@ -103,10 +100,10 @@ THE THREAD IS MASKED."
     (while (stale?% (at:at-st-peek (.version-entries pool)))
       (at:at-st-pop-front! (.version-entries pool))))
 
-  (declare publish (DataBroadcastPool :a * :a -> Void))
-  (define (publish pool data)
+  (declare publish (Runtime :rt :t => Proxy :rt * DataBroadcastPool :a * :a -> Void))
+  (define (publish rt-prx pool data)
     (unless (zero? (at:read-at-int (.n-subscribers pool)))
-      (mask-current-thread!%)
+      (mask-current! rt-prx)
       (bt:acquire (.publish-lock pool))
       (bt:acquire (.notify-lock pool))
       ;; First, check to make sure that the pool didn't receive another publish
@@ -125,7 +122,7 @@ THE THREAD IS MASKED."
         )
       (bt:release (.notify-lock pool))
       (bt:release (.publish-lock pool))
-      (unmask-current-thread!%)
+      (unmask-current! rt-prx)
       ))
 
   ;; TODO: Remove lambda when this is fixed:
@@ -134,7 +131,7 @@ THE THREAD IS MASKED."
                            => Proxy :rt * TimeoutStrategy * DataBroadcastPool :a -> :a))
   (define (subscribe-with rt-prx strategy pool)
     "Subscribe to the pool, and block until a publish is made."
-    (mask-current-thread!%)
+    (mask-current! rt-prx)
     (bt:acquire (.notify-lock pool))
     (at:atomic-inc1 (.n-subscribers pool))
     (let version = (at:read-at-int (.version pool)))
@@ -153,14 +150,14 @@ THE THREAD IS MASKED."
        ((TimeoutException msg)
         (bt:release (.notify-lock pool))
         (at:atomic-dec1 (.n-subscribers pool))
-        (unmask-current-thread!%)
+        (unmask-current! rt-prx)
         (throw (TimeoutException msg))))
       ;; Protect against spurious wake-ups
       (when (== version (at:read-at-int (.version pool)))
         (%)))
     (bt:release (.notify-lock pool))
     (let result = (checkout!% version (.version-entries pool)))
-    (unmask-current-thread!%)
+    (unmask-current! rt-prx)
     result)
 
   (declare subscribe (Runtime :rt :t => Proxy :rt * DataBroadcastPool :a -> :a))

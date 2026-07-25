@@ -8,7 +8,7 @@
    #:io/classes/exceptions
    )
   (:local-nicknames
-   (:at #:io/threads-impl/atomics)
+   (:at #:io/utilities/atomics)
    )
   (:export
    ;; Library Public

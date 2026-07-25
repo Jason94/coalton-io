@@ -54,6 +54,7 @@
    #:park-current-thread-if-masked!
    #:unpark-thread!
    #:unpark-thread-masked!
+   #:timeout!
 
    #:Concurrent
    #:stop
@@ -78,7 +79,8 @@
    #:do-fork-thread
    #:park-current-thread-if
    #:unpark-thread
-
+   #:with-timeout
+   
    #:runtime-for
    #:as-runtime-prx
    #:get-runtime-for
@@ -266,7 +268,7 @@ parking was stale.
 Concurrent:
   - Can briefly block while trying to unpark the thread, if contended."
      (Proxy :r * Generation * :t -> Boolean))
-     )
+    )
 
   (define-class (Concurrent :c :a (:c -> :a))
     "A Concurrent has thread-like semantics. It can be stopped, masked, unmasked, and await-ed.
