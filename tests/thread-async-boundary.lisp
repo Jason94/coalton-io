@@ -1,14 +1,14 @@
 (defpackage :coalton-io/tests/thread-async-boundary
   (:use #:coalton #:coalton-prelude #:coalton-testing
-        #:io/monad-io
-        #:io/utils
-        #:io/simple-io
-        #:io/thread
-        #:io/mut
-        #:io/conc/mvar)
+   #:io/monad-io
+   #:io/utils
+   #:io/simple-io
+   #:io/thread
+   #:io/mut
+   #:io/conc/mvar)
   (:import-from #:io/io-impl/simple-io
     #:run-io-no-cleanup!)
-  (:import-from #:io/threads-impl/runtime
+  (:import-from #:io/io-impl/io-runtime/runtime
     #:write-line-sync%)
   (:local-nicknames
    (:c #:coalton-library/cell)

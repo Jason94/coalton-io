@@ -14,7 +14,9 @@
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:debug 0) (cl:safety 0)))
 
-(named-readtables:in-readtable coalton:coalton)
+;;;
+;;; This file provides additional CL atomic utilities. It does not wrap atomics in Coalton functions/types.
+;;; 
 
 (cl:defmacro atomic-incf-old (place cl:&optional (delta 1))
   "Atomically increment `place` by `delta`. Returns the old value."

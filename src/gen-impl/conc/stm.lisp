@@ -17,8 +17,8 @@
    (:i #:coalton-library/iterator)
    (:c #:coalton-library/cell)
    (:bt  #:io/utilities/bt-compat)
-   (:at #:io/threads-impl/atomics)
-   (:mo #:io/threads-impl/memory-order)
+   (:mo #:io/utilities/memory-order)
+   (:at #:io/utilities/atomics)
    )
   (:export
    ;; Library Public

@@ -9,8 +9,8 @@
    #:io/classes/thread
    #:io/classes/exceptions
    #:io/classes/monad-io
+   #:io/io-impl/io-runtime/runtime
    #:io/io-impl/runtime
-   #:io/threads-impl/runtime
    )
   (:import-from #:coalton-library/types
    #:RuntimeRepr)

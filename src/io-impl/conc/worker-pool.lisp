@@ -8,8 +8,8 @@
    #:io/classes/exceptions
    #:io/classes/thread
    #:io/classes/conc/scheduler
-   #:io/threads-impl/runtime
    #:io/gen-impl/conc/worker-pool
+   #:io/io-impl/io-runtime/runtime
    #:io/io-impl/runtime
    #:io/io-impl/simple-io
    )

@@ -6,7 +6,7 @@
    #:io/classes/monad-io
    #:io/classes/unique)
   (:local-nicknames
-   (:at #:io/threads-impl/atomics)
+   (:at #:io/utilities/atomics)
    )
   (:export
    #:implement-unique-gen

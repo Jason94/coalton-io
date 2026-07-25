@@ -10,7 +10,7 @@
    #:io/conc/mvar
    #:io/exceptions
    #:io/tests/utils)
-  (:import-from #:io/threads-impl/runtime
+  (:import-from #:io/io-impl/io-runtime/runtime
    #:is-masked?%)
   (:import-from #:io/term
    #:write-line)

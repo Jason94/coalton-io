@@ -13,8 +13,12 @@
                  ;;; Library Private Packages
                  ;;;
                  (:file "utils")
-                 (:file "utilities/bt-compat")
-                 (:file "utilities/atom-compat")
+                 (:module "utilities"
+                  :serial t
+                  :components ((:file "bt-compat")
+                               (:file "atom-compat")
+                               (:file "memory-order")
+                               (:file "atomics")))
                  (:file "thread-exceptions")
                  ;; Load the two main "core classes" files first, before thread-impl/
                  (:file "classes/exceptions")
@@ -31,11 +35,6 @@
                                (:file "runtime-utils")
                                (:file "conc/scheduler")
                                ))
-                 (:module "thread-impl"
-                  :serial t
-                  :components ((:file "memory-order")
-                               (:file "atomics")
-                               (:file "runtime")))
                  ;; TODO: Finish converting this to use Runtime, then move
                  ;; to gen-impl/conc
                  (:file "thread-impl/data-broadcast-pool")
@@ -75,7 +74,10 @@
                                (:file "io-network")))
                  (:module "io-impl"
                   :serial t
-                  :components ((:file "runtime")
+                  :components ((:module "io-runtime"
+                                :serial t
+                                :components ((:file "runtime")))
+                               (:file "runtime")
                                (:file "simple-io")
                                (:file "loops")
                                (:file "io-thread")

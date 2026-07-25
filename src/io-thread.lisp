@@ -3,12 +3,12 @@
 (defpackage :io/thread
   (:use
    #:io/threads-exceptions
-   #:io/threads-impl/runtime
+   #:io/io-impl/io-runtime/runtime
    #:io/classes/thread
    #:io/io-impl/thread
    #:io/gen-impl/thread)
   (:export
-   ;; Re-exports from io/threads-impl/runtime
+   ;; Re-exports from io/io-impl/io-runtime/runtime
    #:UnmaskFinallyMode
    #:Stopped
    #:Running

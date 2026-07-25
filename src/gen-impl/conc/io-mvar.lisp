@@ -17,7 +17,7 @@
    )
   (:local-nicknames
    (:opt #:coalton-library/optional)
-   (:at #:io/threads-impl/atomics)
+   (:at #:io/utilities/atomics)
    (:bt #:io/utilities/bt-compat)
    )
   (:export
@@ -189,7 +189,7 @@ Concurrent:
                     ((None)
                      (at:atomic-write data (Some val))
                      (bt:release lock)
-                     (publish (.read-broadcast-pool mvar) val)
+                     (publish rt-prx (.read-broadcast-pool mvar) val)
                      (bt:notify (.notify-full mvar))
                      (unmask-current! rt-prx)
                      Unit)
@@ -302,7 +302,7 @@ Concurrent:
            ((None)
             (at:atomic-write (.data mvar) (Some val))
             (bt:release (.lock mvar))
-            (publish (.read-broadcast-pool mvar) val)
+            (publish rt-prx (.read-broadcast-pool mvar) val)
             (bt:notify (.notify-full mvar))
             (unmask-current! rt-prx)
             True))))))

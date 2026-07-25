@@ -11,7 +11,9 @@
    #:io/classes/monad-io
    #:io/classes/thread
    #:io/classes/term
-   #:io/threads-impl/runtime
+   )
+  (:local-nicknames
+   (:bt #:io/utilities/bt-compat)
    )
   (:export
    #:write-line-sync
@@ -25,11 +27,20 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
+  (define write-term-lock% (bt:new-lk))
+
   (declare write-line-sync ((Into :s String) (Terminal :m) => :s -> :m Unit))
   (define (write-line-sync msg)
     "Perform a synchrozied write-line to the terminal. Not performant - mainly useful
 for debugging."
-    (wrap-io (write-line-sync% msg) Unit))
+    (wrap-io
+     (let thread-name =
+       (lisp (-> String) ()
+         (bt2:thread-name (bt2:current-thread))))
+     (bt:acquire write-term-lock%)
+     (trace (build-str (force-string msg) " <" thread-name ">"))
+     (bt:release write-term-lock%)
+     Unit))
 
   (inline)
   (declare with-mask ((Threads :rt :t :m) (Exceptions :m)

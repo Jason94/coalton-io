@@ -4,7 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:io/classes/thread
-   #:io/threads-impl/runtime
+   #:io/io-impl/io-runtime/runtime
    )
   (:export
    #:IoRuntime

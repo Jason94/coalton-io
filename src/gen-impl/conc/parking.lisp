@@ -10,7 +10,7 @@
    )
   (:local-nicknames
    (:l #:coalton/list)
-   (:at #:io/threads-impl/atomics)
+   (:at #:io/utilities/atomics)
    )
   (:export
    ;; Library Public
