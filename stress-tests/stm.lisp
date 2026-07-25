@@ -15,7 +15,7 @@
 (fiasco:define-test-package #:io/stress/stm-fiasco)
 (coalton-fiasco-init #:io/stress/stm-fiasco)
 
-(defmacro stm-linearized-producer-consumers-stress-test (n-prod n-cons count)
+(defmacro stm-linearized-producer-consumers-stress-test (n-prod n-cons n-obs count)
   `(progn
      (let result =
        (run-io!
@@ -43,21 +43,32 @@
               ((None)
                (pure None))))
           (do-run-tx
-              (map none? (read-tvar box)))))))
+              (map none? (read-tvar box)))
+          :observation
+          (Some
+           (Tuple
+            ,n-obs
+            (do-run-tx
+              (read-tvar box)
+              (pure Unit))))))))
      (is (== (Ok Unit)
              result))))
 
 (coalton-toplevel
-  (define +test-stm-count+ (the UFix 2000000)))
+  (define +test-stm-count+     (the UFix 2000000))
+  (define +test-stm-obs-count+ (the UFix 2000000)))
 
 (define-test stm-linearized-producer-consumers-stress-test-1-prod-1-cons ()
-  (stm-linearized-producer-consumers-stress-test 1 1 +test-stm-count+))
+  (stm-linearized-producer-consumers-stress-test 1 1 0 +test-stm-count+))
 
 (define-test stm-linearized-producer-consumers-stress-test-6-prod-1-cons ()
-  (stm-linearized-producer-consumers-stress-test 6 1 +test-stm-count+))
+  (stm-linearized-producer-consumers-stress-test 6 1 0 +test-stm-count+))
 
 (define-test stm-linearized-producer-consumers-stress-test-1-prod-6-cons ()
-  (stm-linearized-producer-consumers-stress-test 1 6 +test-stm-count+))
+  (stm-linearized-producer-consumers-stress-test 1 6 0 +test-stm-count+))
 
 (define-test stm-linearized-producer-consumers-stress-test-6-prod-6-cons ()
-  (stm-linearized-producer-consumers-stress-test 6 6 +test-stm-count+))
+  (stm-linearized-producer-consumers-stress-test 6 6 0 +test-stm-count+))
+
+(define-test stm-linearized-producer-consumers-stress-test-4-prod-4-cons-4-obs ()
+  (stm-linearized-producer-consumers-stress-test 4 4 4 +test-stm-obs-count+))

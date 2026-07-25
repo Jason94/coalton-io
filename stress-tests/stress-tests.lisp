@@ -96,10 +96,14 @@
     (Ok Unit))
   
   (declare linearized-producer-consumers-stress-test
-           (UFix * UFix * UFix * (Transfer -> IO Boolean) * IO (Optional Transfer) * IO Boolean -> IO (Result String Unit)))
-  (define (linearized-producer-consumers-stress-test elts-per-producer n-producer-threads n-consumer-threads
-                                                     producer-op consumer-op
-                                                     check-empty-op)
+           (UFix * UFix * UFix *
+            (Transfer -> IO Boolean) * IO (Optional Transfer) * IO Boolean
+            &key (:observation (Optional (Tuple UFix (IO Unit))))
+            -> IO (Result String Unit)))
+  (define (linearized-producer-consumers-stress-test
+           elts-per-producer n-producer-threads n-consumer-threads
+           producer-op consumer-op check-empty-op
+           &key (observation None))
     "Stress test that runs `n-producer-threads` and `n-consumer-threads`.
 
 Each producer runs `producer-op` to push a `Packet` into some synchronized resource. Producers
@@ -110,6 +114,10 @@ fails, it will be retried.
 
 `check-empty-op` should return `True` if the shared resource is empty, or `False` if it is not.
 
+Takes an optional `observation-ops` which contains a number of observation threads to run and an
+observation operation. An 'observation' is an operation that should not alter the shared state,
+but touches it in some way. For example, reading an MVar or conducting a read-only STM transaction.
+
 At the end, the test returns `Ok Unit` if the following invariants are observed:
   - `elts-per-producer` * `n-producer-threads` total packets were transferred
   - No packet was transferred more than once
@@ -117,7 +125,6 @@ At the end, the test returns `Ok Unit` if the following invariants are observed:
   - All producer and consumer threads completed (or the test will hang indefinitely)
   - None of the producer or consumer threads raised an exception"
     (do
-      (tm:write-line "starting test")
       ;; Set up the test
       (start-gate <- s-new)
       (consumer-buffers <-
@@ -127,13 +134,15 @@ At the end, the test returns `Ok Unit` if the following invariants are observed:
            (let buffer = (v:with-capacity elts-per-producer))
            (v:push! buffer buffers))
          buffers))
+     ;; Set up producers
      (producers <-
       (do-fork-n-threads (i-producer n-producer-threads)
         (s-await start-gate)
         (do-times-io (x elts-per-producer)
           (let packet = (Packet (ProducerId% i-producer) (Count% (toInteger x))))
           (do-while-io
-           (map not (producer-op packet))))))
+              (map not (producer-op packet))))))
+      ;; Set up consumers
       (consumers <-
        (do-fork-n-threads (i-consumer n-consumer-threads)
          (s-await start-gate)
@@ -146,8 +155,19 @@ At the end, the test returns `Ok Unit` if the following invariants are observed:
               (pure False))
              (pkt
               (wrap-io (v:push! pkt buffer))
-              (pure True))
-             ))))
+              (pure True))))))
+      ;; Set up observers 
+      (observers <-
+        (do-if-match observation (Some (Tuple n-obs-threads obs-op))
+            (if (> n-obs-threads 0)
+                (map Some
+                     (do-fork-n-threads (_ n-obs-threads)
+                       ;; Don't need to await the start gate because obs-op should be read only
+                       (do-while-io
+                         obs-op
+                         (pure True))))
+                (pure None))
+          (pure None)))
       ;; Wait for threads to start then kick off the test
       (sleep 10)
       (s-signal start-gate :count (+ n-producer-threads n-consumer-threads))
@@ -158,6 +178,9 @@ At the end, the test returns `Ok Unit` if the following invariants are observed:
         (do-while-io
           (map not (producer-op Finished))))
       (await consumers)
+      (do-when-match observers (Some observers)
+        (stop observers)
+        (await observers))
       ;; Now verify
       (empty? <- check-empty-op)
       (pure
