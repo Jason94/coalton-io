@@ -122,11 +122,11 @@
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
-(defparameter *count* 20)
+(defparameter *count* 25)
 
 (coalton:coalton-toplevel
   (coalton:declare *tasks* coalton:UFix)
-  (coalton:define *tasks* 100000)
+  (coalton:define *tasks* 199992)
 
   (coalton:declare *bounded-capacity* coalton:UFix)
   (coalton:define *bounded-capacity* 128))
@@ -164,6 +164,17 @@
              io/conc/scheduler:new-unbounded-scheduler)))
   (report trivial-benchmark::*current-timer*))
 
+(define-benchmark single-producer-6-consumer-x-tasks-unbounded-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-x-receives
+             *tasks*
+             6
+             io/conc/scheduler:new-unbounded-scheduler)))
+  (report trivial-benchmark::*current-timer*))
+
 (define-benchmark 2-producers-2-consumers-x-tasks-unbounded-scheduler ()
   (declare (optimize speed))
   (loop :repeat *count*
@@ -184,6 +195,18 @@
             (benchmark-schedulers/native::benchmark-multi-producer-x-receives
              *tasks*
              4
+             2
+             io/conc/scheduler:new-unbounded-scheduler)))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark 6-producers-2-consumers-x-tasks-unbounded-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             6
              2
              io/conc/scheduler:new-unbounded-scheduler)))
   (report trivial-benchmark::*current-timer*))
@@ -209,6 +232,54 @@
              *tasks*
              4
              4
+             io/conc/scheduler:new-unbounded-scheduler)))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark 6-producers-4-consumers-x-tasks-unbounded-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             6
+             4
+             io/conc/scheduler:new-unbounded-scheduler)))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark 2-producers-6-consumers-x-tasks-unbounded-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             2
+             6
+             io/conc/scheduler:new-unbounded-scheduler)))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark 4-producers-6-consumers-x-tasks-unbounded-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             4
+             6
+             io/conc/scheduler:new-unbounded-scheduler)))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark 6-producers-6-consumers-x-tasks-unbounded-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             6
+             6
              io/conc/scheduler:new-unbounded-scheduler)))
   (report trivial-benchmark::*current-timer*))
 
@@ -245,6 +316,17 @@
              (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
   (report trivial-benchmark::*current-timer*))
 
+(define-benchmark single-producer-6-consumer-x-tasks-bounded-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-x-receives
+             *tasks*
+             6
+             (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
+  (report trivial-benchmark::*current-timer*))
+
 (define-benchmark 2-producers-2-consumers-x-tasks-bounded-scheduler ()
   (declare (optimize speed))
   (loop :repeat *count*
@@ -265,6 +347,18 @@
             (benchmark-schedulers/native::benchmark-multi-producer-x-receives
              *tasks*
              4
+             2
+             (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark 6-producers-2-consumers-x-tasks-bounded-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             6
              2
              (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
   (report trivial-benchmark::*current-timer*))
@@ -290,5 +384,54 @@
              *tasks*
              4
              4
+             (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
+  (report trivial-benchmark::*current-timer*))
+
+
+(define-benchmark 6-producers-4-consumers-x-tasks-bounded-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             6
+             4
+             (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark 2-producers-6-consumers-x-tasks-bounded-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             2
+             6
+             (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark 4-producers-6-consumers-x-tasks-bounded-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             4
+             6
+             (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
+  (report trivial-benchmark::*current-timer*))
+
+(define-benchmark 6-producers-6-consumers-x-tasks-bounded-scheduler ()
+  (declare (optimize speed))
+  (loop :repeat *count*
+        :do
+           (coalton:coalton
+            (benchmark-schedulers/native::benchmark-multi-producer-x-receives
+             *tasks*
+             6
+             6
              (io/conc/scheduler:new-bounded-scheduler *bounded-capacity*))))
   (report trivial-benchmark::*current-timer*))

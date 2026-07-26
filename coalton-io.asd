@@ -214,6 +214,7 @@ mutable variables, multithreading, and several data structures to safely share s
                  (:file "queues")
                  (:file "schedulers")
                  (:file "stm")
+                 (:file "mvars")
                  )))
   :description "Benchmarks for coalton-io.")
 

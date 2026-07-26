@@ -6,4 +6,5 @@
 (io/benchmarks::run-benchmark-ci 'benchmark-runtime)
 (io/benchmarks::run-benchmark-ci 'benchmark-stm)
 (io/benchmarks::run-benchmark-ci 'benchmark-queues)
+(io/benchmarks::run-benchmark-ci 'benchmark-mvars)
 ```
