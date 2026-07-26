@@ -15,7 +15,6 @@
    #:io/conc/stm
    #:io/examples/redis/protocol
    #:io/examples/redis/cli
-   #:io/examples/redis/rw-lock
    )
   (:import-from #:coalton/experimental/do-control-loops
    #:do-loop-times
@@ -186,8 +185,7 @@ to retry."
     (buckets (Vector (TVar (hm:HashMap :k :v)))))
 
   (define-struct Database
-    (data (TStripedMap String String))
-    (lock TRWLock))
+    (data (TStripedMap String String)))
 
   (declare new-database (UFix -> IO Database))
   (define (new-database n-buckets)
@@ -198,9 +196,7 @@ to retry."
        (bucket <- (new-tvar hm:empty))
        (wrap-io
         (v:push! bucket vector)))
-     (lock <- new-trwlock)
-     (pure (Database (TStripedMap vector)
-                     lock))))
+     (pure (Database (TStripedMap vector)))))
 
   (define-type-alias Bucket (hm:HashMap String String))
 
@@ -329,18 +325,6 @@ https://rdb.fnordig.de/file_format.html"
      (pure (Ok db))))
   )
 
-;; Helper macros to use the DB's lock
-
-(defmacro do-with-reader-lock (db cl:&body body)
-  `(with-reader-lock (.lock ,db)
-     (do
-      ,@body)))
-
-(defmacro do-with-writer-lock (db cl:&body body)
-  `(with-writer-lock (.lock ,db)
-     (do
-      ,@body)))
-
 ;;;
 ;;; Implement the server that talks with the client and manages the database.
 ;;;
@@ -358,9 +342,7 @@ https://rdb.fnordig.de/file_format.html"
   (declare handle-get-key (String * Database -> IO Resp))
   (define (handle-get-key key db)
     (do
-     (value? <-
-       (do-with-reader-lock db
-         (read-key key db)))
+     (value? <- (read-key key db))
      (match value?
        ((None)
         (pure RespNull))
@@ -370,16 +352,13 @@ https://rdb.fnordig.de/file_format.html"
   (declare handle-set-key (String * String * Database -> IO Resp))
   (define (handle-set-key key val db)
     (do
-     (do-with-writer-lock db
-       (run-tx (write-key-tx key val db)))
+     (run-tx (write-key-tx key val db))
      (pure OK-Response)))
 
   (declare handle-rename-key (String * String * Database -> IO Resp))
   (define (handle-rename-key key new-key db)
     (do
-     (result <-
-       (do-with-writer-lock db
-         (run-tx (rename-key key new-key db))))
+     (result <- (run-tx (rename-key key new-key db)))
      (if result
          (pure OK-Response)
          (pure (RespError (<> "Key not found: " key))))))
@@ -387,9 +366,7 @@ https://rdb.fnordig.de/file_format.html"
   (declare handle-save (Database -> IO Resp))
   (define (handle-save db)
     (do
-     (buckets <-
-       (do-with-reader-lock db
-         (copy-buckets db)))
+     (buckets <- (copy-buckets db))
      (save-buckets filename buckets)
      (pure OK-Response)))
 
@@ -402,8 +379,7 @@ https://rdb.fnordig.de/file_format.html"
        ((Err e)
         (pure (RespError e)))
        ((Ok new-buckets)
-        (do-with-writer-lock db
-          (write-buckets db (.buckets (.data new-buckets))))
+        (write-buckets db (.buckets (.data new-buckets)))
         (pure Ok-Response)))))
 
   (declare handle-client (nt:ByteConnectionSocket * Database -> IO Unit))
