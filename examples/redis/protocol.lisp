@@ -311,9 +311,10 @@ Example stream input, where the '_' type byte has already been read:
                                    (v:with-capacity (lisp (-> UFix) ()
                                                       len))))))
         (cl:dotimes (i len out)
-          (cl:setf (cl:aref out i)
-                   (cl:the (cl:unsigned-byte 8)
-                           (cl:char-code (cl:aref s i))))))))
+          (cl:vector-push 
+           (cl:the (cl:unsigned-byte 8)
+                   (cl:char-code (cl:aref s i)))
+           out)))))
 
   (declare str->bytes (String -> (Vector U8)))
   (define (str->bytes s)
@@ -323,9 +324,10 @@ Example stream input, where the '_' type byte has already been read:
                                    (v:with-capacity (lisp (-> UFix) ()
                                                       len))))))
         (cl:dotimes (i len out)
-          (cl:setf (cl:aref out i)
-                   (cl:the (cl:unsigned-byte 8)
-                           (cl:char-code (cl:aref s i))))))))
+          (cl:vector-push
+           (cl:the (cl:unsigned-byte 8)
+                   (cl:char-code (cl:aref s i)))
+           out)))))
 
   (declare write-terminator (ByteStream :s => :s -> IO Unit))
   (define (write-terminator conn)
@@ -527,7 +529,12 @@ Example stream input, where the '_' type byte has already been read:
   (define (read-command conn)
     "Read a command directly through a byte stream via an intermediate RESP representation"
     (do
+     (tm:write-line "Waiting for command")
      (resp <- (read-resp conn))
+     (wrap-io
+      (lisp (-> :a) (resp)
+        (cl:format cl:t "Received response <Raw: ~A>~%" resp))
+      Unit)
      (do-match resp
        ((Err e)
         (pure (Err e)))
