@@ -44,33 +44,33 @@
 
 (coalton-toplevel
     
-  (define-struct (WorkerPool :s :i :t)
+  (define-struct (WorkerPool :s :t)
     "A pool of worker threads that execute jobs submitted to the pool."
     (n-threads UFix)
     (threads (ConcurrentGroup :t Unit))
-    (scheduler (:s (Optional (:i Unit)))))
+    (scheduler (:s Unit)))
 
-  (declare worker-op ((BaseIo :i) (Threads :rt :t :i) (Scheduler :s)
-                      => UFix * :s (Optional (:i Unit)) -> :i Unit))
+  (declare worker-op ((BaseIo :m) (Threads :rt :t :m) (Scheduler :s)
+                      => UFix * :s Unit -> :m Unit))
   (define (worker-op thread-index scheduler)
-    (do-matchM (take-item thread-index scheduler)
-      ((None)
-       (pure Unit))
-      ((Some task)
-       task
-       (worker-op thread-index scheduler))))
+    (do
+     (task <- (take-item thread-index scheduler))
+     task
+     (worker-op thread-index scheduler)))
 
-  (declare fork-worker-op ((Threads :rt :t :i) (UnliftIo :i :i) (Exceptions :i)
+  (declare fork-worker-op ((Threads :rt :t :m) (Exceptions :m)
+                           (UnliftIo :r :i) (LiftTo :r :m)
                            (Scheduler :s)
-                           => UFix * :s (Optional (:i Unit)) -> :i :t))
+                           => UFix * :s Unit -> :m :t))
   (define (fork-worker-op thread-index scheduler)
     (fork-thread (worker-op thread-index scheduler)))
+  )
 
   (declare new-worker-pool ((Threads :rt :t :m) (UnliftIo :i :i) (Threads :rt :t :i)
                             (Exceptions :i)
                             (Exceptions :m) (Concurrent :t Unit) (LiftIo :i :m)
                             (Scheduler :s)
-                            => UFix * :s (Optional (:i Unit)) -> :m (WorkerPool :s :i :t)))
+                            => UFix * :s (Optional Unit) -> :m (WorkerPool :s :t)))
   (define (new-worker-pool n-threads scheduler)
     "Create a new worker pool. Automatically forks N-THREADS worker threads."
     ;; CONCURRENT:
@@ -87,7 +87,7 @@
 
   (declare submit-job-with ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :i)
                             (Exceptions :i) (Scheduler :s)
-                            => TimeoutStrategy * WorkerPool :s :i :t * :r :a -> :m Unit))
+                            => TimeoutStrategy * WorkerPool :s :t * :r :a -> :m Unit))
   (define (submit-job-with strategy pool job)
     "Submit a job to the worker pool. Any jobs submitted after a shutdown request will
 be ignored.
@@ -105,7 +105,7 @@ Concurrent:
   (inline)
   (declare submit-job ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :i)
                        (Exceptions :i) (Scheduler :s)
-                       => WorkerPool :s :i :t * :r :a -> :m Unit))
+                       => WorkerPool :s :t * :r :a -> :m Unit))
   (define (submit-job pool job)
     "Submit a job to the worker pool. Any jobs submitted after a shutdown request will
 be ignored.
@@ -116,7 +116,7 @@ Concurrent:
     (submit-job-with NoTimeout pool job))
 
   (declare request-shutdown ((Threads :rt :t :m) (Exceptions :m) (Scheduler :s)
-                             => WorkerPool :s :i :t -> :m Unit))
+                             => WorkerPool :s :t -> :m Unit))
   (define (request-shutdown pool)
     "Request a shutdown. The threads in the pool will shutdown when all of the jobs already
 in the queue are completed.
@@ -128,7 +128,7 @@ To immediately stop the threads, use `stop`."
 
 (coalton-toplevel
   (define-instance ((Concurrent (ConcurrentGroup :t Unit) (List Unit)) (Scheduler :s)
-                    => Concurrent (WorkerPool :s :i :t) Unit)
+                    => Concurrent (WorkerPool :s :t) Unit)
     (inline)
     (define (stop pool)
       (stop (.threads pool)))
