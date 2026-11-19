@@ -36,6 +36,10 @@
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
 (coalton-toplevel
+
+  (define-exception BenchmarkError
+    (BE String))
+
   ;; Divisible by 2, 4, & 6 (twice) to be able to evenly split workloads at all thread counts
   (define workload (the UFix 57600))
   
@@ -66,7 +70,8 @@ data structure, such as lock or atomic based ones)."
        (b:commit (b:current-timer)))
       (val <- (run-tx (read-tvar tvar)))
       (do-when (/= val workload)
-        (raise (f:format f:Str "small-tx-~a-times expected total ~a but received ~a" n-threads workload val)))))
+        (raise (BE
+                (f:format f:Str "small-tx-~a-times expected total ~a but received ~a" n-threads workload val))))))
     (values))
 
   (declare large-tx-n-times (UFix -> Void))
@@ -122,7 +127,8 @@ synchronized data structure, such as lock or atomic based ones)."
          (let total = (sum (make-list val1 val2 val3 val4 val5 val6 val7 val8)))
          (pure
           (if (/= total workload)
-              (Err (f:format f:Str "large-tx-~a-times expected total ~a but received ~a" n-threads workload total))
+              (Err (BE
+                    (f:format f:Str "large-tx-~a-times expected total ~a but received ~a" n-threads workload total)))
               (Ok Unit)))))))
     (values))
 
@@ -165,7 +171,8 @@ contention."
           (modify-tvar sum (fn (y) (+ x y)))))
       (sum <- (run-tx (read-tvar sum)))
       (do-when (/= sum workload)
-        (raise (f:format f:Str "loop-tarr-~a-times expected total ~a but received ~a" n-threads workload sum)))))
+        (raise
+         (BE (f:format f:Str "loop-tarr-~a-times expected total ~a but received ~a" n-threads workload sum))))))
     (values))
 
   (declare write-separate (UFix -> Void))
@@ -200,7 +207,8 @@ case scenario for the STM."
           (modify-tvar sum (fn (y) (+ x y)))))
       (sum <- (run-tx (read-tvar sum)))
       (do-when (/= sum workload)
-        (raise (f:format f:Str "loop-tarr-~a-times expected total ~a but received ~a" n-threads workload sum)))))
+        (raise
+         (BE (f:format f:Str "loop-tarr-~a-times expected total ~a but received ~a" n-threads workload sum))))))
     (values))
 
   (declare increment-round-robin (UFix -> Void))
@@ -237,10 +245,11 @@ wakes."
        (b:commit (b:current-timer)))
       (count <- (run-tx (read-tvar count)))
       (do-when (/= count workload)
-        (raise (f:format f:Str "increment-round-robin with ~a threads expected total ~a but received ~a"
-                         n-threads
-                         workload
-                         count)))))
+        (raise
+         (BE (f:format f:Str "increment-round-robin with ~a threads expected total ~a but received ~a"
+                       n-threads
+                       workload
+                       count))))))
     (values))
  )
 
