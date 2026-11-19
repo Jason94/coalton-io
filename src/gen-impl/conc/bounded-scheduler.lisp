@@ -1,6 +1,5 @@
 (cl:in-package :cl-user)
 (defpackage :io/gen-impl/conc/bounded-scheduler
-  (:shadowing-import-from #:io/classes/exceptions #:handle)
   (:use
    #:coalton
    #:coalton-prelude

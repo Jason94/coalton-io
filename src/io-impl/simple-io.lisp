@@ -1,6 +1,5 @@
 (cl:in-package :cl-user)
 (defpackage :io/io-impl/simple-io
-  (:shadowing-import-from #:io/classes/exceptions #:handle)
   (:use
    #:coalton
    #:coalton-prelude
@@ -319,7 +318,7 @@ all threads will be stopped by the main thread when `run-io!` completes."
     (define raise raise-io)
     (define raise-dynamic raise-dynamic-io)
     (define reraise reraise-io)
-    (define handle handle-io)
+    (define handle-exc handle-io)
     (define handle-all handle-all-io)
     (define try-dynamic try-dynamic-io))
 

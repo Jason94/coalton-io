@@ -1,6 +1,5 @@
 (cl:in-package :cl-user)
 (defpackage :io/io-impl/io-runtime/runtime
-  (:shadowing-import-from #:io/classes/exceptions #:handle)
   (:use
    #:coalton
    #:coalton-prelude
