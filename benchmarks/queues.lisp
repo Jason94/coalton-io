@@ -230,7 +230,7 @@
 
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
-(defparameter *count* 75)
+(defparameter *count* 40)
 
 (c:coalton-toplevel
   (c:define *tasks* (c:the c:UFix 48000)))

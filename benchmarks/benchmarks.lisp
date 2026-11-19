@@ -98,11 +98,10 @@
   "Run a single benchmark package. Returns a hashtable of benchmark stats."
   (run-package-benchmarks :package package :verbose t))
 
-(defun run-benchmark-ci (package)
-  "Run a single benchmark package and dump the result to <package>.csv,
-where <package> is filename-safe (slashes and dashes replaced)."
+(defun run-benchmark-ci (package &optional (directory *default-pathname-defaults*))
+  "Run a single benchmark package and write its CSV in DIRECTORY."
   (let* ((result (run-benchmark package))
-         (path (%benchmark-csv-path package)))
+         (path (merge-pathnames (%benchmark-csv-path package) directory)))
     (%write-benchmark-csv result path)
     (values)))
 
@@ -117,10 +116,56 @@ where <package> is filename-safe (slashes and dashes replaced)."
                       (run-package-benchmarks :package package :verbose t))
                     (reverse *all-benchmarks*)))))
 
+(defun %call-with-benchmark-results-lock (directory function)
+  (let ((lock-path (merge-pathnames ".benchmark-results.lock" directory)))
+    (loop :repeat 100
+          :for lock = (open lock-path :direction :output :if-exists nil)
+          :when lock
+            :do (return-from %call-with-benchmark-results-lock
+                  (unwind-protect (funcall function)
+                    (close lock)
+                    (delete-file lock-path)))
+          :do (sleep 1/10))
+    (error "Timed out waiting for benchmark results lock ~A" lock-path)))
+
+(defun %benchmark-archive-directory (directory)
+  (let ((commit (uiop:run-program '("git" "rev-parse" "--verify" "HEAD")
+                                  :directory directory
+                                  :output '(:string :stripped t)
+                                  :error-output *error-output*)))
+    (loop
+      (multiple-value-bind (second minute hour day month year)
+          (decode-universal-time (get-universal-time) 0)
+        (let* ((name (format nil "~4,'0D~2,'0D~2,'0DT~2,'0D~2,'0D~2,'0DZ_~A/"
+                             year month day hour minute second commit))
+               (archive (merge-pathnames name directory)))
+          (when (%call-with-benchmark-results-lock
+                 directory
+                 (lambda () (nth-value 1 (ensure-directories-exist archive))))
+            (return archive))))
+      (sleep 1))))
+
 (defun run-benchmarks-ci ()
-  "Run all benchmark packages, writing one CSV per package (no combined bench.csv)."
-  (dolist (package (reverse *all-benchmarks*))
-    (run-benchmark-ci package))
+  "Archive four full benchmark runs and publish run D as the latest results."
+  (let* ((directory (asdf:system-relative-pathname "coalton-io/benchmarks" "benchmarks/"))
+         (archive (%benchmark-archive-directory directory))
+         (packages (reverse *all-benchmarks*)))
+    (dolist (run '("A/" "B/" "C/" "D/"))
+      (let ((run-directory (merge-pathnames run archive)))
+        (ensure-directories-exist run-directory)
+        (dolist (package packages)
+          (run-benchmark-ci package run-directory))))
+    (%call-with-benchmark-results-lock
+     directory
+     (lambda ()
+       (let ((last-run (merge-pathnames "D/" archive)))
+         (dolist (package packages)
+           (let ((filename (%benchmark-csv-path package)))
+             (uiop:with-temporary-file (:directory directory :pathname temporary :stream stream)
+               (close stream)
+               (uiop:copy-file (merge-pathnames filename last-run) temporary)
+               (uiop:rename-file-overwriting-target temporary
+                                                    (merge-pathnames filename directory)))))))))
   (values))
 
 ;; Examples:

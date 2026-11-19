@@ -37,7 +37,7 @@
 
 (coalton-toplevel
   ;; Divisible by 2, 4, & 6 (twice) to be able to evenly split workloads at all thread counts
-  (define workload (the UFix 576000))
+  (define workload (the UFix 57600))
   
   (declare small-tx-n-times (UFix -> Void))
   (define (small-tx-n-times n-threads)
