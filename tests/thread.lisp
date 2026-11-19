@@ -33,7 +33,10 @@
   (repr :enum)
   (define-type Flag
     Unset
-    Set))
+    Set)
+
+  (define-exception TestThreadException
+    (ThreadError String)))
 
 (define-test test-fork-executes ()
   (let result =
@@ -111,7 +114,7 @@
       (thread <-
        (do-fork-thread_
          (s-signal gate)
-         (raise "Error in target thread!")))
+         (raise (ThreadError "Error in target thread!"))))
       (s-await gate)
       (try-all (join-thread thread)))))
   (is (== None result)))

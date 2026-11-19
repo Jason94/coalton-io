@@ -26,7 +26,7 @@
    #:wrap-error
 
    #:do-reraise
-   #:do-handle
+   #:do-handle-exc
    #:do-handle-all
    ))
 (in-package :io/exceptions)

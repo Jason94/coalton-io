@@ -253,6 +253,7 @@
       (observed-as <- (read observed-as))
       (observed-bs <- (read observed-bs))
       (pure (Tuple3 observed-as observed-bs result)))))
+  (let _ = (the (Tuple Integer Integer) result))
   (is (== (make-list 1 0) observed-as))
   (is (== (make-list 101) observed-bs))
   (is (== (Tuple 1 101) result)))

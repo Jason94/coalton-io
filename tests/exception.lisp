@@ -25,23 +25,15 @@
 ;;;
 
 (coalton-toplevel
-  (derive Eq)
-  (repr :lisp)
-  (define-type TestException
+  (define-exception TestException
     (TE String))
 
-  (define-instance (Signalable TestException)
-    (define (error (TE s))
-      (error s)))
+  (define-instance (Eq TestException)
+    (define (== (TE a) (TE b))
+      (== a b)))
 
-  (derive Eq)
-  (repr :lisp)
-  (define-type TestException2
-    (TE2 String))
-
-  (define-instance (Signalable TestException2)
-    (define (error (TE2 s))
-      (error s))))
+  (define-exception TestExceptionTwo
+    (TE2 String)))
 
 (define-test test-try-ok ()
   (let result =
@@ -196,10 +188,10 @@
   (is (== (Tuple (make-list 2 1) 10)
           result)))
 
-(define-test test-statet-handle-type ()
+(define-test test-statet-handle-exc-type ()
   (let result =
     (run-test (make-list 1)
-              (do-handle add-three-ints (e)
+              (do-handle-exc add-three-ints (e)
                 (let _ = (the TestException e))
                 (modify (fn (lst) (Cons 2 lst)))
                 (pure 10))
@@ -207,12 +199,12 @@
   (is (== (Tuple (make-list 2 1) 10)
           result)))
 
-(define-test test-statet-handle-wrong-type ()
+(define-test test-statet-handle-exc-wrong-type ()
   (let result =
     (run-test (make-list 1)
               (try
-               (do-handle add-three-ints (e)
-                 (let _ = (the TestException2 e))
+               (do-handle-exc add-three-ints (e)
+                 (let _ = (the TestExceptionTwo e))
                  (modify (fn (lst) (Cons 2 lst)))
                  (pure 10))
                )))

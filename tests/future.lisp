@@ -16,6 +16,14 @@
 (fiasco:define-test-package #:coalton-io/tests/future-fiasco)
 (coalton-fiasco-init #:coalton-io/tests/future-fiasco)
 
+(coalton-toplevel
+  (define-exception FutTestException
+    (FutErr String))
+
+  (define-instance (Eq FutTestException)
+    (define (== (FutErr a) (FutErr b))
+      (== a b))))
+
 (define-test test-fork-no-error ()
   (let result =
     (run-io!
@@ -33,11 +41,11 @@
      (do
       (fut <-
         (do-fork-future_
-          (raise "Error")
+          (raise (FutErr "Error"))
           (pure 1)))
       (x? <- (try (await fut)))
       (pure x?))))
-  (is (== (Err "Error") result)))
+  (is (== (Err (FutErr "Error")) result)))
 
 (define-test test-await-stopped-future-raises ()
   (let result =

@@ -47,25 +47,11 @@
 ;;;
 
 (coalton-toplevel
-
-  (derive Eq)
-  (repr :lisp)
-  (define-type TestException
+  (define-exception TestException
     (TE String))
 
-  (define-instance (Signalable TestException)
-    (define (error (TE s))
-      (error s)))
-
-  (derive Eq)
-  (repr :lisp)
-  (define-type TestExceptionTwo
-    (TE2 String))
-
-  (define-instance (Signalable TestExceptionTwo)
-    (define (error (TE2 s))
-      (error s)))
-  )
+  (define-exception TestExceptionTwo
+    (TE2 String)))
 
 (define-test test-useless-catch ()
   (let result =

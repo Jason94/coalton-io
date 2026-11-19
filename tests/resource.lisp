@@ -26,15 +26,12 @@
 (coalton-fiasco-init #:coalton-io/tests/resource-fiasco)
 
 (coalton-toplevel
-  (derive Eq)
-  (repr :lisp)
-  (define-type BracketError
+  (define-exception BracketError
     (BE String))
 
-  (define-instance (Signalable BracketError)
-    (define (error (BE s))
-      (error s)))
-  )
+  (define-instance (Eq BracketError)
+    (define (== (BE a) (BE b))
+      (== a b))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                 bracket-lifecycle-masked                  ;;
