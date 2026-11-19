@@ -1,5 +1,6 @@
 (cl:in-package :cl-user)
 (defpackage :io/gen-impl/conc/bounded-scheduler
+  (:shadowing-import-from #:io/classes/exceptions #:handle)
   (:use
    #:coalton
    #:coalton-prelude
@@ -23,16 +24,10 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (define-type SchedulerError
+  (define-exception SchedulerError
     InvalidBoundedCapacityError)
 
-  (define-instance (Signalable SchedulerError)
-    (define (error e)
-      (match e
-        ((InvalidBoundedCapacityError)
-         (error "Bounded scheduler queue must have non-zero capacity")))))
-
-  (repr :transparent)
+    (repr :transparent)
   (define-type (BoundedScheduler :a)
     "A `BoundedScheduler` has a limited capacity, and task submissions block if full."
     (BoundedScheduler% (BoundedMpmcQueue :a)))

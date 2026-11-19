@@ -1,5 +1,6 @@
 (cl:in-package :cl-user)
 (defpackage :io/io-impl/conc/worker-pool
+  (:shadowing-import-from #:io/classes/exceptions #:handle)
   (:use
    #:coalton
    #:coalton-prelude

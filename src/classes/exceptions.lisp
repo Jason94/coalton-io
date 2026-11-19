@@ -1,5 +1,6 @@
 (cl:in-package :cl-user)
 (defpackage :io/classes/exceptions
+  (:shadow #:handle)
   (:use
    #:coalton
    #:coalton-prelude
@@ -76,7 +77,7 @@
 must catch and wrap all unhandled errors inside a wrap-io call."
     (raise
      "Raise an exception."
-     ((RuntimeRepr :e) (Signalable :e) => :e -> :m :a))
+     ((RuntimeRepr :e) (Exception :e) => :e -> :m :a))
     (raise-dynamic
      "Raise an exception wrapped in a Dynamic. Mainly useful to hand-off eexceptions
 between IO instances."
@@ -115,8 +116,7 @@ raised any exceptions."
      (fn () (pure None))))
 
   (inline)
-  (declare raise-result ((Exceptions :m) (RuntimeRepr :e) (Signalable :e)
-                         => :m (Result :e :a) -> :m :a))
+  (declare raise-result ((Exceptions :m) (Exception :e) => :m (Result :e :a) -> :m :a))
   (define (raise-result io-res)
     "Raise any (Err :e) into :m. Useful if (Err :e) represents any unhandleable, fatal
 exception to the program."

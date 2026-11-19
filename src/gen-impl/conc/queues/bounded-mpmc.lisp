@@ -1,5 +1,6 @@
 (cl:in-package :cl-user)
 (defpackage :io/gen-impl/conc/queues/bounded-mpmc
+  (:shadowing-import-from #:io/classes/exceptions #:handle)
   (:use
    #:coalton
    #:coalton-prelude
@@ -11,6 +12,7 @@
    #:io/classes/runtime-utils
    #:io/gen-impl/conc/queues
    )
+  (:import-from #:io/utils #:InvalidArgument)
   (:local-nicknames
    (:opt #:coalton-library/optional)
    (:v #:coalton-library/vector)
@@ -128,7 +130,7 @@ Concurrent:
             (update! (fn (n)
                        (increment% buffer n))
                      (.insert-ptr buffer))
-            (bt:release (.lock buffer))
+            (let _ = (bt:release (.lock buffer)))
             (when should-notify
               (bt:broadcast (.notify-not-empty buffer)))
             (unmask-current! rt-prx))
@@ -164,7 +166,7 @@ Concurrent: Can block acquiring lock on buffer."
     (bt:acquire (.lock buffer))
     (if (full?% buffer)
         (progn
-          (bt:release (.lock buffer))
+          (let _ = (bt:release (.lock buffer)))
           (unmask-current! rt-prx)
           False)
         (progn
@@ -176,7 +178,7 @@ Concurrent: Can block acquiring lock on buffer."
           (update! (fn (n)
                      (increment% buffer n))
                    (.insert-ptr buffer))
-          (bt:release (.lock buffer))
+          (let _ = (bt:release (.lock buffer)))
           (when should-notify
             (bt:broadcast (.notify-not-empty buffer)))
           (unmask-current! rt-prx)
@@ -228,7 +230,7 @@ Concurrent:
             (update! (fn (n)
                        (increment% buffer n))
                      (.read-ptr buffer))
-            (bt:release (.lock buffer))
+            (let _ = (bt:release (.lock buffer)))
             (when should-notify
               (bt:broadcast (.notify-not-full buffer)))
             (unmask-current! rt-prx)
@@ -241,7 +243,7 @@ Concurrent:
     (bt:acquire (.lock buffer))
     (if (empty?% buffer)
         (progn
-          (bt:release (.lock buffer))
+          (let _ = (bt:release (.lock buffer)))
           (unmask-current! rt-prx)
           None)
         (progn
@@ -257,7 +259,7 @@ Concurrent:
           (update! (fn (n)
                      (increment% buffer n))
                    (.read-ptr buffer))
-          (bt:release (.lock buffer))
+          (let _ = (bt:release (.lock buffer)))
           (when should-notify
             (bt:broadcast (.notify-not-full buffer)))
           (unmask-current! rt-prx)
@@ -285,7 +287,7 @@ Concurrent:
   (define (new-bounded-mpmc-queue capacity)
     "Create a new bounded MPMC queue with the given capacity."
     (if (zero? capacity)
-        (raise "Cannot create a bounded queue with no capacity.")
+        (raise (InvalidArgument "Cannot create a bounded queue with no capacity."))
         (wrap-io (new-bounded-mpmc-queue% capacity))))
 
   (define-instance (Queue BoundedMpmcQueue)

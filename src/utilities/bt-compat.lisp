@@ -4,7 +4,7 @@
    #:coalton
    #:coalton-prelude
    )
-  (:import-from #:coalton-library/system #:LispCondition)
+  (:import-from #:coalton/exception #:LispError)
   (:local-nicknames
    )
   (:export
@@ -158,7 +158,7 @@ Returns Boolean immediately, True if `lock' was acquired, False otherwise."
     (lisp (-> Boolean) (lock)
       (bt2:acquire-lock lock :wait nil)))
 
-  (declare release (Lock -> (Result LispCondition Lock)))
+  (declare release (Lock -> (Result LispError Lock)))
   (define (release lock)
     "Release `lock'. It is an error to call this unless
 the lock has previously been acquired (and not released) by the same
@@ -166,7 +166,7 @@ thread. If other threads are waiting for the lock, the
 `acquire-lock' call in one of them will now be able to continue.
 
 Returns the lock."
-    (lisp (-> Result LispCondition Lock) (lock)
+    (lisp (-> Result LispError Lock) (lock)
       (cl:handler-case (Ok (bt2:release-lock lock))
         (cl:error (c) (Err c)))))
 
@@ -174,7 +174,7 @@ Returns the lock."
   (define (with-lock-held lock thunk)
     (acquire lock)
     (let ((result (thunk)))
-      (release lock)
+      (let _ = (release lock))
       result)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -299,28 +299,28 @@ that there is threading to be done, instead of assuming that it can go ahead."
     (lisp (-> List LispThread) ()
       (bt2:all-threads)))
 
-  (declare join-thread (Thread :a -> (Result LispCondition :a)))
+  (declare join-thread (Thread :a -> (Result LispError :a)))
   (define (join-thread thread)
     "Wait until `thread' terminates, or if it has already terminated, return immediately."
-    (lisp (-> Result LispCondition :a) (thread)
+    (lisp (-> Result LispError :a) (thread)
       (cl:handler-case (Ok (bt2:join-thread thread))
         (cl:error (c) (Err c)))))
 
-  (declare interrupt ((Into :a LispThread) => :a * (Void -> Unit) -> (Result LispCondition :a)))
+  (declare interrupt ((Into :a LispThread) => :a * (Void -> Unit) -> (Result LispError :a)))
   (define (interrupt thread thunk)
     "Interrupt thread and call `thunk' within its dynamic context,
 then continue with the interrupted path of execution."
-    (lisp (-> Result LispCondition :a) (thread thunk)
+    (lisp (-> Result LispError :a) (thread thunk)
       (cl:handler-case
           (Ok (bt2:interrupt-thread
                thread
                (cl:lambda () (call-coalton-function thunk))))
         (cl:error (c) (Err c)))))
 
-  (declare destroy ((Into :a LispThread) => :a -> (Result LispCondition :a)))
+  (declare destroy ((Into :a LispThread) => :a -> (Result LispError :a)))
   (define (destroy thread)
     "Terminates the thread `thread'."
-    (lisp (-> Result LispCondition :a) (thread)
+    (lisp (-> Result LispError :a) (thread)
       (cl:handler-case (Ok (bt2:destroy-thread thread))
         (cl:error (c) (Err c)))))
 

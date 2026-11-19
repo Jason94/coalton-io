@@ -1,5 +1,6 @@
 (cl:in-package :cl-user)
 (defpackage :io/io-impl/simple-io
+  (:shadowing-import-from #:io/classes/exceptions #:handle)
   (:use
    #:coalton
    #:coalton-prelude
@@ -226,10 +227,10 @@ all threads will be stopped by the main thread when `run-io!` completes."
          (run-io-unhandled! (fa->io-b a))))))
 
   (inline)
-  (declare raise-io ((RuntimeRepr :e) (Signalable :e) => :e -> IO :a))
+  (declare raise-io (Exception :e => :e -> IO :a))
   (define (raise-io e)
     (IO% (fn () (throw (HandledError (to-dynamic e)
-                                     (fn () (error e)))))))
+                                     (fn () (throw e)))))))
 
   (inline)
   (declare raise-dynamic-io (Dynamic -> IO :a))
@@ -238,7 +239,7 @@ all threads will be stopped by the main thread when `run-io!` completes."
                                      (fn () (throw-dynamic dyn)))))))
 
   (inline)
-  (declare raise-io_ ((RuntimeRepr :e) (Signalable :e) => :e -> IO Unit))
+  (declare raise-io_ (Exception :e => :e -> IO Unit))
   (define raise-io_ raise-io)
 
   (inline)
@@ -321,6 +322,10 @@ all threads will be stopped by the main thread when `run-io!` completes."
     (define handle handle-io)
     (define handle-all handle-all-io)
     (define try-dynamic try-dynamic-io))
+
+  (define-instance (LiftIo IO IO)
+    (inline)
+    (define lift-io id))
 
   (define-instance (BaseIo IO)
     (inline)
