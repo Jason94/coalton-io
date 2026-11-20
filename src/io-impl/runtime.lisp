@@ -19,6 +19,7 @@
 
   (define-instance (Runtime IoRuntime IoThread)
     (inline)
+    (abi :lisp)
     (define (current-thread! _)
       (current-thread!%))
     (inline)

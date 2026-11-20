@@ -49,7 +49,11 @@
 
 (defmacro implement-mutable-var (monad)
   `(define-instance (MutableVar ,monad)
+     (inline)
      (define new-var new-var%)
+     (inline)
      (define read read%)
+     (inline)
      (define write write%)
+     (inline)
      (define modify modify%)))
