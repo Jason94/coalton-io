@@ -3,7 +3,7 @@
 (declaim (optimize (speed 3) (safety 0) (debug 0)))
 
 (defparameter *sample-count* 30)
-(defparameter *workload* 576000)
+(defparameter *workload* 57600)
 
 (declaim (type fixnum *sample-count* *workload*))
 
