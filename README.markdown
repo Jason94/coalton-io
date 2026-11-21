@@ -114,6 +114,7 @@ _coalton-io_ provides the following features in these packages:
 * `io/mut`        - Use unsynchronized (non-thread safe) mutable variables in pure code
 * `io/unique`     - Generate guaranteed unique values (thread safe)
 * `io/thread`     - Fork new threads which run their own `IO` operations
+* `io/delay`      - Run a computation in a separate thread
 * `io/network` - Connect sockets and send data over TCP/IP
 * `io/conc/future`- Futures that run an `IO` computation in another thread and return the value to the calling thread
 * `io/conc/atomic`- Atomic mutable variables for sharing state across threads

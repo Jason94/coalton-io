@@ -16,6 +16,8 @@
    #:SynchronousThreadException/JoinedFailedThread
    #:TimeoutException
    #:SynchronousThreadException/TimeoutException
+   #:UnexpectedStop
+   #:SynchronousThreadException/UnexpectedStop
 
    #:UnmaskFinallyMode
    #:Stopped
@@ -24,6 +26,8 @@
    ;; Library Private
    #:dynamic-is-threading-exception?
    #:is-threading-exception
+
+   #:is-unexpected-stop-exc?
    ))
 (in-package :io/threads-exceptions)
 
@@ -62,9 +66,17 @@ IoError containing a ThreadingException."
     "Exceptions that a thread raises whenever it encounters a threading
 related problem. Unlike ThreadingException, these are actual exceptions."
     (JoinedFailedThread Dynamic)
-    (TimeoutException String))
+    (TimeoutException String)
+    UnexpectedStop)
 
-    (derive Eq)
+  (inline)
+  (declare is-unexpected-stop-exc? (Dynamic -> Boolean))
+  (define (is-unexpected-stop-exc? dyn)
+    (let (Dynamic% val _) = dyn)
+    (lisp (-> Boolean) (val)
+      (cl:typep val 'SynchronousThreadException/UnexpectedStop)))
+
+  (derive Eq)
   (repr :enum)
   (define-type UnmaskFinallyMode
     "When a thread unmasks and calls a cleanup operation, the

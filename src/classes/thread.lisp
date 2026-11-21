@@ -92,6 +92,7 @@
    #:prxs-same-runtime
    #:concurrent-value-prx
    #:value-concurrent-prx
+   #:parse-fork-keywords%
    )
   (:local-nicknames
    (:bt #:io/utilities/bt-compat)

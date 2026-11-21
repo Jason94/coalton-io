@@ -23,6 +23,7 @@
                                  'io/term
                                  'io/random
                                  'io/thread
+                                 'io/delay
                                  'io/file
                                  'io/unique
                                  'io/network

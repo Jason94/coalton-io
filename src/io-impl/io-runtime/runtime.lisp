@@ -357,14 +357,14 @@ was stopping/stopped and the child should not start."
     (let _ = (bt:release (.child-lk thread)))
     (values))
 
-  (declare handle-thread-err-result!% (ForkStrategy IoThread * Dynamic -> Result Dynamic Unit))
+  (declare handle-thread-err-result!% (ForkStrategy IoThread * Dynamic -> Result Dynamic :a))
   (define (handle-thread-err-result!% strategy e)
     (if (can-cast-to? e (the (Proxy ThreadingException) Proxy))
-        (Ok Unit)
+        (Err (to-dynamic UnexpectedStop))
         (match (.unhandled strategy)
           ((LogAndSwallow)
            (if (dynamic-is-threading-exception? e)
-               (Ok Unit)
+               (Err (to-dynamic UnexpectedStop))
                (progn
                  (lisp (-> :a) (e)
                    (cl:format cl:*error-output*
@@ -376,7 +376,7 @@ was stopping/stopped and the child should not start."
           ((ThrowException)
            (throw-dynamic e)))))
 
-  (declare thread-runner!% (ForkStrategy IoThread * IoThread * (Void -> Result Dynamic :a) -> Result Dynamic Unit))
+  (declare thread-runner!% (ForkStrategy IoThread * IoThread * (Void -> Result Dynamic :a) -> Result Dynamic :a))
   (define (thread-runner!% strategy thread-container thunk)
     ;; CONCURRENT:
     ;; - Once the catch machinery is set up, unmask from the initial mask. Prevents
@@ -402,8 +402,8 @@ was stopping/stopped and the child should not start."
           (stop-and-join-children!% thread-container)
           (unmask-current-thread!%)
           (match (c:read res)
-            ((Ok _)
-             (Ok Unit))
+            ((Ok val)
+             (Ok val))
             ((Err e)
              (handle-thread-err-result!% strategy e))))
       ((InterruptCurrentThread msg)
@@ -454,7 +454,7 @@ was stopping/stopped and the child should not start."
                          (cl:let ((*current-thread* thread-container)
                                   (*global-thread* global-thread))
                            (call-coalton-function thread-runner!% strategy thread-container thunk))))
-                   (Ok Unit)))))
+                   (Err (to-dynamic UnexpectedStop))))))
     (c:write! (.handle thread-container) (Some native-thread))
     (when (not child-should-run?)
       (c:write! (.status thread-container) ThreadStopped))
@@ -477,7 +477,11 @@ was stopping/stopped and the child should not start."
       ((Ok _)
        (Ok Unit))
       ((Err dyn)
-       (if (dynamic-is-threading-exception? dyn)
+       ;; TODO: It probably shouldn't store both of these, just one type. The threading exception
+       ;; is the message exception type, not a real exception. UnexpectedStop should probably be
+       ;; the only exception here.
+       (if (or (dynamic-is-threading-exception? dyn)
+               (is-unexpected-stop-exc? dyn))
            (Ok Unit)
            (Err dyn)))))
 
