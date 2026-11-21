@@ -77,7 +77,8 @@
         (bt2:thread-name (bt2:current-thread))))
     (bt:acquire write-term-lock%)
     (trace (build-str (force-string msg) " <" thread-name ">"))
-    (bt:release write-term-lock%))
+    (let _ = (bt:release write-term-lock%))
+    (values))
 
   (declare atomic-fetch-or (bt:AtomicInteger * Word -> Word))
   (define (atomic-fetch-or at-int mask)
@@ -280,8 +281,8 @@ Concurrent:
     (when should-interrupt
       (c:write! (.status thd) ThreadStopping))
     (atomic-remove-pending-kill (.flags thd))
-    (bt:release (.child-lk thd))
-    (bt:release (.stop-lk thd))
+    (let _ = (bt:release (.child-lk thd)))
+    (let _ = (bt:release (.stop-lk thd)))
     (unmask-current-thread!%)
     (when should-interrupt
       (let native-thread? = (c:read (.handle thd)))
@@ -340,7 +341,7 @@ was stopping/stopped and the child should not start."
     (let should-run? = (== (c:read (.status parent)) ThreadRunning))
     (when should-run?
       (c:push! (.children parent) child))
-    (bt:release (.child-lk parent))
+    (let _ = (bt:release (.child-lk parent)))
     (unmask-current-thread!%)
     should-run?)
 
@@ -351,9 +352,9 @@ was stopping/stopped and the child should not start."
     (foreach (child (c:read (.children thread)))
       (stop!% child))
     (foreach (child (c:read (.children thread)))
-      (join!% child))
+      (let _ = (join!% child)))
     (c:write! (.status thread) ThreadStopped)
-    (bt:release (.child-lk thread))
+    (let _ = (bt:release (.child-lk thread)))
     (values))
 
   (declare handle-thread-err-result!% (ForkStrategy IoThread * Dynamic -> Result Dynamic Unit))
@@ -474,11 +475,11 @@ was stopping/stopped and the child should not start."
         (bt2:join-thread native-thread)))
     (match join-result
       ((Ok _)
-       join-result)
+       (Ok Unit))
       ((Err dyn)
        (if (dynamic-is-threading-exception? dyn)
            (Ok Unit)
-           join-result))))
+           (Err dyn)))))
 
   (inline)
   (declare sleep!% (UFix -> Void))
@@ -647,7 +648,7 @@ just be limited to implementing only solutions #2 or #3.
   (inline)
   (declare unmask-current-thread-finally-inner!% ((UnmaskFinallyMode -> Void) -> Void))
   (define (unmask-current-thread-finally-inner!% finally-thunk)
-    (unmask-finally!% (current-thread!%) finally-thunk))
+    (unmask-finally!% (current-thread!%) (fn (mode) (finally-thunk mode) Unit)))
 
   (inline)
   (declare unmask-current-thread-finally!% ((UnmaskFinallyMode -> Void) -> Void))
@@ -746,7 +747,7 @@ just be limited to implementing only solutions #2 or #3.
           ;; If another thread beat us to parking, re-attempt if SHOULD-PARK?
           (if (>= fired-gen new-gen)
               (progn
-                (bt:release (.park-lock thread))
+                (let _ = (bt:release (.park-lock thread)))
                 (when (should-park?)
                   (park-current-thread-if-masked!% rt-prx with-gen should-park? :timeout timeout)))
               ;; If another thread did not beat us to parking, wait on the CV
@@ -760,7 +761,7 @@ just be limited to implementing only solutions #2 or #3.
                 ;; If we've been woken up, unmask, release, and return
                 (if (>= (bt:read (.fired-gen thread)) new-gen)
                     (progn
-                      (bt:release (.park-lock thread))
+                      (let _ = (bt:release (.park-lock thread)))
                       (values))
                     ;; Otherwise, re-loop
                     (wait-loop)))))
@@ -768,7 +769,7 @@ just be limited to implementing only solutions #2 or #3.
           ;; Expire the checked-out generation. This CAS is safe because, if
           ;; fired-gen was updated, then new-gen is already expired.
           (bt:cas! (.fired-gen thread) fired-gen new-gen)
-          (bt:release (.park-lock thread))
+          (let _ = (bt:release (.park-lock thread)))
           (values))))
 
   (declare park-current-thread-if!% (Runtime :rt IoThread
@@ -800,11 +801,11 @@ Concurrent:
           (if (> gen (Generation (bt:read (.fired-gen thread))))
               (progn
                 (atomic-set-generation%! gen (.fired-gen thread))
-                (bt:release (.park-lock thread))
+                (let _ = (bt:release (.park-lock thread)))
                 (bt:notify (.park-cv thread))
                 True)
               (progn
-                (bt:release (.park-lock thread))
+                (let _ = (bt:release (.park-lock thread)))
                 False)))
         False))
 
@@ -825,12 +826,12 @@ Concurrent:
           (if (> gen (Generation (bt:read (.fired-gen thread))))
               (progn
                 (atomic-set-generation%! gen (.fired-gen thread))
-                (bt:release (.park-lock thread))
+                (let _ = (bt:release (.park-lock thread)))
                 (bt:notify (.park-cv thread))
                 (unmask-current-thread!%)
                 True)
               (progn
-                (bt:release (.park-lock thread))
+                (let _ = (bt:release (.park-lock thread)))
                 (unmask-current-thread!%)
                 False)))
         False))

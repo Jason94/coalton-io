@@ -73,10 +73,10 @@
            -> :m (Result file:FileError (file:FileStream :a))))
     (close
      "Closes a FileStream."
-     ((file:FileStream :a) -> :m (Result file:FileError :b)))
+     ((file:FileStream :a) -> :m (Result file:FileError Unit)))
     (abort
      "Closes a FileStream and aborts all operations.."
-     ((file:FileStream :a) -> :m (Result file:FileError :b)))
+     ((file:FileStream :a) -> :m (Result file:FileError Unit)))
 
     (create-temp-directory
      (:m (Result file:FileError file:Pathname)))
@@ -94,7 +94,7 @@
      (Into :p file:Pathname => :p -> :m (Result file:FileError Unit)))
     (remove-directory
      "Deletes an empty directory."
-     (Into :p file:Pathname => :p -> :m (Result file:FileError :p)))
+     (Into :p file:Pathname => :p -> :m (Result file:FileError Unit)))
     (remove-directory-recursive
      "Deletes a target directory recursively. Equivalent to `rm -r`. Errors if the path is not a directory."
      (Into :p file:Pathname => :p -> :m (Result file:FileError Unit)))

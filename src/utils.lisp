@@ -25,6 +25,7 @@
    #:force-string
    #:compose2
    #:bit-odd?
+   #:InvalidArgument
    #:Anything
    #:to-anything
    #:from-anything
@@ -270,10 +271,14 @@ Coalton exceptions via `define-exception`."
     Proxy)
 
   (inline)
-  (declare bit-odd? (b:Bits :a => :a -> Boolean))
+  (declare bit-odd? ((b:Bits :a) (Num :a) => :a -> Boolean))
   (define (bit-odd? x)
     "Efficiently determine if x is odd."
     (/= (b:and x 1) 0))
+
+  (define-exception InvalidArgument
+    "Raised when an operation is given an invalid argument."
+    (InvalidArgument String))
 
   (define-exception MockException
     MockException)

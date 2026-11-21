@@ -4,7 +4,7 @@
    #:coalton
    #:coalton-prelude
    )
-  (:import-from #:coalton-library/system #:LispCondition)
+  (:import-from #:coalton/exception #:LispError)
   (:local-nicknames
    )
   (:export
@@ -139,18 +139,21 @@ Returns True if the replacement was successful, otherwise False."
   (define-type Lock
     "Wrapper for a native non-recursive lock.")
 
+  (inline)
   (declare new-lk (Void -> Lock))
   (define (new-lk)
     "Creates a non-recursive lock."
     (lisp (-> Lock) ()
       (bt2:make-lock)))
 
+  (inline)
   (declare acquire (Lock -> Boolean))
   (define (acquire lock)
     "Acquire `lock' for the calling thread."
     (lisp (-> Boolean) (lock)
       (bt2:acquire-lock lock)))
 
+  (inline)
   (declare acquire-no-wait (Lock -> Boolean))
   (define (acquire-no-wait lock)
     "Acquire `lock' for the calling thread.
@@ -158,7 +161,8 @@ Returns Boolean immediately, True if `lock' was acquired, False otherwise."
     (lisp (-> Boolean) (lock)
       (bt2:acquire-lock lock :wait nil)))
 
-  (declare release (Lock -> (Result LispCondition Lock)))
+  (inline)
+  (declare release (Lock -> (Result LispError Lock)))
   (define (release lock)
     "Release `lock'. It is an error to call this unless
 the lock has previously been acquired (and not released) by the same
@@ -166,15 +170,16 @@ thread. If other threads are waiting for the lock, the
 `acquire-lock' call in one of them will now be able to continue.
 
 Returns the lock."
-    (lisp (-> Result LispCondition Lock) (lock)
+    (lisp (-> Result LispError Lock) (lock)
       (cl:handler-case (Ok (bt2:release-lock lock))
         (cl:error (c) (Err c)))))
 
+  (inline)
   (declare with-lock-held (Lock * (Void -> :a) -> :a))
   (define (with-lock-held lock thunk)
     (acquire lock)
     (let ((result (thunk)))
-      (release lock)
+      (let _ = (release lock))
       result)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -186,12 +191,14 @@ Returns the lock."
   (define-type Semaphore
     "Wrapper for a native semaphore.")
 
+  (inline)
   (declare new-sm (Void -> Semaphore))
   (define (new-sm)
     "Creates a semaphore with initial count 0."
     (lisp (-> Semaphore) ()
       (bt2:make-semaphore)))
 
+  (inline)
   (declare signal (Semaphore * UFix -> Unit))
   (define (signal sem count)
     "Increment `sem' by `count'.
@@ -200,6 +207,7 @@ If there are threads awaiting this semaphore, then `count' of them are woken up.
       (bt2:signal-semaphore sem :count count)
       Unit))
 
+  (inline)
   (declare await-sm (Semaphore &key (:timeout (Optional F32)) -> Boolean))
   (define (await-sm sem &key (timeout None))
     "Decrement the count of `sem' by 1 if the count is larger than zero.
@@ -221,12 +229,14 @@ If the count is zero, blocks until `sem' can be decremented."
   (define-type ConditionVariable
     "Wrapper for a native condition variable.")
 
+  (inline)
   (declare new-cv (Void -> ConditionVariable))
   (define (new-cv)
     "Creates a condition variable."
     (lisp (-> ConditionVariable) ()
       (bt2:make-condition-variable)))
 
+  (inline)
   (declare await (ConditionVariable * Lock -> Unit))
   (define (await cv lock)
     "Atomically release `lock' and enqueue the calling thread waiting for `cv'.
@@ -238,6 +248,7 @@ that there is threading to be done, instead of assuming that it can go ahead."
       (bt2:condition-wait cv lock)
       Unit))
 
+  (inline)
   (declare notify (ConditionVariable -> Unit))
   (define (notify cv)
     "Notify one of the threads waiting for `cv'."
@@ -245,6 +256,7 @@ that there is threading to be done, instead of assuming that it can go ahead."
       (bt2:condition-notify cv)
       Unit))
 
+  (inline)
   (declare broadcast (ConditionVariable -> Unit))
   (define (broadcast cv)
     "Notify all of the threads waiting for `cv'."
@@ -267,18 +279,22 @@ that there is threading to be done, instead of assuming that it can go ahead."
     "A plain lisp thread.")
 
   (define-instance (Eq LispThread)
+    (inline)
     (define (== a b)
       (lisp (-> Boolean) (a b) (to-boolean (cl:eq a b)))))
 
   (define-instance (Eq (Thread :a))
+    (inline)
     (define (== a b)
       (lisp (-> Boolean) (a b) (to-boolean (cl:eq a b)))))
 
   (define-instance (Into (Thread :a) LispThread)
+    (inline)
     (define (into thread)
       (lisp (-> LispThread) (thread)
         thread)))
 
+  (inline)
   (declare spawn ((Void -> :a) -> Thread :a))
   (define (spawn thunk)
     "Creates and returns a thread, which will call the function
@@ -287,43 +303,48 @@ that there is threading to be done, instead of assuming that it can go ahead."
       (bt2:make-thread
        (cl:lambda () (call-coalton-function thunk)))))
 
+  (inline)
   (declare current-thread (Void -> LispThread))
   (define (current-thread)
     "Returns the thread object representing the calling thread."
     (lisp (-> LispThread) ()
       (bt2:current-thread)))
 
+  (inline)
   (declare all-threads (Void -> (List LispThread)))
   (define (all-threads)
     "Returns a fresh list of all running threads."
     (lisp (-> List LispThread) ()
       (bt2:all-threads)))
 
-  (declare join-thread (Thread :a -> (Result LispCondition :a)))
+  (inline)
+  (declare join-thread (Thread :a -> (Result LispError :a)))
   (define (join-thread thread)
     "Wait until `thread' terminates, or if it has already terminated, return immediately."
-    (lisp (-> Result LispCondition :a) (thread)
+    (lisp (-> Result LispError :a) (thread)
       (cl:handler-case (Ok (bt2:join-thread thread))
         (cl:error (c) (Err c)))))
 
-  (declare interrupt ((Into :a LispThread) => :a * (Void -> Unit) -> (Result LispCondition :a)))
+  (declare interrupt ((Into :a LispThread) => :a * (Void -> Unit) -> (Result LispError :a)))
   (define (interrupt thread thunk)
     "Interrupt thread and call `thunk' within its dynamic context,
 then continue with the interrupted path of execution."
-    (lisp (-> Result LispCondition :a) (thread thunk)
+    (lisp (-> Result LispError :a) (thread thunk)
       (cl:handler-case
           (Ok (bt2:interrupt-thread
                thread
                (cl:lambda () (call-coalton-function thunk))))
         (cl:error (c) (Err c)))))
 
-  (declare destroy ((Into :a LispThread) => :a -> (Result LispCondition :a)))
+  (inline)
+  (declare destroy ((Into :a LispThread) => :a -> (Result LispError :a)))
   (define (destroy thread)
     "Terminates the thread `thread'."
-    (lisp (-> Result LispCondition :a) (thread)
+    (lisp (-> Result LispError :a) (thread)
       (cl:handler-case (Ok (bt2:destroy-thread thread))
         (cl:error (c) (Err c)))))
 
+  (inline)
   (declare alive? ((Into :a LispThread) => :a -> Boolean))
   (define (alive? thread)
     "Returns True if `thread' has not finished or `destroy' has not been called on it."

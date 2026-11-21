@@ -39,7 +39,7 @@ for debugging."
          (bt2:thread-name (bt2:current-thread))))
      (bt:acquire write-term-lock%)
      (trace (build-str (force-string msg) " <" thread-name ">"))
-     (bt:release write-term-lock%)
+     (let _ = (bt:release write-term-lock%))
      Unit))
 
   (inline)

@@ -83,6 +83,9 @@
 
 (coalton-toplevel
 
+  (define-exception HangmanException
+    (Exc String))
+
   (declare first-char (String -> Optional Char))
   (define (first-char str)
     (itr:next! (s:chars str)))
@@ -254,8 +257,13 @@
      (f:do-with-open-file_ (fname fs)
        (do-loop-times (_ n-word)
          (f:read-line fs))
+       ;; TODO: Restore when fixed upstream
+       ;; https://github.com/coalton-lang/coalton/issues/2120
+       ;; (raise-result
+       ;;  (f:read-line fs))))))
        (raise-result
-        (f:read-line fs))))))
+        (map ƒx.(r:map-err ƒ_.(Exc "File error occurred") x)
+             (f:read-line fs)))))))
 
 (cl:defun run-example ()
   (coalton (run-hangman

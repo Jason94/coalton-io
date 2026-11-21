@@ -79,7 +79,7 @@
     ;;   structured concurrency keeps the forked threads from being orphaned.
     (do
      (do-when (zero? n-threads)
-       (raise "Worker pool must be initialized with non-zero threads."))
+       (raise (InvalidArgument "Worker pool must be initialized with non-zero threads.")))
      (threads <- (lift-io (fork-group
                            (map (fn (i) (fork-worker-op i scheduler))
                                 (l:range 0 (1- n-threads))))))
@@ -192,9 +192,9 @@ Concurrent:
     while the scheduler is full."
     (cond
       ((> start end)
-       (raise "Error: `start` must come before `end`"))
+       (raise (InvalidArgument "Error: `start` must come before `end`")))
       ((zero? chunk-size)
-       (raise "Error: `chunk-size` cannot be 0"))
+       (raise (InvalidArgument "Error: `chunk-size` cannot be 0")))
       ((== start end)
        (pure Unit))
       (True

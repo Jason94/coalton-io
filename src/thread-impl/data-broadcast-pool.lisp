@@ -120,8 +120,8 @@ THE THREAD IS MASKED."
         ;; Fourth, notify subscribers.
         (bt:broadcast (.notify-cv pool))
         )
-      (bt:release (.notify-lock pool))
-      (bt:release (.publish-lock pool))
+      (let _ = (bt:release (.notify-lock pool)))
+      (let _ = (bt:release (.publish-lock pool)))
       (unmask-current! rt-prx)
       ))
 
@@ -148,14 +148,14 @@ THE THREAD IS MASKED."
                Unit))
            :release-on-timeout True)
        ((TimeoutException msg)
-        (bt:release (.notify-lock pool))
+        (let _ = (bt:release (.notify-lock pool)))
         (at:atomic-dec1 (.n-subscribers pool))
         (unmask-current! rt-prx)
         (throw (TimeoutException msg))))
       ;; Protect against spurious wake-ups
       (when (== version (at:read-at-int (.version pool)))
         (%)))
-    (bt:release (.notify-lock pool))
+    (let _ = (bt:release (.notify-lock pool)))
     (let result = (checkout!% version (.version-entries pool)))
     (unmask-current! rt-prx)
     result)

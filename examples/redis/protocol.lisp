@@ -18,6 +18,7 @@
    (:s #:coalton-library/string)
    (:hm #:coalton-library/hashmap)
    (:f #:coalton-library/file)
+   (:r #:coalton-library/result)
    (:tm #:io/term)
    (:io-f #:io/file)
    (:mt #:io/mut)
@@ -87,14 +88,23 @@
     (define read-exactly nt:read-exactly)
     (define write-bytes nt:write-bytes))
 
+  (define-exception ProtocolException
+    (Exc String))
+
+  ;; TODO: Restore when fixed upstream
+  ;; https://github.com/coalton-lang/coalton/issues/2120
   (define-instance (ByteStream (f:FileStream U8))
     ;; File operations return types as (Result FileError :a). Raise any error results.
     (define (read-exactly n-bytes fstream)
+      ;; (raise-result
+      ;;  (io-f:read-vector fstream n-bytes)))
       (raise-result
-       (io-f:read-vector fstream n-bytes)))
+       (map ƒx.(r:map-err ƒ_.(Exc "Error occurred") x)
+            (io-f:read-vector fstream n-bytes))))
     (define (write-bytes data fstream)
       (raise-result
-       (io-f:write-vector fstream data))))
+       (map ƒx.(r:map-err ƒ_.(Exc "Error occurred") x)
+            (io-f:write-vector fstream data)))))
   )
 
 ;;;

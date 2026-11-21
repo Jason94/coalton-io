@@ -23,6 +23,8 @@
 (cl:declaim (cl:optimize (cl:speed 3) (cl:safety 0)))
 
 (coalton-toplevel
+  (define-exception BenchmarkError
+    (BE String))
 
   (declare benchmark-blocking-transfer (UFix * UFix * UFix -> Unit))
   (define (benchmark-blocking-transfer n-tasks n-put-threads n-take-threads)
@@ -53,7 +55,7 @@
        Unit)
       (empty? <- (is-empty-mvar mvar))
       (do-when (not empty?)
-        (raise "blocking transfer left the MVar full")))))
+        (raise (BE "blocking transfer left the MVar full"))))))
 
   (declare benchmark-nonblocking-transfer (UFix * UFix * UFix -> Unit))
   (define (benchmark-nonblocking-transfer n-tasks n-put-threads n-take-threads)
@@ -88,7 +90,7 @@
        Unit)
       (empty? <- (is-empty-mvar mvar))
       (do-when (not empty?)
-        (raise "nonblocking transfer left the MVar full")))))
+        (raise (BE "nonblocking transfer left the MVar full"))))))
 
   (declare benchmark-blocking-fill-drain (UFix * UFix -> Unit))
   (define (benchmark-blocking-fill-drain n-tasks n-threads)
@@ -113,7 +115,7 @@
        Unit)
       (empty? <- (is-empty-mvar mvar))
       (do-when (not empty?)
-        (raise "blocking fill/drain left the MVar full")))))
+        (raise (BE "blocking fill/drain left the MVar full"))))))
 
   (declare benchmark-nonblocking-fill-drain (UFix * UFix -> Unit))
   (define (benchmark-nonblocking-fill-drain n-tasks n-threads)
@@ -142,7 +144,7 @@
        Unit)
       (empty? <- (is-empty-mvar mvar))
       (do-when (not empty?)
-        (raise "nonblocking fill/drain left the MVar full")))))
+        (raise (BE "nonblocking fill/drain left the MVar full"))))))
 
   (declare benchmark-read-mvar-full (UFix * UFix -> Unit))
   (define (benchmark-read-mvar-full n-tasks n-threads)
@@ -166,7 +168,7 @@
        Unit)
       (empty? <- (is-empty-mvar mvar))
       (do-when empty?
-        (raise "read-mvar emptied the MVar")))))
+        (raise (BE "read-mvar emptied the MVar"))))))
 
   (declare benchmark-try-read-mvar-full (UFix * UFix -> Unit))
   (define (benchmark-try-read-mvar-full n-tasks n-threads)
@@ -182,7 +184,7 @@
             (result <- (try-read-mvar mvar))
             (match result
               ((Some _) (pure Unit))
-              ((None) (raise "try-read-mvar returned None for a full MVar"))))))
+              ((None) (raise (BE "try-read-mvar returned None for a full MVar")))))))
       (sleep 2)
       (wrap-io (b:start (b:current-timer)))
       (put-mvar start-gate Unit)
@@ -193,7 +195,7 @@
        Unit)
       (empty? <- (is-empty-mvar mvar))
       (do-when empty?
-        (raise "successful try-read-mvar emptied the MVar")))))
+        (raise (BE "successful try-read-mvar emptied the MVar"))))))
 
   (declare benchmark-try-read-mvar-empty (UFix * UFix -> Unit))
   (define (benchmark-try-read-mvar-empty n-tasks n-threads)
@@ -209,7 +211,7 @@
             (result <- (try-read-mvar mvar))
             (match result
               ((None) (pure Unit))
-              ((Some _) (raise "try-read-mvar returned Some for an empty MVar"))))))
+              ((Some _) (raise (BE "try-read-mvar returned Some for an empty MVar")))))))
       (sleep 2)
       (wrap-io (b:start (b:current-timer)))
       (put-mvar start-gate Unit)
@@ -220,7 +222,7 @@
        Unit)
       (empty? <- (is-empty-mvar mvar))
       (do-when (not empty?)
-        (raise "unsuccessful try-read-mvar filled the MVar")))))
+        (raise (BE "unsuccessful try-read-mvar filled the MVar"))))))
 
   (declare benchmark-swap-mvar-full (UFix * UFix -> Unit))
   (define (benchmark-swap-mvar-full n-tasks n-threads)
@@ -244,7 +246,7 @@
        Unit)
       (empty? <- (is-empty-mvar mvar))
       (do-when empty?
-        (raise "swap-mvar left the MVar empty")))))
+        (raise (BE "swap-mvar left the MVar empty"))))))
 
   (declare benchmark-with-mvar (UFix * UFix -> Unit))
   (define (benchmark-with-mvar n-tasks n-threads)
@@ -268,7 +270,7 @@
        Unit)
       (empty? <- (is-empty-mvar mvar))
       (do-when empty?
-        (raise "with-mvar_ left the MVar empty")))))
+        (raise (BE "with-mvar_ left the MVar empty"))))))
   )
 
 (in-package #:benchmark-mvars)

@@ -17,7 +17,7 @@
    #:raise
    #:raise-dynamic
    #:reraise
-   #:handle
+   #:handle-exc
    #:handle-all
    #:try-dynamic
 
@@ -33,7 +33,7 @@
    #:wrap-error
 
    #:do-reraise
-   #:do-handle
+   #:do-handle-exc
    #:do-handle-all
    ))
 (in-package :io/classes/exceptions)
@@ -61,7 +61,7 @@
 ;; NOTE: Unlike most IO classes, this one can't be implemented on top of
 ;; standard MonadIo functionality. As such, it has no implement macro.
 ;;
-;; Also, `handle` can't be simply lifted with `lift`, so there's no
+;; Also, `handle-exc` can't be simply lifted with `lift`, so there's no
 ;; derive monad either. See the implementations for the Std. Library
 ;; transformers below for examples.
 
@@ -76,7 +76,7 @@
 must catch and wrap all unhandled errors inside a wrap-io call."
     (raise
      "Raise an exception."
-     ((RuntimeRepr :e) (Signalable :e) => :e -> :m :a))
+     ((RuntimeRepr :e) (Exception :e) => :e -> :m :a))
     (raise-dynamic
      "Raise an exception wrapped in a Dynamic. Mainly useful to hand-off eexceptions
 between IO instances."
@@ -86,7 +86,7 @@ between IO instances."
 the exception. If `on-exception` raises, that exception will be emitted instead of the
 original exception."
      (:m :a * (Void -> :m :b) -> :m :a))
-    (handle
+    (handle-exc
      "Run an operation, immediately handling if it raised an exception that matches :e."
      (RuntimeRepr :e => :m :a * (:e -> :m :a) -> :m :a))
     (handle-all
@@ -94,14 +94,15 @@ original exception."
      (:m :a * (Void -> :m :a) -> :m :a))
     (try-dynamic
      "Bring any unhandled exceptions into a Result wrapped in Dynamic."
-     (:m :a -> :m (Result Dynamic :a))))
+     (:m :a -> :m (Result Dynamic :a)))))
 
+(coalton-toplevel
   (inline)
   (declare try ((Exceptions :m) (RuntimeRepr :e) => :m :a -> :m (Result :e :a)))
   (define (try op)
      "Bring any unhandled exceptions of type :e up into a Result.
 Continues to carry any unhandeld exceptions not of type :e."
-    (handle
+    (handle-exc
      (map Ok op)
      (compose pure Err)))
 
@@ -115,8 +116,7 @@ raised any exceptions."
      (fn () (pure None))))
 
   (inline)
-  (declare raise-result ((Exceptions :m) (RuntimeRepr :e) (Signalable :e)
-                         => :m (Result :e :a) -> :m :a))
+  (declare raise-result ((Exceptions :m) (Exception :e) => :m (Result :e :a) -> :m :a))
   (define (raise-result io-res)
     "Raise any (Err :e) into :m. Useful if (Err :e) represents any unhandleable, fatal
 exception to the program."
@@ -208,9 +208,9 @@ exception is propogated instead of `body`'s exception.
      ,@body)
     ,finally-op))
 
-(defmacro do-handle (op (err-sym) cl:&body body)
+(defmacro do-handle-exc (op (err-sym) cl:&body body)
   "Convenience macro for handle."
-  `(handle ,op
+  `(handle-exc ,op
     (fn (,err-sym)
       (do
        ,@body))))
@@ -248,7 +248,7 @@ Example:
   (define (handle-stateT st-op st-on-exception)
     (st:StateT
      (fn (s)
-       (handle
+       (handle-exc
         (st:run-stateT st-op s)
         (fn (e)
           (st:run-stateT
@@ -301,7 +301,7 @@ Example:
     (define raise (compose lift raise))
     (define raise-dynamic (compose lift raise-dynamic))
     (define reraise reraise-stateT)
-    (define handle handle-stateT)
+    (define handle-exc handle-stateT)
     (define handle-all handle-all-stateT)
     (define try-dynamic try-dynamic-stateT))
 
@@ -312,7 +312,7 @@ Example:
   (define (handle-envT env-op env-on-exception)
     (e:EnvT
      (fn (env)
-       (handle
+       (handle-exc
         (e:run-envT env-op env)
         (fn (err)
           (e:run-envT
@@ -367,7 +367,7 @@ Example:
     (define raise (compose lift raise))
     (define raise-dynamic (compose lift raise-dynamic))
     (define reraise reraise-envT)
-    (define handle handle-envT)
+    (define handle-exc handle-envT)
     (define handle-all handle-all-envT)
     (define try-dynamic try-dynamic-envT))
 

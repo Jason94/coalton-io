@@ -53,9 +53,13 @@
 Example:
   (derive-mutable-var :m (st:StateT :s :m))"
   `(define-instance (MutableVar ,monad-param => MutableVar ,monadT-form)
+     (inline)
      (define new-var (compose lift new-var))
+     (inline)
      (define read (compose lift read))
+     (inline)
      (define write (compose2 lift write))
+     (inline)
      (define modify (compose2 lift modify))))
 
 (coalton-toplevel

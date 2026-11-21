@@ -45,6 +45,9 @@
 
 (defmacro implement-terminal (monad)
   `(define-instance (Terminal ,monad)
+     (inline)
      (define write write%)
+     (inline)
      (define write-line write-line%)
+     (inline)
      (define read-line read-line%)))

@@ -54,7 +54,10 @@
      "Wrap a (potentially) side-effectful function in the monad."
      ((Void -> :a) -> :m :a)))
 
-  (define-class (MonadIo :m => BaseIo :m)
+  (define-class (Monad :m => LiftIo :i :m)
+    (lift-io (:i :a -> :m :a)))
+
+  (define-class ((MonadIo :m) (LiftIo :m :m) => BaseIo :m)
     "A 'base' IO implementation, which can be run to execute some
 (potentially side-effectful) operation."
     (run!
@@ -66,19 +69,13 @@ exceptions."
 exceptions as an (Err e)."
      (:m :a -> Result Dynamic :a)))
 
-  (define-class ((Monad :m) (BaseIo :i) => LiftIo :i :m)
-    (lift-io (BaseIo :i => :i :a -> :m :a)))
-
-  (define-class ((MonadIo :m) (LiftIo :i :m) => UnliftIo :m :i (:m -> :i))
+  (define-class ((MonadIo :m) (LiftIo :i :m) (BaseIo :i) => UnliftIo :m :i (:m -> :i))
     (with-run-in-io (((:m :a -> :i :a) -> :i :b) -> :m :b)))
 
   ;;;
   ;;; Define Core Instances
   ;;;
 
-  (define-instance (BaseIo :i => LiftIo :i :i)
-    (inline)
-    (define lift-io id))
   )
 
 ;;;

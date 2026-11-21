@@ -14,6 +14,7 @@
   (:import-from #:coalton-library/monad/classes
    #:LiftTo #:lift-to)
   (:local-nicknames
+   (:r #:coalton-library/result)
    (:f_ #:coalton-library/file)
    )
   (:export
@@ -25,6 +26,7 @@
    #:do-with-open-file
    #:do-with-temp-file
    #:do-with-temp-directory
+   #:FileException
 
    ;; Library Private
    #:exists?%
@@ -60,6 +62,15 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
+  (define-exception FileException
+    "A `FileError` raised from an IO operation."
+    (FileException f_:FileError))
+
+  (declare raise-file-result ((Exceptions :m) => :m (Result f_:FileError :a) -> :m :a))
+  (define (raise-file-result op)
+    (raise-result (map (fn (res) (r:map-err FileException res)) op))))
+
+(coalton-toplevel
 
   (declare exists?% ((Into :a f_:Pathname) (MonadIo :m) => :a -> :m (Result f_:FileError Boolean)))
   (define (exists?% pth)
@@ -82,11 +93,11 @@
   (define (open% pth &key (direction f_:Input) (if-exists f_:EError))
     (wrap-io (f_:open pth :direction direction :if-exists if-exists)))
 
-  (declare close% (MonadIo :m => (f_:FileStream :a) -> :m (Result f_:FileError :b)))
+  (declare close% (MonadIo :m => (f_:FileStream :a) -> :m (Result f_:FileError Unit)))
   (define (close% fs)
     (wrap-io (f_:close fs)))
 
-  (declare abort% (MonadIo :m => (f_:FileStream :a) -> :m (Result f_:FileError :b)))
+  (declare abort% (MonadIo :m => (f_:FileStream :a) -> :m (Result f_:FileError Unit)))
   (define (abort% fs)
     (wrap-io (f_:abort fs)))
 
@@ -102,7 +113,7 @@
   (define (delete-file% p)
     (wrap-io (f_:delete-file! p)))
 
-  (declare remove-directory% ((Into :p f_:Pathname) (MonadIo :m) => :p -> :m (Result f_:FileError :p)))
+  (declare remove-directory% ((Into :p f_:Pathname) (MonadIo :m) => :p -> :m (Result f_:FileError Unit)))
   (define (remove-directory% p)
     (wrap-io (f_:remove-directory! p)))
 
@@ -169,38 +180,65 @@
 
 (defmacro implement-files (monad)
   `(define-instance (Files ,monad)
+     (inline)
      (define exists? exists?%)
+     (inline)
      (define file-exists? file-exists?%)
+     (inline)
      (define directory-exists? directory-exists?%)
 
+     (inline)
      (define open open%)
+     (inline)
      (define close close%)
+     (inline)
      (define abort abort%)
 
+     (inline)
      (define create-temp-directory create-temp-directory%)
+     (inline)
      (define create-temp-file create-temp-file%)
 
+     (inline)
      (define copy copy%)
+     (inline)
      (define create-directory create-directory%)
+     (inline)
      (define delete-file delete-file%)
+     (inline)
      (define remove-directory remove-directory%)
+     (inline)
      (define remove-directory-recursive remove-directory-recursive%)
+     (inline)
      (define system-relative-pathname system-relative-pathname%)
 
+     (inline)
      (define read-file-to-string read-file-to-string%)
+     (inline)
      (define read-file-lines read-file-lines%)
 
+     (inline)
      (define read-char read-char%)
+     (inline)
      (define read-line read-line%)
+     (inline)
      (define write-char write-char%)
+     (inline)
      (define write-line write-line%)
+     (inline)
      (define write-string write-string%)
 
+     (inline)
      (define read-file-to-vector read-file-to-vector%)
+     (inline)
      (define read-vector read-vector%)
+     (inline)
      (define write-vector write-vector%)
+     (inline)
      (define write-to-file write-to-file%)
+     (inline)
      (define append-to-file append-to-file%)
+     (inline)
      (define set-file-position set-file-position%)))
 
 ;;
@@ -226,9 +264,9 @@ in some cases. Try WITH-OPEN-FILE_ if you have issues."
          (fn (run)
            (lift-io
             (bracket-lifecycle-masked
-             (raise-result (open (as f_:Pathname pth) :direction direction :if-exists if-exists))
+             (raise-file-result (open (as f_:Pathname pth) :direction direction :if-exists if-exists))
              (fn (file)
-               (raise-result (close file)))
+               (raise-file-result (close file)))
              (fn (file)
                (run (op file)))))))))
 
@@ -249,9 +287,9 @@ in some cases. Try WITH-TEMP-FILE_ if you have issues."
            (lift-io
             (let ((filepath (f_::%make-temp-file-pathname extension)))
               (bracket-lifecycle-masked
-               (raise-result (open filepath :direction f_:Bidirectional :if-exists f_:Overwrite))
+               (raise-file-result (open filepath :direction f_:Bidirectional :if-exists f_:Overwrite))
                (fn (_)
-                 (raise-result (delete-file filepath)))
+                 (raise-file-result (delete-file filepath)))
                (fn (file)
                  (run (op file))))))))))
 
@@ -269,7 +307,7 @@ in some cases. Try WITH-TEMP-DIRECTORY_ if you have issues."
          (fn (run)
            (lift-io
             (bracket-lifecycle-masked
-             (raise-result create-temp-directory)
+             (raise-file-result create-temp-directory)
              (fn (pathname)
                (remove-directory-recursive pathname))
              (fn (pathname)

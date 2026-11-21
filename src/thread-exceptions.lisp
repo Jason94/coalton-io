@@ -35,11 +35,7 @@
 This type isn't really an exception, it's more of a message."
     (InterruptCurrentThread String))
 
-  (define-instance (Signalable ThreadingException)
-    (define (error x)
-      (error x)))
-
-  (declare dynamic-is-threading-exception? (Dynamic -> Boolean))
+    (declare dynamic-is-threading-exception? (Dynamic -> Boolean))
   (define (dynamic-is-threading-exception? dyn)
     "Returns true if the dynamic val is a threading exception or an
 IoError containing a ThreadingException."
@@ -68,16 +64,7 @@ related problem. Unlike ThreadingException, these are actual exceptions."
     (JoinedFailedThread Dynamic)
     (TimeoutException String))
 
-  (define-instance (Signalable SynchronousThreadException)
-    (define (error x)
-      (match x
-        ((JoinedFailedThread inner-err)
-         (error (build-str "Attempted to join a failed thread. Thread failed with error: "
-                           (force-string inner-err))))
-        ((TimeoutException msg)
-         (error msg)))))
-
-  (derive Eq)
+    (derive Eq)
   (repr :enum)
   (define-type UnmaskFinallyMode
     "When a thread unmasks and calls a cleanup operation, the

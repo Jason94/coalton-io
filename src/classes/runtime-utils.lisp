@@ -112,7 +112,7 @@ is run AFTER the lock is released, and only if the thread is stopped!!"
              (cv-await-with cv lock strategy :release-on-timeout release-on-timeout)
              (mask! rt-prx current-thread))
       ((InterruptCurrentThread msg)
-       (bt:release lock)
+       (let _ = (bt:release lock))
        (finally)
        (throw (InterruptCurrentThread msg)))))
 
@@ -142,6 +142,6 @@ or just release the LOCK. Masks after resuming post-await."
              (cv-await-with cv lock strategy :release-on-timeout release-on-timeout)
              (mask-current! rt-prx))
       ((InterruptCurrentThread msg)
-       (bt:release lock)
+       (let _ = (bt:release lock))
        (throw (InterruptCurrentThread msg)))))
   )

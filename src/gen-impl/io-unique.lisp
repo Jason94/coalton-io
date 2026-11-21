@@ -27,5 +27,6 @@
 
 (defmacro implement-unique-gen (monad)
   `(define-instance (UniqueGen ,monad)
+     (inline)
      (define new-unique new-unique%)))
 

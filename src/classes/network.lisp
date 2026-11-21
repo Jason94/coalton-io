@@ -53,13 +53,7 @@
   (define-exception NetworkException
     (EndOfFileException Unit))
 
-  (define-instance (Signalable NetworkException)
-    (define (error exc)
-      (match exc
-        ((EndOfFileException _)
-         (error "Attempted to read from closed connection socket.")))))
-
-  (repr :native usocket:stream-server-usocket)
+    (repr :native usocket:stream-server-usocket)
   (define-type ServerSocket
     "A server socket listening for new connections.")
 

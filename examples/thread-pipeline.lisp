@@ -73,6 +73,9 @@
   (define data-max (the UFix 500000000))
   (define n-workers (the UFix 4))
 
+  (define-exception ExampleException
+    (ExExc String))
+
   ;; Note: Not part of the multithreaded example. Runs on a single thread before the main
   ;; multithreaded processing kicks off.
   (declare write-data-file (IO Unit))
@@ -104,7 +107,7 @@ number of lines, where each line is a random integer between `0` and `data-max`.
   (define (parser-job sum-queue str)
     (match (s:parse-int str)
       ((None)
-       (raise (<> "Data file contained invalid string: " str)))
+       (raise (ExExc (<> "Data file contained invalid string: " str))))
       ((Some x)
        (enqueue (Some x) sum-queue))))
 
