@@ -7,9 +7,11 @@
    #:io/utils
    #:io/threads-exceptions
    #:io/classes/thread
+   #:io/classes/delay
    #:io/classes/exceptions
    #:io/classes/monad-io
    #:io/io-impl/io-runtime/runtime
+   #:io/io-impl/io-runtime/delay
    #:io/io-impl/runtime
    )
   (:import-from #:coalton-library/types
@@ -357,6 +359,7 @@ need to unlift, run, then immediately re-run a function. See, e.g., io-file:with
 
 (coalton-toplevel
   (define-instance (Threads IoRuntime IoThread IO))
+  (define-instance (Delays IoRuntime IO))
   (io/gen-impl/mut:implement-mutable-var IO)
   (io/gen-impl/file:implement-files IO)
   (io/gen-impl/random:implement-random IO)

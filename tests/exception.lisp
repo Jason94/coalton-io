@@ -25,13 +25,6 @@
 ;;;
 
 (coalton-toplevel
-  (define-exception TestException
-    (TE String))
-
-  (define-instance (Eq TestException)
-    (define (== (TE a) (TE b))
-      (== a b)))
-
   (define-exception TestExceptionTwo
     (TE2 String)))
 

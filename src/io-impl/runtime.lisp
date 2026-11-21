@@ -4,7 +4,9 @@
    #:coalton
    #:coalton-prelude
    #:io/classes/thread
+   #:io/classes/delay
    #:io/io-impl/io-runtime/runtime
+   #:io/io-impl/io-runtime/delay
    )
   (:export
    #:IoRuntime
@@ -65,6 +67,10 @@
     (inline)
     (define (unpark-thread! _ gen thread)
       (unpark-thread!% gen thread))
-    )
+    ))
 
-  )
+(coalton-toplevel
+  (define-instance (DelayRuntime IoRuntime IoDelay)
+    (inline)
+    (define (fork-delay! _ strategy thunk)
+      (IoDelay% (fork!% strategy thunk)))))

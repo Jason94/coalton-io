@@ -14,6 +14,9 @@
    #:s-signal
    #:s-await
    #:catch-timeout
+
+   #:TestException
+   #:TE
    ))
 (in-package :io/tests/utils)
 
@@ -32,7 +35,6 @@
     (wrap-io (bt:await-sm s :timeout timeout)))
   )
 
-
 (coalton-toplevel
   (declare catch-timeout (Exceptions :m => :m :a -> :m Unit))
   (define (catch-timeout op)
@@ -45,3 +47,10 @@
         (raise e))
        ((Ok _)
         (pure Unit))))))
+
+(coalton-toplevel
+  (define-exception TestException
+    (TE String))
+  (define-instance (Eq TestException)
+    (define (== (TE a) (TE b))
+      (== a b))))

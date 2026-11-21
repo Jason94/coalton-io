@@ -28,6 +28,7 @@
                   :components ((:file "terminal")
                                (:file "file")
                                (:file "thread")
+                               (:file "delay")
                                (:file "unique")
                                (:file "random")
                                (:file "mut")
@@ -76,11 +77,14 @@
                   :serial t
                   :components ((:module "io-runtime"
                                 :serial t
-                                :components ((:file "runtime")))
+                                :components ((:file "runtime")
+                                             (:file "delay")
+                                             ))
                                (:file "runtime")
                                (:file "simple-io")
                                (:file "loops")
                                (:file "io-thread")
+                               (:file "io-delay")
                                (:file "io-mvar")
                                (:file "io-future")
                                (:file "io-file")
@@ -98,6 +102,7 @@
                  (:file "io-term")
                  (:file "io-random")
                  (:file "io-thread")
+                 (:file "io-delay")
                  (:file "io-file")
                  (:file "io-unique")
                  (:file "io-network")
@@ -153,7 +158,9 @@ mutable variables, multithreading, and several data structures to safely share s
                   :components((:file "runtime--structured-conc")))
                  (:module "io-impl"
                   :serial t
-                  :components ((:file "thread")))
+                  :components ((:file "thread")
+                               (:file "delay")
+                               ))
                  (:module "conc"
                   :serial t
                   :components ((:file "parking")

@@ -3,7 +3,8 @@
         #:coalton-library/types
         #:io/utils
         #:io/simple-io
-        #:io/monad-io)
+        #:io/monad-io
+        #:io/tests/utils)
   (:local-nicknames
    (:tm #:io/term)
    (:exc #:io/exceptions)
@@ -47,9 +48,6 @@
 ;;;
 
 (coalton-toplevel
-  (define-exception TestException
-    (TE String))
-
   (define-exception TestExceptionTwo
     (TE2 String)))
 
