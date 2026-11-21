@@ -95,7 +95,7 @@
     "Returns True if the client should continue, False if it should terminate."
     (do
      (write-resp (command->resp cmd) conn)
-     (handle
+     (handle-exc
       (do
        (resp? <- (read-resp conn))
        (do-match resp?
@@ -424,7 +424,7 @@ https://rdb.fnordig.de/file_format.html"
     (do
       (nt:do-byte-socket-accept-fork-with (conn (server))
         (the (IO Unit) (tm:write-line "client connected"))
-        (do-handle (handle-client conn db) (err)
+        (do-handle-exc (handle-client conn db) (err)
           (match err
             ((nt:EndOfFileException _)
              (pure Unit))))
