@@ -109,7 +109,6 @@
     (values))
   )
 
-
 (coalton-toplevel
 
   ;;;
@@ -151,12 +150,13 @@
   (define (reset-index)
     (c:write! index-cell (hash 0)))
 
+  ;; Note: This and next benchmark using swap! to match mt:write call
   (declare index-n-times-iterative-loop-external (Void -> Hash))
   (define (index-n-times-iterative-loop-external)
     (reset-index)
     (dotimes (i *n*)
-      (c:write! index-cell
-                (hash i)))
+      (c:swap! index-cell
+               (hash i)))
     (c:read index-cell))
 
   (declare index-n-times-monadic-fused-loop-external (Void -> Hash))
@@ -166,8 +166,8 @@
      (do
       (do-times-io (i *n*)
         (wrap-io
-         (c:write! index-cell
-                   (hash i))))
+         (c:swap! index-cell
+                  (hash i))))
       (pure (c:read index-cell)))))      
 
   (define index-mut
