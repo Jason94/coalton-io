@@ -26,6 +26,7 @@
    #:IO
    #:run-io!
    #:run-io-handled!
+   #:do-run-io!
 
    #:raise-io
    #:raise-io_
@@ -352,6 +353,10 @@ need to unlift, run, then immediately re-run a function. See, e.g., io-file:with
   (define-instance (MonadIo IO)
     (inline)
     (define wrap-io_ wrap-io%_)))
+
+(defmacro do-run-io! (cl:&body body)
+  `(run-io!
+    (do ,@body)))
 
 ;;;
 ;;; IO Capability Implementations

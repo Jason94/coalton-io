@@ -7,7 +7,7 @@
         #:io/mut
         #:io/conc/mvar
         #:io/thread
-        #:io/conc/future
+        #:io/delay
         #:io/conc/stm)
   (:import-from #:io/term
    #:write-line)
@@ -161,7 +161,7 @@
       (x <- (new-tvar 0))
       (retry-gate <- new-empty-mvar)
       (result-fut <-
-        (do-fork-future_
+        (do-fork-delay_
          (do-run-tx
            (n-retries <- (tx-io!%_ (read retry-count)))
            (x-val <- (read-tvar x))
@@ -227,7 +227,7 @@
       (read-gate <- new-empty-mvar)
       (write-gate <- new-empty-mvar)
       (result-fut <-
-        (fork-future_
+        (fork-delay_
          (do-run-tx
            (a-val <- (read-tvar a))
            (tx-io!%_ (modify observed-as (fn (lst)
@@ -274,7 +274,7 @@
       (read-gate <- new-empty-mvar)
       (write-gate <- new-empty-mvar)
       (result-fut <-
-        (fork-future_
+        (fork-delay_
          (do-run-tx
            (a-val <- (read-tvar a))
            (tx-io!%_ (modify observed-as (fn (lst)
@@ -328,7 +328,7 @@
       (b <- (new-tvar 0))
       (retry-gate <- new-empty-mvar)
       (thd <-
-        (do-fork-future_
+        (do-fork-delay_
           (do-run-tx
             (or-else (do
                       (retried? <- (read-tvar retried?))
@@ -368,7 +368,7 @@
       (retry-gate <- new-empty-mvar)
       (allow-tx2-finish-gate <- new-empty-mvar)
       (thd <-
-        (do-fork-future_
+        (do-fork-delay_
           (do-run-tx
             (or-else (do
                       (tx-io!%_ (modify count-1-run 1+))

@@ -7,7 +7,13 @@
   (:export
    ;; Re-exports from io/gen-impl/conc/future
    #:Future
+   #:Promise
+   
+   #:new-future
    #:fork-future
+   #:satisfy-future
+   #:await-future
+   #:fail-future
    #:try-read-future
 
    #:do-fork-future

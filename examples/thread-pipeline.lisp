@@ -9,7 +9,7 @@
    #:io/term
    #:io/exceptions
    #:io/random
-   #:io/conc/future
+   #:io/delay
    #:io/conc/queues
    #:io/conc/queues/unbounded-mpmc
    #:io/conc/scheduler
@@ -32,7 +32,7 @@
 ;;; the lines from a large file, parsing them as integers, and summing them.
 ;;;
 ;;; It demonstrates how to use several of coalton-io's concurrency tools together to
-;;; write an optimized multithreaded pipeline, such as: worker pools, queues, and futures.
+;;; write an optimized multithreaded pipeline, such as: worker pools, queues, and delays.
 ;;;
 ;;; The first step: Read the file.
 ;;; The second step: Parse the lines into integers.
@@ -153,7 +153,7 @@ number of lines, where each line is a random integer between `0` and `data-max`.
      
      (write-line "Forking threads...")
      (reader-thread <- (fork-thread_ (reader-thread submit-line-job)))
-     (sum-fut <- (fork-future_ (summer-thread ints-queue)))
+     (sum-fut <- (fork-delay_ (summer-thread ints-queue)))
 
      ;;;; Wait for finish, then cleanup
      (write-line "Waiting for reading to finish...")

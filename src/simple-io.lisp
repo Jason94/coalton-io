@@ -7,6 +7,7 @@
    ;; Re-exports from io/io-impl/simple-io
    #:IO
    #:run-io!
+   #:do-run-io!
 
    #:raise-io
    #:raise-io_

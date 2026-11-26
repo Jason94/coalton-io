@@ -6,7 +6,7 @@
    #:io/simple-io
    #:io/exceptions
    #:io/thread
-   #:io/conc/future
+   #:io/delay
    #:io/conc/group
    #:io/mut)
   (:local-nicknames
@@ -24,8 +24,8 @@
   (let result =
     (run-io!
      (do
-      (f1 <- (fork-future_ (pure 1)))
-      (f2 <- (fork-future_ (pure 2)))
+      (f1 <- (fork-delay_ (pure 1)))
+      (f2 <- (fork-delay_ (pure 2)))
       (group <- (enclose-group (make-list f1 f2)))
       (await group))))
   (is (== (make-list 1 2) result)))
@@ -34,8 +34,8 @@
   (let result =
     (run-io!
      (do
-      (group <- (fork-group (make-list (fork-future_ (pure 1))
-                                       (fork-future_ (pure 2)))))
+      (group <- (fork-group (make-list (fork-delay_ (pure 1))
+                                       (fork-delay_ (pure 2)))))
       (await group))))
   (is (== (make-list 1 2) result)))
 
@@ -61,7 +61,7 @@
       (gate <- s-new)
       (store <- (new-var None))
       (group <- (fork-group (make-list
-                             (do-fork-future_
+                             (do-fork-delay_
                                (s-await gate)
                                (write store (Some 10))))))
       (stop group)

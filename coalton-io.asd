@@ -152,7 +152,6 @@ mutable variables, multithreading, and several data structures to safely share s
                  (:file "resource")
                  (:file "io-atomic")
                  (:file "mvar")
-                 (:file "future")
                  (:module "thread-impl"
                   :serial t
                   :components((:file "runtime--structured-conc")))
@@ -164,6 +163,7 @@ mutable variables, multithreading, and several data structures to safely share s
                  (:module "conc"
                   :serial t
                   :components ((:file "parking")
+                               (:file "future")
                                (:file "concurrent-group")
                                (:file "stm")
                                (:file "worker-pool")
