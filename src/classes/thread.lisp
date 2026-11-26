@@ -170,13 +170,13 @@ over the underlying thread type."
      "Sleep the current thread for MSECS milliseconds."
      (Proxy :r * UFix -> Void))
     (fork!
-     "Spawn a new thread, which starts running immediately.
-Returns the handle to the thread.
+     "Spawn a new thread, which starts running immediately. Returns the handle to the
+thread. The runtime is responsible for catching any errors `thunk` raises.
 
 The ForkStrategy controls both:
   - how unhandled exceptions behave, and
   - whether the fork is structured (and which thread's scope owns it)."
-     (Proxy :r * (ForkStrategy :t) * (Void -> Result Dynamic :a) -> :t))
+     (Proxy :r * (ForkStrategy :t) * (Void -> :a) -> :t))
     (join!
      "Block the current thread until the target thread is completed.
 Does not a retrieve value. Raises an exception if the target thread
@@ -317,12 +317,9 @@ continuing."
     Proxy)
 
   (define-class ((MonadIo :m) (Runtime :rt :t) => Threads :rt :t :m (:m -> :rt))
-    "A MonadIo which can spawn :t's. Other :t's error
-separately. A spawned :t erroring will not cause the parent
-:t to fail. :t can be any 'thread-like' object, depending on the
-underlying implementation - system threads, software-managed green
-threads, etc."
-    )
+    "A MonadIo which can spawn :t's. Other :t's error separately. A spawned :t erroring
+will not cause the parent :t to fail. :t can be any 'thread-like' object, depending on
+the underlying implementation - system threads, software-managed green threads, etc.")
 
   (inline)
   (declare runtime-for (Threads :rt :t :m => Proxy (:m :a) -> Proxy :rt))
@@ -347,8 +344,8 @@ threads, etc."
 
 Example:
   (derive-threads :m (st:StateT :s :m))"
-  `(define-instance (Threads :runtime :thread ,monad-param => Threads :runtime :thread ,monadT-form)
-     ))
+  `(define-instance (Threads :runtime :thread ,monad-param => Threads :runtime :thread ,monadT-form))
+  )
 
 (coalton-toplevel
 
@@ -356,7 +353,7 @@ Example:
   ;; Std. Library Transformer Instances
   ;;
 
-  (derive-threads :m (st:statet :s :m))
+  (derive-threads :m (st:StateT :s :m))
   (derive-threads :m (env:EnvT :e :m))
   (derive-threads :m (LoopT :m))
   )
@@ -392,8 +389,6 @@ Assumes the output has type :m :a for some Threads :m. Returns Unit."
           ,@body)
         ,m-prx))))
 
-;;; TODO: Once the inference bug gets fixed, move these back into the typeclass and
-;;; put the implementations into gen-impl/io-thread
 (coalton-toplevel
   (inline)
   (declare fork-thread ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :r)
@@ -416,7 +411,7 @@ structured."
            (fork! (get-runtime-for op)
                   (ForkStrategy unhandled scope)
                   (fn ()
-                    (run-handled! (run op)))))))))
+                    (run-unsafe! (run op)))))))))
 
   (inline)
   (declare join-thread ((Threads :rt :t :m) (Exceptions :m) => :t -> :m Unit))
@@ -591,7 +586,7 @@ Concurrent:
     (cl:loop :while (cl:and forms (cl:keywordp (cl:first forms)))
              :do (cl:let ((key (cl:pop forms)))
                    (cl:unless forms
-                     (cl:error "Missing value for ~S in DO-FORK-THREAD" key))
+                     (cl:error "Missing value for ~S" key))
                    (cl:ecase key
                      (:unhandled (cl:setf unhandled (cl:pop forms)))
                      (:scope (cl:setf scope (cl:pop forms))))))

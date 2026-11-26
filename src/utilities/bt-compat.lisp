@@ -39,7 +39,9 @@
    #:broadcast
 
    ;; Threads
+   #:LispThread
    #:Thread
+   #:spawn-lisp-thread
    #:spawn
    #:current-thread
    #:all-threads
@@ -293,6 +295,15 @@ that there is threading to be done, instead of assuming that it can go ahead."
     (define (into thread)
       (lisp (-> LispThread) (thread)
         thread)))
+
+  (inline)
+  (declare spawn-lisp-thread ((Void -> :a) -> LispThread))
+  (define (spawn-lisp-thread thunk)
+    "Creates and returns a thread, which will call the function
+`thunk' with no arguments: when `thunk' returns, the thread terminates."
+    (lisp (-> LispThread) (thunk)
+      (bt2:make-thread
+       (cl:lambda () (call-coalton-function thunk)))))
 
   (inline)
   (declare spawn ((Void -> :a) -> Thread :a))

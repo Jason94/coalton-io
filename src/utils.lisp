@@ -125,6 +125,7 @@
     (lisp (-> :a) (a)
       a))
 
+  (inline)
   (declare cl-nil Anything)
   (define cl-nil
     (lisp (-> Anything) ()
@@ -199,15 +200,6 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
              (throw ,exception-form)))))
 
 (coalton-toplevel
-  ;; (define-instance (Signalable (IoError :e))
-  ;;   (define (error err)
-  ;;     (match err
-  ;;       ((UnhandledError _ throw-thunk)
-  ;;        (throw-thunk)
-  ;;        (error "Malformed UnhandledError throw-thunk"))
-  ;;       ((HandledError dyn-e)
-  ;;        (throw-dynamic dyn-e)))))
-
   (inline)
   (declare flatten-err (Result :e (Result :e :a) -> Result :e :a))
   (define (flatten-err res)
@@ -217,6 +209,7 @@ representation. To be safe, only use on types that have `(repr :lisp)`."
       ((Err e)
        (Err e))))
 
+  (inline)
   (declare catch-thunk ((Void -> :a) -> Result IoError :a))
   (define (catch-thunk thunk)
     "Wraps `thunk` in a Lisp `handler-case`, and captures the output

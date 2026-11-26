@@ -37,7 +37,7 @@ Contains two types of packages:
 
 Contains packages providing:
 
-* New `Concurrent` instances (like `Future` and `ConcurrentGroup`)
+* New `Concurrent` instances (like `Delay` and `ConcurrentGroup`)
 * Data synchronization tools, like `MVar`
 * Control-flow synchronization tools, locks or barriers
 

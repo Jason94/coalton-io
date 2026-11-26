@@ -44,7 +44,7 @@ Returns the handle to the delay, which can manage the lifecycle of the thread.
 The ForkStrategy controls both:
   - how unhandled exceptions behave, and
   - whether the fork is structured (and which thread's scope owns it)."
-     (Proxy :r * ForkStrategy :t * (Void -> Result Dynamic :a) -> :d :a)))
+     (Proxy :r * ForkStrategy :t * (Void -> :a) -> :d :a)))
   )
 
 (coalton-toplevel
@@ -84,7 +84,7 @@ structured."
           (fork-delay! (get-delay-runtime-for op)
                        (ForkStrategy unhandled scope)
                        (fn ()
-                         (run-handled! (run op))))))))))
+                         (run-unsafe! (run op))))))))))
 
 (defmacro do-fork-delay (cl:&body forms)
   (cl:multiple-value-bind (unhandled scope body)

@@ -25,7 +25,7 @@
 
 (coalton-toplevel
   (inline)
-  (declare fork-delay_ ((Delays :rt :m) (LiftTo IO :m)
+  (declare fork-delay_ ((LiftTo IO :m)
                          => IO :a
                          &key
                          (:unhandled UnhandledExceptionStrategy)

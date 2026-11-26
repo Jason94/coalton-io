@@ -116,7 +116,7 @@ _coalton-io_ provides the following features in these packages:
 * `io/thread`     - Fork new threads which run their own `IO` operations
 * `io/delay`      - Run a computation in a separate thread
 * `io/network` - Connect sockets and send data over TCP/IP
-* `io/conc/future`- Futures that run an `IO` computation in another thread and return the value to the calling thread
+* `io/conc/future`- Thread-safe `Future` that can be completed by satisfying or failing an associated `Promise`.
 * `io/conc/atomic`- Atomic mutable variables for sharing state across threads
 * `io/conc/mvar`  - `MVar`s, synchronized single-value mutable stores to hand off data between threads
 * `io/conc/queues` - Thread safe unbounded and bounded FIFO queues to stream data between threads

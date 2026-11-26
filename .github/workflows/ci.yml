@@ -111,7 +111,7 @@ jobs:
              (uiop:quit 1)))
           EOF
 
-          qlot exec ros -L sbcl-bin run -- --non-interactive --disable-debugger --load run-tests.lisp
+          qlot exec ros -L sbcl-bin dynamic-space-size=4096 run -- --non-interactive --disable-debugger --load run-tests.lisp
 
       - name: Compile examples
         shell: bash

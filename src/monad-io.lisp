@@ -13,6 +13,7 @@
 
    #:BaseIo
    #:run!
+   #:run-unsafe!
    #:run-as!
 
    #:LiftIo
