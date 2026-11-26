@@ -333,6 +333,8 @@ all threads will be stopped by the main thread when `run-io!` completes."
     (inline)
     (define run! run-io!)
     (inline)
+    (define run-unsafe! run-io-unhandled!)
+    (inline)
     (define run-handled! run-io-handled!))
 
   (define-instance (UnliftIo IO IO)

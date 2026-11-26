@@ -31,7 +31,10 @@
       (sleep!% n))
     (inline)
     (define (fork! _ strategy thunk)
-      (fork!% strategy thunk))
+      ;; Return Unit so that the thread does not retain the `thunk` value
+      (fork!% strategy (fn ()
+                         (thunk)
+                         Unit)))
     (inline)
     (define (join! _ thread)
       (join!% thread))

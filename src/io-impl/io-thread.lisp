@@ -72,7 +72,7 @@ Concurrent:
     (cl:loop :while (cl:and forms (cl:keywordp (cl:first forms)))
              :do (cl:let ((key (cl:pop forms)))
                    (cl:unless forms
-                     (cl:error "Missing value for ~S in DO-FORK-THREAD_" key))
+                     (cl:error "Missing value for ~S" key))
                    (cl:ecase key
                      (:unhandled (cl:setf unhandled (cl:pop forms)))
                      (:scope (cl:setf scope (cl:pop forms))))))

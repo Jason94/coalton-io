@@ -25,6 +25,7 @@
 
    #:BaseIo
    #:run!
+   #:run-unsafe!
    #:run-handled!
    #:run-as!
 
@@ -61,8 +62,13 @@
     "A 'base' IO implementation, which can be run to execute some
 (potentially side-effectful) operation."
     (run!
-     "Run a (potentially) side-effectful operation. Throws any unhandled
-exceptions."
+     "Run a (potentially) side-effectful operation. Throws any unhandled exceptions."
+     (:m :a -> :a))
+    (run-unsafe!
+     "Run a (potentially) side-effectful operation. Throws any unhandled exceptions.
+
+WARNING: Not meant to be used top-level! Use `run!` to run an operation. `run-unsafe!` is
+intended to be used to run an IO inside of an already-running IO for optimizations."
      (:m :a -> :a))
     (run-handled!
      "Run a (potentially) side-effectful operation. Returns any unhandled

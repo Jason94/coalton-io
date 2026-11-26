@@ -27,7 +27,7 @@
    #:dynamic-is-threading-exception?
    #:is-threading-exception
 
-   #:is-unexpected-stop-exc?
+   #:dynamic-is-unexpected-stop-exc?
    ))
 (in-package :io/threads-exceptions)
 
@@ -70,8 +70,8 @@ related problem. Unlike ThreadingException, these are actual exceptions."
     UnexpectedStop)
 
   (inline)
-  (declare is-unexpected-stop-exc? (Dynamic -> Boolean))
-  (define (is-unexpected-stop-exc? dyn)
+  (declare dynamic-is-unexpected-stop-exc? (Dynamic -> Boolean))
+  (define (dynamic-is-unexpected-stop-exc? dyn)
     (let (Dynamic% val _) = dyn)
     (lisp (-> Boolean) (val)
       (cl:typep val 'SynchronousThreadException/UnexpectedStop)))
