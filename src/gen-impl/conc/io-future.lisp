@@ -3,11 +3,9 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:coalton-library/types
-   #:coalton-library/monad/classes
-   #:coalton-library/experimental/do-control-core
+   #:coalton/monad/classes
+   #:coalton/experimental/do-control-core
    #:io/utils
-   #:io/threads-exceptions
    #:io/classes/exceptions
    #:io/classes/monad-io
    #:io/classes/thread
@@ -15,7 +13,13 @@
    )
   (:export
    #:Future
+   #:Promise
+   
+   #:new-future
    #:fork-future
+   #:satisfy-future
+   #:await-future
+   #:fail-future
    #:try-read-future
 
    #:do-fork-future
@@ -25,133 +29,98 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  ;; NOTE: Unfortunately we have to store all of the methods of the underlying Concurrent in here as
-  ;; thunks. The only alternative is to store the underlying Concurrent type in Future.
-  ;;
-  ;; TODO: Once Coalton gets GADTs, we can scrap all of this!
-  (define-struct (Future :a)
-    "Container for an value that will eventually be returned by a concurrent operation.
+
+  (repr :transparent)
+  (define-type (Future :a)
+    "A concurrent value that starts empty, and can be satisfied or failed by the
+associated `Promise`."
+    (Future% (MVar (Result Dynamic :a))))
+
+  (inline)
+  (declare f-mvar% (Future :a -> MVar (Result Dynamic :a)))
+  (define (f-mvar% (Future% mvar))
+    mvar)
+
+  (repr :transparent)
+  (define-type (Promise :a)
+    "Used to satisfy or fail the associated `Future`."
+    (Promise% (MVar (Result Dynamic :a))))
+
+  (inline)
+  (declare p-mvar% (Promise :a -> MVar (Result Dynamic :a)))
+  (define (p-mvar% (Promise% mvar))
+    mvar)
+
+  (inline)
+  (declare new-future (Threads :rt :t :m => :m (Tuple (Future :a) (Promise :a))))
+  (define new-future
+    "Create a new `Future` and an associated `Promise`."
+    (wrap-io
+     (let mvar = (new-empty-mvar%))
+     (Tuple (Future% mvar) (Promise% mvar))))
+
+  (inline)
+  (declare await-future ((Threads :rt :t :m) (Exceptions :m) => Future :a -> :m :a))
+  (define (await-future f)
+    "Await for `f` to be satisfied. Raises an exception if `f` has failed.
 
 Concurrent:
-  - Future's `(Concurrent Future :a)` instance defers to the underlying thread, so it takes
-    on masking semantics of the underyling thread's `Concurrent` instance."
-    (value-mvar (MVar (Result Dynamic :a)))
-    (join-inner-callback (Void -> Result Dynamic Unit))
-    (stop-callback (Void -> Void))
-    (mask-callback (Void -> Void))
-    (unmask-callback (Void -> Void))
-    (unmask-finally-callback ((UnmaskFinallyMode -> Void) -> Void)))
+  - If `f` is not satisfied, blocks until `f` is satisfied."
+    (raise-result-dynamic
+     (read-mvar (f-mvar% f))))
 
   (inline)
-  (declare fork-future ((Exceptions :r) (LiftTo :r :m) (UnliftIo :r :i)
-                        (Threads :rt :t :r) (Threads :rt :t :m)
-                        => :r :a -> :m (Future :a)))
-  (define (fork-future task)
-    "Spawn a new future, which will run and eventually return the result
-from TASK. The future is guaranteed to only ever run at most once, when
-the produced :m is run."
-    ;; CONCURRENT:
-    ;; - No reason to mask before thread is returned
-    ;; - Though calling the stored callbacks will take "some" time, this does not create
-    ;;   new boundaries for race conditions, so masking them would be pointless
-    (let m-prx = Proxy)
-    (let rt-prx = (runtime-for m-prx))
-    (as-proxy-of
-     (do
-      (value-var <- new-empty-mvar)
-      (thread <-
-       (do-fork-thread
-         (result <- (try-dynamic task))
-         (put-mvar value-var result)))
-      (pure (Future value-var
-                    (fn ()
-                      (join! rt-prx thread))
-                    (fn ()
-                      (stop! rt-prx thread))
-                    (fn ()
-                      (mask! rt-prx thread))
-                    (fn ()
-                      (unmask! rt-prx thread))
-                    (fn (finally-op)
-                      (unmask-finally! rt-prx thread finally-op)))))
-     m-prx))
+  (declare satisfy-future (Threads :rt :t :m => Promise :a * :a -> :m Boolean))
+  (define (satisfy-future p val)
+    "Satisfy the future corresponding to `p` with `val`."
+    (try-put-mvar (p-mvar% p) (Ok val)))
 
   (inline)
-  (declare await% ((Threads :rt :t :m) (Exceptions :m) => Future :a -> :m :a))
-  (define (await% future)
-    (matchM (wrap-io ((.join-inner-callback future)))
-      ((Err dyn-e)
-       (raise-dynamic dyn-e))
-      ((Ok _)
-       (matchM (try-read-mvar (.value-mvar future))
-         ((None)
-          (raise (JoinedFailedThread (to-dynamic "Attempted to await a stopped future."))))
-         ((Some val?)
-          (match val?
-            ((Ok a)
-             (pure a))
-            ((Err dyn-e)
-             (raise-dynamic dyn-e))))))))
+  (declare fail-future ((Threads :rt :t :m) (Exception :e) => Promise :a * :e -> :m Boolean))
+  (define (fail-future p exc)
+    "Fail the future corresponding to `p` with `exc`."
+    (try-put-mvar (p-mvar% p) (Err (to-dynamic exc))))
 
   (inline)
-  (declare try-read-future ((Threads :rt :t :m) (Exceptions :m)
-                            => Future :a -> :m (Optional :a)))
-  (define (try-read-future future)
-    "Try to read the current value from FUTURE, returning NONE
-if it is not available. Raises any exceptions in the awaiting thread
-that were raised in the future thread."
-    (do-matchM (try-read-mvar (.value-mvar future))
+  (declare try-read-future ((Threads :rt :t :m) (Exceptions :m) => Future :a -> :m (Optional :a)))
+  (define (try-read-future f)
+    "Attempt to immediately read from `f`, returning `None` if it is empty. Raises an
+exception if `f` has failed."
+    (matchM (try-read-mvar (f-mvar% f))
       ((None)
        (pure None))
-      ((Some result?)
-       (match result?
-         ((Ok a)
-          (pure (Some a)))
+      ((Some res)
+       (match res
          ((Err dyn-e)
-          (raise-dynamic dyn-e))))))
-  )
+          (raise-dynamic dyn-e))
+         ((Ok a)
+          (pure (Some a)))))))
+    
+  (inline)
+  (declare fork-future ((UnliftIo :r :i) (LiftTo :r :m) (Threads :rt :t :r) (Threads :rt :t :m)
+                        => (Promise :a -> :r :b)
+                        &key
+                        (:unhandled UnhandledExceptionStrategy)
+                        (:scope (ForkScope :t))
+                        -> :m (Tuple (Future :a) :t)))
+  (define (fork-future thunk &key (unhandled LogAndSwallow) (scope Structured))
+    "Create a future-promise pair. Start a new thread with the `Promise`. Return the
+`Future` and a handle to the running thread.
 
-(defmacro do-fork-future (cl:&body body)
-  "Spawn a new future, which will run and eventually return the result
-from TASK. The future is guaranteed to only ever run at most once, when
-the produced :m is run."
-  `(fork-future
+If the thread raises an unhandled exception, the default behavior is to log it to
+*ERROR-OUTPUT* and swallow it until/if the thread is joined. The default fork scope is
+structured."
     (do
-     ,@body)))
-
-;;;
-;;; Future Concurrent Instance
-;;;
-
-(coalton-toplevel
-
-  (define-instance (Concurrent (Future :a) :a)
-    (inline)
-    (define (stop fut)
-      (wrap-io
-       ((.stop-callback fut))
-       Unit))
-    (inline)
-    (define (await fut)
-      (await% fut))
-    (inline)
-    (define (mask fut)
-      (wrap-io
-       ((.mask-callback fut))
-       Unit))
-    (inline)
-    (define (unmask fut)
-      (wrap-io
-       ((.unmask-callback fut))
-       Unit))
-    (inline)
-    (define (unmask-finally fut finally-op)
-      (lift-to
-       (with-run-in-io
-           (fn (run)
-             (wrap-io
-               ((.unmask-finally-callback fut) (fn (x)
-                                                 (run! (run (finally-op x)))
-                                                 (values)))
-               Unit))))))
+     ((Tuple f p) <- new-future)
+     (t <- (fork-thread (thunk p) :unhandled unhandled :scope scope))
+     (pure (Tuple f t))))
   )
+
+(defmacro do-fork-future ((promise-sym) cl:&body forms)
+  (cl:multiple-value-bind (unhandled scope body)
+      (parse-fork-keywords% forms)
+    `(fork-future
+      (fn (,promise-sym)
+        (do
+         ,@body))
+      :scope ,scope :unhandled ,unhandled)))

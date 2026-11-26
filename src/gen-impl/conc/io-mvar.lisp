@@ -21,6 +21,7 @@
    (:bt #:io/utilities/bt-compat)
    )
   (:export
+   ;; Library Public
    #:MVar
    #:MonadIo
    #:new-mvar
@@ -36,6 +37,10 @@
    #:swap-mvar
    #:is-empty-mvar
    #:with-mvar
+
+   ;; Library Private
+   #:new-mvar%
+   #:new-empty-mvar%
    ))
 (in-package :io/gen-impl/conc/mvar)
 
@@ -57,26 +62,34 @@ deadlocks and other race conditions."
     (data                (at:Atomic (Optional :a))))
 
   (inline)
+  (declare new-mvar% (:a -> MVar :a))
+  (define (new-mvar% val)
+    (MVar (bt:new-lk)
+          (new-broadcast-pool)
+          (bt:new-cv)
+          (bt:new-cv)
+          (at:new (Some val))))
+
+  (inline)
   (declare new-mvar (Threads :rt :t :m => :a -> :m (MVar :a)))
   (define (new-mvar val)
     "Create a new MVar containing VAL."
-    (wrap-io
-      (MVar (bt:new-lk)
-            (new-broadcast-pool)
-            (bt:new-cv)
-            (bt:new-cv)
-            (at:new (Some val)))))
+    (wrap-io (new-mvar% val)))
+
+  (inline)
+  (declare new-empty-mvar% (Void -> MVar :a))
+  (define (new-empty-mvar%)
+    (MVar (bt:new-lk)
+          (new-broadcast-pool)
+          (bt:new-cv)
+          (bt:new-cv)
+          (at:new None)))
 
   (inline)
   (declare new-empty-mvar (Threads :rt :t :m => :m (MVar :a)))
   (define new-empty-mvar
     "Create a new empty MVar."
-    (wrap-io
-      (MVar (bt:new-lk)
-            (new-broadcast-pool)
-            (bt:new-cv)
-            (bt:new-cv)
-            (at:new None))))
+    (wrap-io (new-empty-mvar%)))
 
   (declare take-mvar-masked-inner% (Runtime :rt :t => TimeoutStrategy * MVar :a * Proxy :rt -> :a))
   (define (take-mvar-masked-inner% strategy mvar rt-prx)

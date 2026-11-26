@@ -19,17 +19,28 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
+  (inline)
+  (declare fork-future_ ((LiftTo IO :m) (Threads IoRuntime IoThread :m)
+                         => (Promise :a -> IO :b)
+                         &key
+                         (:unhandled UnhandledExceptionStrategy)
+                         (:scope (ForkScope IoThread))
+                         -> :m (Tuple (Future :a) IoThread)))
+  (define (fork-future_ thunk &key (unhandled LogAndSwallow) (scope Structured))
+    "Create a future-promise pair. Start a new thread with the `Promise`. Return the
+`Future` and a handle to the running thread.
 
-  (declare fork-future_ ((Threads IoRuntime IoThread :m) (LiftTo IO :m)
-                         => IO :a -> :m (Future :a)))
-  (define fork-future_
-    "Spawn a new future, which will run and eventually return the result
-from TASK. The future is guaranteed to only ever run at most once, when
-the produced :m is run."
-    fork-future)
+If the thread raises an unhandled exception, the default behavior is to log it to
+*ERROR-OUTPUT* and swallow it until/if the thread is joined. The default fork scope is
+structured."
+    (fork-future thunk :unhandled unhandled :scope scope))
   )
 
-(defmacro do-fork-future_ (cl:&body body)
-  `(fork-future_
-    (do
-     ,@body)))
+(defmacro do-fork-future_ ((promise-sym) cl:&body forms)
+  (cl:multiple-value-bind (unhandled scope body)
+      (parse-fork-keywords% forms)
+    `(fork-future_
+      (fn (,promise-sym)
+        (do
+         ,@body))
+      :scope ,scope :unhandled ,unhandled)))
