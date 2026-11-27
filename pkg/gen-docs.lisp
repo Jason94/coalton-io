@@ -5,8 +5,10 @@
 (in-package #:coalton-io/docs)
 
 (defun write-docs (&key
-                     (pathname (merge-pathnames #p"docs/index.html"
-                                               (asdf:system-source-directory "coalton-io")))
+                     (html-pathname (merge-pathnames #p"docs/index.html"
+                                                   (asdf:system-source-directory "coalton-io")))
+                     (markdown-pathname (merge-pathnames #p"docs/index.md"
+                                                       (asdf:system-source-directory "coalton-io")))
                      (packages (mapcar
                                 (lambda (p)
                                   (coalton/doc/model::make-coalton-package
@@ -43,9 +45,16 @@
                                  'io/stubs/term
                                  )))
                      (remote-path "https://github.com/Jason94/coalton-io/tree/master"))
-  (coalton/doc:write-documentation
-   pathname
-   packages
-   :local-path (namestring (asdf:system-source-directory "coalton-io"))
-   :remote-path remote-path
-   :backend :html))
+  (let ((local-path (namestring (asdf:system-source-directory "coalton-io"))))
+    (coalton/doc:write-documentation
+     html-pathname
+     packages
+     :local-path local-path
+     :remote-path remote-path
+     :backend :html)
+    (coalton/doc:write-documentation
+     markdown-pathname
+     packages
+     :local-path local-path
+     :remote-path remote-path
+     :backend :markdown)))

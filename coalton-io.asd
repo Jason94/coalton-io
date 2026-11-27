@@ -183,7 +183,7 @@ mutable variables, multithreading, and several data structures to safely share s
   :depends-on ("coalton-io" "coalton/doc")
   :pathname "pkg"
   :components ((:file "gen-docs"))
-  :description "Generate HTML documentation for coalton-io."
+  :description "Generate documentation for coalton-io."
   :perform (load-op (op c)
             (uiop:with-current-directory ((asdf:system-source-directory c))
               (uiop:symbol-call '#:coalton-io/docs '#:write-docs))))
